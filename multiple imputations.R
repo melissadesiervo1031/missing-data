@@ -56,6 +56,9 @@ setwd("~/Data/SHAT/metabolism modeling/R_code_for modeling")
 alldata<-read.csv("All Metabolism_Metabolizer_2008-2017_61919_CTL.csv")
 #format date
 alldata$Date<-as.Date(alldata$Date, format="%m/%d/%Y")
+#GPP greater than 0
+alldata_complete_Q_L<-subset(alldata_complete_Q_L,GPP >= 0)
+
 #fill in missing dates
 alldata_complete<-complete(Date = seq.Date(min(alldata$Date), max(alldata$Date), by="day"), data=alldata)
 
@@ -68,6 +71,10 @@ mydata.light<-read.csv("SDW_estimated_light.csv")
 mydata.light$date<-as.Date(mydata.light$date)
 colnames(mydata.light)<-c("Date", "light")
 
+#Temp
+mydata.temp<-read.csv("SDW.temp.csv")
+mydata.temp$Date<-as.Date(mydata.temp$Date,format="%m/%d/%Y")
+
 #Merge Discharge with all data
 setDT(mydataQ)
 alldata_complete_Q <- left_join(alldata_complete, mydataQ, by="Date")
@@ -76,11 +83,14 @@ alldata_complete_Q <- left_join(alldata_complete, mydataQ, by="Date")
 setDT(mydata.light)
 alldata_complete_Q_L <- left_join(alldata_complete_Q, mydata.light, by="Date")
 
-#Retain important columns
-alldata_complete_Q_L<-alldata_complete_Q_L[,c(1,6,8,19,20)]
+#Merge temp with all data
+setDT(mydata.temp)
+alldata_complete_Q_L_T <- left_join(alldata_complete_Q_L, mydata.temp, by="Date")
 
-#GPP greater than 0
-alldata_complete_Q_L<-subset(alldata_complete_Q_L,GPP >= 0)
+#Retain important columns
+alldata_complete_Q_L_T<-alldata_complete_Q_L_T[,c(1,6,8,19,20,21)]
+
+
 
 ##Add seasons based on month
 seasons = function(x){
@@ -90,20 +100,20 @@ seasons = function(x){
   if(x %in% c(1:3)) return("Winter")
   }
 
-alldata_complete_Q_L$Season=sapply(month(alldata_complete_Q_L$Date), seasons)
+alldata_complete_Q_L_T$Season=sapply(month(alldata_complete_Q_L_T$Date), seasons)
 #alldata_complete_Q_L$Season=as.factor(alldata_complete_Q_L$Season)
 
 ##Add Year
-alldata_complete_Q_L$Year=year(alldata_complete_Q_L$Date)
+alldata_complete_Q_L_T$Year=year(alldata_complete_Q_L_T$Date)
 
 ##Make a dataframe
-alldata_complete_Q_L<-as.data.frame(alldata_complete_Q_L)
+alldata_complete_Q_L_T<-as.data.frame(alldata_complete_Q_L_T)
 
 ##Summarize with the number of NA's
-summary(alldata_complete_Q_L)
+summary(alldata_complete_Q_L_T)
 
 ##Basic Impute
-a.out <- amelia(alldata_complete_Q_L, m = 5, p2s=1,idvars=c("Date","Season"))
+a.out <- amelia(alldata_complete_Q_L_T, m = 5, p2s=1,idvars=c("Date","Season"))
 a.out
 
 ##Plot imputed vs observed
@@ -111,7 +121,7 @@ plot(a.out,which.vars=3)
 
 
 ##TS Impute
-a.out.ts <- amelia(alldata_complete_Q_L, m = 5, p2s=1,cs="Year", ts="Date", polytime = 2, intercs = TRUE,idvars=c("Season"), lags="GPP", emperi=.1*nrow(Date))#
+a.out.ts <- amelia(alldata_complete_Q_L_T, m = 5, p2s=1,cs="Year", ts="Date", polytime = 2, intercs = TRUE,idvars=c("Season"),  emperi=.1*nrow(Date))#
 a.out.ts
 
 tscsPlot(a.out.ts, var=3, cs="Season", ts="Date",plotall=TRUE)
