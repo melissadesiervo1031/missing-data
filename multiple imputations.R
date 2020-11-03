@@ -48,6 +48,60 @@ summary(freetrade)
 #Priors on individual data points based on previous knowedge or personal experience.
 #On individual obervation data points NOT the model parameters
 
+##Shatto Data
+setwd("~/Data/SHAT/metabolism modeling/R_code_for modeling")
+
+##Load data 
+#metabolism estimates
+alldata<-read.csv("All Metabolism_Metabolizer_2008-2017_61919_CTL.csv")
+#format date
+alldata$Date<-as.Date(alldata$Date, format="%m/%d/%Y")
+#fill in missing dates
+alldata_complete<-complete(Date = seq.Date(min(alldata$Date), max(alldata$Date), by="day"), data=alldata)
+
+#Discharge
+mydataQ<-read.csv("ShattoQ.csv")
+mydataQ$Date<-as.Date(mydataQ$Date,format="%m/%d/%Y")
+
+#Light
+mydata.light<-read.csv("SDW_estimated_light.csv")
+mydata.light$date<-as.Date(mydata.light$date)
+colnames(mydata.light)<-c("Date", "light")
+
+#Merge Discharge with all data
+setDT(mydataQ)
+alldata_complete_Q <- left_join(alldata_complete, mydataQ, by="Date")
+
+#Merge light with all data
+setDT(mydata.light)
+alldata_complete_Q_L <- left_join(alldata_complete_Q, mydata.light, by="Date")
+
+#Retain important columns
+alldata_complete_Q_L<-alldata_complete_Q_L[,c(1,6,8,19,20)]
+
+##Summarize with the number of NA's
+summary(alldata_complete_Q_L)
+
+a.out <- amelia(alldata_complete_Q_L, m = 5, p2s=1,idvars=c("Date"),noms="Season")
+a.out
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #Stream metabolism Example
 #From Appling et al. 2018 dataset
 setwd("C:/Users/mtrentman/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
