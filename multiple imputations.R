@@ -7,7 +7,7 @@ library(chron)
 library(scales)
 library(dplyr)
 library(data.table)
-
+library(lubridate)
 ##Load tutorial data
 data(freetrade)
 
@@ -79,21 +79,48 @@ alldata_complete_Q_L <- left_join(alldata_complete_Q, mydata.light, by="Date")
 #Retain important columns
 alldata_complete_Q_L<-alldata_complete_Q_L[,c(1,6,8,19,20)]
 
+#GPP greater than 0
+alldata_complete_Q_L<-subset(alldata_complete_Q_L,GPP >= 0)
+
+##Add seasons based on month
+seasons = function(x){
+  if(x %in% 4:6) return("Spring")
+  if(x %in% 7:9) return("Summer")
+  if(x %in% 10:12) return("Fall")
+  if(x %in% c(1:3)) return("Winter")
+  }
+
+alldata_complete_Q_L$Season=sapply(month(alldata_complete_Q_L$Date), seasons)
+#alldata_complete_Q_L$Season=as.factor(alldata_complete_Q_L$Season)
+
+##Add Year
+alldata_complete_Q_L$Year=year(alldata_complete_Q_L$Date)
+
+##Make a dataframe
+alldata_complete_Q_L<-as.data.frame(alldata_complete_Q_L)
+
 ##Summarize with the number of NA's
 summary(alldata_complete_Q_L)
 
-a.out <- amelia(alldata_complete_Q_L, m = 5, p2s=1,idvars=c("Date"),noms="Season")
+##Basic Impute
+a.out <- amelia(alldata_complete_Q_L, m = 5, p2s=1,idvars=c("Date","Season"))
 a.out
 
+##Plot imputed vs observed
+plot(a.out,which.vars=3)
 
 
+##TS Impute
+a.out.ts <- amelia(alldata_complete_Q_L, m = 5, p2s=1,cs="Year", ts="Date", polytime = 2, intercs = TRUE,idvars=c("Season"), lags="GPP", emperi=.1*nrow(Date))#
+a.out.ts
 
+tscsPlot(a.out.ts, var=3, cs="Season", ts="Date",plotall=TRUE)
 
+##Plot imputed vs observed
+plot(a.out.ts,which.vars=3)
 
-
-
-
-
+write.amelia(obj=a.out.ts, file.stem = "outdata.ts", separate=FALSE, orig.data=TRUE)
+sapply(a.out.ts$imputations[[3]],  function(y) sum(is.na(y)))
 
 
 
