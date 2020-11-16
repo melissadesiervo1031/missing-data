@@ -66,7 +66,7 @@ airquality2[is.na(airquality2)] <- -100
 
 ##Stan Code
 
-sink("temp_AR_blog.stan")
+sink("temp_AR_blog_obs.stan")
 
 cat("
     data {
@@ -78,9 +78,9 @@ cat("
     
     parameters {
     vector[Temp_nMiss] temp_imp;//Missing data
-    real alpha; // Constant
-    real beta;  // AR
     real<lower = 0> sigma; //  standard deviation
+     real alpha; // Constant
+    real beta;  // AR
     }
     
     transformed parameters { 
@@ -91,7 +91,7 @@ cat("
     
     model {
     for (n in 2:N){
-    y[n] ~ normal(alpha + beta *y[n-1], sigma);
+    y[n] ~ normal(alpha+beta*y[n-1], sigma);
       }
     sigma ~ normal(1, 1);
     }
@@ -113,13 +113,13 @@ aq.temp <- list(N = length(temp),
 
 ##Run Stan
 
-fit <- stan("temp_AR_blog.stan", data = aq.temp,  iter = 1000, chains = 4)
+fit <- stan("temp_AR_blog_obs.stan", data = aq.temp,  iter = 1000, chains = 4)
 
 ##basic fit evaluation and extraction
 
 print(fit)
 class(fit)
-traceplot(fit)
+traceplot(fit, pars="sigma")
 fit_extract<-rstan::extract(fit)
 
 ##Create object with estimated missing data
