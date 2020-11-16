@@ -57,7 +57,7 @@ alldata<-read.csv("All Metabolism_Metabolizer_2008-2017_61919_CTL.csv")
 #format date
 alldata$Date<-as.Date(alldata$Date, format="%m/%d/%Y")
 #GPP greater than 0
-alldata_complete_Q_L<-subset(alldata_complete_Q_L,GPP >= 0)
+alldata<-subset(alldata,GPP >= 0)
 
 #fill in missing dates
 alldata_complete<-complete(Date = seq.Date(min(alldata$Date), max(alldata$Date), by="day"), data=alldata)
@@ -121,7 +121,7 @@ plot(a.out,which.vars=3)
 
 
 ##TS Impute
-a.out.ts <- amelia(alldata_complete_Q_L_T, m = 5, p2s=1,cs="Year", ts="Date", polytime = 2, intercs = TRUE,idvars=c("Season"),  emperi=.1*nrow(Date))#
+a.out.ts <- amelia(alldata_complete_Q_L_T, m = 5, p2s=1,cs="Year", ts="Date", polytime = 1, intercs = FALSE,idvars=c("Season"),  emperi=.1*nrow(Date))#
 a.out.ts
 
 tscsPlot(a.out.ts, var=3, cs="Season", ts="Date",plotall=TRUE)
