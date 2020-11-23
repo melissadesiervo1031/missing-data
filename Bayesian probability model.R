@@ -64,14 +64,83 @@ names(nObserved) <- paste0(names(nObserved),'_nObs') # Rename n_Obs to variable_
 
 airquality2[is.na(airquality2)] <- -100
 
+
+
+
+##Stan Code: State Space
+
+sink("temp_AR_blog_ss.stan")
+
+cat("
+    data {
+    int TT; //Latent state variable
+    int N; //Number of observations
+    vector[N] temp; //Response variable, including missing values
+    int Temp_nMiss;
+    int Temp_index_mis[Temp_nMiss];
+    }
+    
+    parameters {
+    vector[Temp_nMiss] temp_imp;//Missing data
+    vector[TT] x;
+    real<lower = 0> sdo; //  standard deviation observation
+    real<lower = 0> sdp; //  standard deviation process
+    real phi;  // Auto-Regressive coefficient
+    real u; //trend
+    }
+    
+    transformed parameters { 
+    vector[N] y;
+    y = temp; 
+    y[Temp_index_mis] =temp_imp;
+    } 
+    
+    model {
+    for (t in 2:TT){
+    x[t] ~ normal(phi*x[t-1]+u, sdp);
+      }
+     for (t in 1:TT){
+    y[t] ~ normal(x[t], sdo);
+      }
+    sdp ~ normal(0, 1);
+    sdo ~ normal(0, 1);
+    u ~ normal(0,2);
+    }
+    
+    "
+    
+    ,fill=TRUE)
+sink()
+closeAllConnections()
+
+##Load data
+
+aq.temp <- list(N = length(temp),
+                TT = length(temp),
+                Temp_nMiss = nMissing$Temp_nMiss,
+                Temp_nObs = nObserved$Temp_nObs,
+                Temp_index_mis = missing$Temp_index_mis,
+                Temp_index_obs = observed$Temp_index_obs,
+                temp = airquality2$Temp
+)
+
+##Run Stan
+
+fit <- stan("temp_AR_blog_ss.stan", data = aq.temp,  iter = 1000, chains = 4)
+
+
+
+
+
+
 ##Stan Code
 
 sink("temp_AR_blog_obs.stan")
 
 cat("
     data {
-    int N; #Number of observations
-    vector[N] temp; #Response variable, including missing values
+    int N; //Number of observations
+    vector[N] temp; //Response variable, including missing values
     int Temp_nMiss;
     int Temp_index_mis[Temp_nMiss];
     }
@@ -79,7 +148,6 @@ cat("
     parameters {
     vector[Temp_nMiss] temp_imp;//Missing data
     real<lower = 0> sigma; //  standard deviation
-     real alpha; // Constant
     real beta;  // AR
     }
     
@@ -91,12 +159,14 @@ cat("
     
     model {
     for (n in 2:N){
-    y[n] ~ normal(alpha+beta*y[n-1], sigma);
+    y[n] ~ normal(beta*y[n-1], sigma);
       }
-    sigma ~ normal(1, 1);
+    sigma ~ normal(0, 1);
     }
     
+    
     "
+    
     ,fill=TRUE)
 sink()
 closeAllConnections()
@@ -119,7 +189,7 @@ fit <- stan("temp_AR_blog_obs.stan", data = aq.temp,  iter = 1000, chains = 4)
 
 print(fit)
 class(fit)
-traceplot(fit, pars="sigma")
+traceplot(fit, pars=c("phi", "sdp", "sdo") )
 fit_extract<-rstan::extract(fit)
 
 ##Create object with estimated missing data
