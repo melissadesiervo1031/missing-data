@@ -9,11 +9,11 @@ library(shinystan)
 # Create a vector that will keep track of the states
 # It's of length T + 1 (+1 for t=0)
 # T is not a good name in R, because of T/F, so we use TT
-TT <- 200
+TT <- 2000
 time<-0:TT
 z <- numeric(TT + 1)
 # Standard deviation of the process variation
-sdp <- 0.5
+sdp <- 1
 # Set the seed, so we can reproduce the results
 set.seed(620)
 # For-loop that simulates the state through time, using i instead of t,
@@ -33,7 +33,7 @@ plot(0:TT, z,
 # It's of length T
 y <- numeric(TT)
 # Standard deviation of the observation error
-sdo <- .5
+sdo <- 1
 # For t=1, ... T, add measurement error
 # Remember that z[1] is t=0
 y <- z[2:(TT+1)] + rnorm(TT, 0, sdo)
@@ -66,7 +66,7 @@ acf(y_diff)
 pacf(y_diff)
 
 ###Create a y with some missing data
-y_miss<-y_diff
+y_miss<-y
 y_na<- which(y %in% sample(y,20)) ##2,5,15
 y_miss[y_na]<-NA
 y_miss=as.data.frame(y_miss)
@@ -94,41 +94,80 @@ sink("ts_ss_missing data.stan")
 
 cat("
     data {
-    int TT; //Latent state variable
-    int N; //Number of observations
-    vector[N] y_miss; //Response variable, including missing values
+    int TT; // Latent state variable
+    int N; // Number of observations
+    int Y; // number of years
+    vector[N] y_miss; // Response variable, including missing values
     int y_nMiss;
     int y_index_mis[y_nMiss];
    
     }
     
     parameters {
-    vector[y_nMiss] y_imp;//Missing data
-    vector[TT] x; // latent state data
+    vector[y_nMiss] y_imp;// Missing data
+    vector[TT] X; // latent state data
     real<lower = 0> sdo; //  standard deviation observation
     real<lower = 0> sdp; //  standard deviation process
-    real phi;  // auto-regressive coefficient
+    real phi;  // auto-regressive parameter
    
     }
     
     transformed parameters { 
-    vector[N] y;
-    y=y_miss;
-    y[y_index_mis] =y_imp;
+    vector[N] y; // makes the data a transformed variable
+    y=y_miss; // 
+    y[y_index_mis] =y_imp; // replaces missing data in y with estimated data
     } 
     
     model {
+    for (j in 1:Y){
+    
+    X[1,j]<-y[1,j]  // initialization 
+    mu[1,j]<-X[1,j] // initialization
+    
     for (t in 2:TT){
-    x[t] ~ normal(phi*x[t-1], sdp);
-      }
-     for (t in 1:TT){
-    y[t] ~ normal(x[t], sdo);
-      }
-    sdp ~ normal(0, 2);
+    X[t,j] ~ normal(mu[t,j], sdp); // process model
+    mu[t,j]<-phi[j]*X[i-1,j]+b0[j]+b1[j]*nit[i,j]+b2[j]*light[i,j]+b3[j]*srp[i,j] //regression model with AR errors
+      
+    y[t,j] ~ normal(X[t,j], sdo); // observation model
+      
+    // start of priors for each year
+    sdp ~ normal(0, 2); 
     sdo ~ normal(0, 2);
-   
+    
+    b0[j]~dnorm(b0mean,pow(b0sd,-2))
+    b1[j]~dnorm(b1mean,pow(b1sd,-2))
+    b2[j]~dnorm(b2mean,pow(b2sd,-2))
+    b3[j]~dnorm(b3mean,pow(b3sd,-2))
+    
+    phi[j]~dbeta(a,b)T(0.001,0.999)
+    
+    // start of single parameters priors and hyperpriors
+    obserr <- pow(sigmaobs, -2)
+    sigmaobs ~ dunif(0, 1)
+    b0mean~dnorm(0,pow(5,-2))
+    b0sd~ dunif(0, 5)
+    b1mean~dnorm(0,pow(5,-2))
+    b1sd~dunif(0, 10)
+    b2mean~dnorm(0,pow(5,-2))
+    b2sd~dunif(0, 10)
+    b3mean~dnorm(0,pow(5,-2))
+    b3sd~dunif(0, 10)
+    
+    //Prior for AR coefficient needs to be reparameterized
+    a<-meantheta*kappa 
+    b<-(1-meantheta)*kappa
+    meantheta~dbeta(1,1)
+    kappa~dgamma(1,0.1)
+    procerr <- pow(sigmaproc, -2)
+    sigmaproc ~ dunif(0, 5)
+    
+    }
     }
     
+    generated quantities{
+    y.rep[i,j]~dnorm(mu[i,j], sdp)
+    
+    }
     "
     
     ,fill=TRUE)
@@ -148,11 +187,12 @@ data <- list(N = length(y_miss$y_miss),
 
 ##Run Stan
 
-fit <- stan("ts_ss_missing data.stan", data = data,  iter = 3000, chains = 4)
+fit <- stan("ts_ss_missing data.stan", data = data,  iter = 5000, chains = 4)
 
 print(fit)
 class(fit)
 traceplot(fit, pars=c("sdo", "sdp","phi" ))
+rstan::check_hmc_diagnostics(fit)
 fit_extract<-rstan::extract(fit)
 
 ##Create object with estimated missing data
