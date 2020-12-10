@@ -4,28 +4,51 @@ options(mc.cores = parallel::detectCores())
 rstan_options(auto_write = TRUE)
 library(dplyr)
 library(shinystan)
-
+library(faux)
 ###Simulate data
-# Create a vector that will keep track of the states
-# It's of length T + 1 (+1 for t=0)
-# T is not a good name in R, because of T/F, so we use TT
-TT <- 2000
-time<-0:TT
-z <- numeric(TT + 1)
-# Standard deviation of the process variation
-sdp <- 1
+
+##Simulate nitrogen, srp, GPP, and light with a degree of correlation and random noise (process error) centered at 0
 # Set the seed, so we can reproduce the results
 set.seed(620)
-# For-loop that simulates the state through time, using i instead of t,
-for(i in 1:TT){
-  # This is the process equation
-  z[i+1] <- z[i] + rnorm(1, 0, sdp)
- }
+dat1 <- rnorm_multi(n = 366,
+                   mu = c(0,0,0,0),
+                   sd = c(5,5,0.5,0.5),
+                   r = c(1,.6,.1,.3,.6,1,.5,.5,.1,.5,1,.9,.3,.5,.9,1), ##correlation matrix
+                   varnames = c("srp", "nit", "light", "GPP"),
+                   empirical = FALSE)
+dat1$Y<-rep(1,366)
+quad<-abs(seq(-2,2, length=366))
+dat1$light<-dat1$light-quad
+plot(time, dat1$light)
 
-###Plot simulated data
-plot(0:TT, z,
-     pch = 19, cex = 0.7, col="red", ty = "o",
-     xlab = "t", ylab = expression(z[t]), las=1)
+dat2 <- rnorm_multi(n = 366,
+                    mu = c(0,0,0,0),
+                    sd = c(5,5,0.5,0.5),
+                    r = c(1,.4,.1,.3,.4,1,.5,.8,.1,.5,1,.9,.3,.8,.9,1), ##correlation matrix
+                    varnames = c("srp", "nit", "light", "GPP"),
+                    empirical = FALSE)
+dat2$Y<-rep(2,366)
+quad<-abs(seq(-2,2, length=366))
+dat2$light<-dat2$light-quad
+plot(time, dat2$light)
+
+
+dat3 <- rnorm_multi(n = 366,
+                    mu = c(0,0,0,0),
+                    sd = c(5,5,0.5,0.5),
+                    r = c(1,.4,.1,.3,.4,1,.5,.8,.1,.5,1,.6,.3,.8,.6,1), ##correlation matrix
+                    varnames = c("srp", "nit", "light", "GPP"),
+                    empirical = FALSE)
+
+dat3$Y<-rep(3,366)
+quad<-abs(seq(-5,5, length=366))
+dat3$light<-dat3$light-quad
+timedat3<-1:366
+plot(timedat3, dat3$light)
+
+data<-rbind(dat1,dat2,dat3)
+nit<-dat$nit
+srp<-dat$srp
 
 
 ###Create observed data
@@ -36,16 +59,17 @@ y <- numeric(TT)
 sdo <- 1
 # For t=1, ... T, add measurement error
 # Remember that z[1] is t=0
-y <- z[2:(TT+1)] + rnorm(TT, 0, sdo)
+y <- data$GPP[2:(TT+1)] + rnorm(TT, 0, sdo)
+
 
 
 ###Plot simulated and observed data
 plot(1:TT, y,
      pch=3, cex = 0.8, col="blue", ty="o", lty = 3,
      xlab = "t", ylab = expression(z[t]),
-     xlim = c(0,TT), ylim = c(min(y), max(y)+max(y)/5),
+     #xlim = c(0,TT), ylim = c(min(y), max(y)+max(y)/5),
      las = 1)
-points(0:TT, z,
+points(1:TT, data$GPP,
        pch = 19, cex = 0.7, col="red", ty = "o")
 legend("top",
        legend = c("Obs.", "True states"),
@@ -53,6 +77,11 @@ legend("top",
        col = c("blue", "red"),
        lty = c(3, 1),
        horiz=TRUE, bty="n", cex=0.9)
+
+
+TT<-1098
+time=1:TT
+plot.ts(data$GPP)
 
 ##Plot ACF and PACF
 acf(y)
@@ -66,7 +95,7 @@ acf(y_diff)
 pacf(y_diff)
 
 ###Create a y with some missing data
-y_miss<-y
+y_miss<-GPP
 y_na<- which(y %in% sample(y,20)) ##2,5,15
 y_miss[y_na]<-NA
 y_miss=as.data.frame(y_miss)
@@ -90,7 +119,7 @@ y_miss[is.na(y_miss)] <- -100
 
 ##Stan Code: State Space
 
-sink("ts_ss_missing data.stan")
+sink("ss_reg_missing data.stan")
 
 cat("
     data {
