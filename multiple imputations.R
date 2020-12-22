@@ -121,7 +121,7 @@ plot(a.out,which.vars=3)
 
 
 ##TS Impute
-a.out.ts <- amelia(alldata_complete_Q_L_T, m = 5, p2s=1,cs="Year", ts="Date", polytime = 1, intercs = FALSE,idvars=c("Season"),  emperi=.1*nrow(Date))#
+a.out.ts <- amelia(alldata_complete_Q_L_T, m = 5, p2s=1,cs="Year", ts="Date", polytime = 2, intercs = TRUE,idvars=c("Season"),  emperi=.1*nrow(Date))#
 a.out.ts
 
 tscsPlot(a.out.ts, var=3, cs="Season", ts="Date",plotall=TRUE)
