@@ -6,7 +6,7 @@ library(shinystan)
 library(faux)
 library(bayesplot)
 library(tidyverse)
-
+library(ggplot2)
 set.seed(620)
 
 ###Simulate data
@@ -32,7 +32,7 @@ sdo <- rnorm(TT, 0, 1.5)
 y <- x[2:(TT+1)] + sdo
 
 #Create fixed observation for inclusion in  model
-sdo<-abs(mean(sdo))
+sdo_sd<-abs(mean(sdo))
 
 
 ##Plot observed and latent
@@ -113,7 +113,7 @@ cat("
     b1~normal(0, 1);
    
     //Prior for AR coefficient needs to be reparameterized
-    phi~beta(0,0);
+    phi~normal(0,1);
     }
     
     generated quantities {
@@ -141,7 +141,7 @@ data <- list(   TT = length(y_miss),
                 y_index_obs = y_index_obs,
                 y_miss= y_miss,
                 light=light,
-                sdo_sd=sdo
+                sdo_sd=sdo_sd
 )
 
 
@@ -158,7 +158,14 @@ traceplot(fit.sdo, pars=c("b0", "b1"))
 #pairs(fit, pars = c("sdo", "sdp", "b0","phi","b1","lp__"), las = 1)
 
 plot(fit.sdo, plotfun="hist", pars=c("sdp", "b0","phi","b1"))
-abline(v=sdo, col="black")
+plot_sdo <- stan_dens(fit.sdo, pars="sdo") + geom_vline(xintercept =sdo)
+plot_sdp <- stan_dens(fit.sdo, pars="sdp") + geom_vline(xintercept = sd.p)
+plot_phi <- stan_dens(fit.sdo, pars="phi") + geom_vline(xintercept = phi)
+plot_b1 <- stan_dens(fit.sdo, pars="b1") + geom_vline(xintercept = b1)
+plot_b0 <- stan_dens(fit.sdo, pars="b0") + geom_vline(xintercept = b0)
+grid.arrange(plot_b0, plot_1, plot_phi, plot_sdo, plot_sdp, nrow=2)
+
+
 
 ##Posterioir Predictive check
 yrep1 <- fit_extract$log_y_rep
