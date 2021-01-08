@@ -18,22 +18,22 @@ t=0:TT #time
 light <- rnorm(n = TT, mean = 0, sd = 0.5)
 
 ##GPP based on time-series model with known paramters
-x=length(TT) #for storage
+x[1]=1 #for storage
 b0<-1 #intercept
-phi<--0.8
+phi<-0.8
 b1<-1.5 #light
 sd.p<-1 #process error
 
 #Estimate latent state
-for (t in 1:TT){
-        x[t+1] = phi*x[t]+b0+b1*light[t]+rnorm(1, 0, sd.p)
+for (t in 2:TT){
+        x[t] = phi*x[t-1]+b0+b1*light[t]+rnorm(1, 0, sd.p)
 }
 #Estimate observed data
 sdo <- rnorm(TT, 0, 1.5)
-y <- x[2:(TT+1)] + sdo
+y <- x + sdo
 
 #Create fixed observation for inclusion in  model
-sdo_sd<-abs((sdo))
+sdo_sd<-mean(abs(sdo))
 
 
 ##Plot observed and latent
@@ -79,13 +79,13 @@ cat("
     int y_nMiss; // number of missing values
     int y_index_mis[y_nMiss]; // index or location of missing values within the dataset
     real light[TT]; //light data
-    real sdo[TT]; //fixed observation error sd
     }
     
     parameters {
     vector[y_nMiss] y_imp;// Missing data
     vector[TT] X; // latent state data
     real<lower = 0> sdp; // process error
+    real<lower = 0> sdo; // process error
     real phi;  // auto-regressive parameter
     real b0; // intercept
     real b1; // light parameter 
@@ -101,12 +101,12 @@ cat("
     for (t in 2:TT){
     X[t] ~ normal(phi*X[t-1]+b0+b1*light[t], sdp); // process model with unknown process error //regression model with AR errors
     
-    y[t] ~ normal(X[t], sdo[t]); // observation model with fixed observation error
+    y[t] ~ normal(X[t], sdo); // observation model with fixed observation error
         }  
     
     // error priors
-    sdp ~ cauchy(0,1); 
-  
+    sdp ~ normal(0, 1); 
+    sdo ~ normal(0, 1.2);
     
     // single parameters priors 
     b0~normal(0, 1);
@@ -117,12 +117,11 @@ cat("
     }
     
     generated quantities {
-    vector[TT] log_y_rep; // replications from posterior predictive dist
+    vector[TT] y_rep; // replications from posterior predictive dist
 
     for (t in 2:TT) {
-     for (n in 1:TT) {
-    real log_y_hat_n=phi*X[t-1]+b0+b1*light[t];
-    log_y_rep[n]=normal_rng(log_y_hat_n, sdp);
+    y_rep[t]=normal_rng(phi*x[t-1]+b0+b1*light[t], sdp);
+    
     }
     }
     }
@@ -140,8 +139,8 @@ data <- list(   TT = length(y_miss),
                 y_index_mis =y_index_mis,
                 y_index_obs = y_index_obs,
                 y_miss= y_miss,
-                light=light,
-                sdo=sdo_sd
+                light=light
+                
 )
 
 
