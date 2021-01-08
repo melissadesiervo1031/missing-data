@@ -8,20 +8,50 @@ library(bayesplot)
 library(tidyverse)
 library(ggplot2)
 library(gridExtra)
+library(lubridate)
 set.seed(620)
 
 ###Simulate data
-TT=365 #length of data
-t=0:TT #time
+TT<-366 #length of data
+t<-0:TT #time
+time<-seq(as.POSIXct("2020/1/1"),as.POSIXct("2020/12/31"), by="day") #for light
 
 ##light
-light <- rnorm(n = TT, mean = 0, sd = 0.5)
+# From Yard et al. (1995) Ecological Modelling.  Remember your trig?  
+# calculate light as umol photon m-2 s-1.
+# Arguments are:  
+# time = a date and time input (posixct object)
+# lat = latitude of field site
+# longobs = longitude of field site
+# longstd = standard longitude of the field site (NOTE: watch daylight savings time!!!). For PST, longstd is be 120 degrees. But during PDT it is 105 degrees. MST is 105 deg. MDT is 90. 
+
+
+# convert degrees to radians
+radi<-function(degrees){(degrees*pi/180)}
+
+# function to estimate light
+lightest<- function (time, lat, longobs, longstd) {
+  jday<-yday(time)
+  E<- 9.87*sin(radi((720*(jday-81))/365)) - 7.53*cos(radi((360*(jday-81))/365)) - 1.5*sin(radi((360*(jday-81))/365))
+  LST<-as.numeric(time-trunc(time))
+  ST<-LST+(3.989/1440)*(longstd-longobs)+E/1440
+  solardel<- 23.439*sin(radi(360*((283+jday)/365)))
+  hourangle<-(0.5-ST)*360
+  theta<- acos( sin(radi(solardel)) * sin(radi(lat)) + cos(radi(solardel)) * cos(radi(lat)) * cos(radi(hourangle)) )
+  suncos<-ifelse(cos(theta)<0, 0, cos(theta))
+  GI<- suncos*2326
+  GI	
+  
+}
+light<-lightest(time, 47.8762, -114.03, 105) #Flathead Bio Station just for fun
+light<-log(light)
 
 ##GPP based on time-series model with known paramters
-x[1]=1 #for storage
+x<-length(t) #for storage
+x[1]=40 #for initialization
 b0<-1 #intercept
-phi<-0.8
-b1<-1.5 #light
+phi<-0.8 #autoregressive parameter
+b1<-1.5 #light parameter
 sd.p<-1 #process error
 
 #Estimate latent state
@@ -37,7 +67,7 @@ sdo_sd<-mean(abs(sdo))
 
 
 ##Plot observed and latent
-plot(1:TT, x[2:366],
+plot(1:TT, x[1:366],
      pch=3, cex = 0.8, col="blue", ty="o", lty = 3,
      xlab = "t", ylab = expression(z[t]),
      xlim = c(0,TT), ylim = c(min(y), max(y)+max(y)/5),
@@ -106,7 +136,7 @@ cat("
     
     // error priors
     sdp ~ normal(0, 1); 
-    sdo ~ normal(0, 1.2);
+    sdo ~ normal(0, 1.4);
     
     // single parameters priors 
     b0~normal(0, 1);
@@ -115,17 +145,15 @@ cat("
     //Prior for AR coefficient needs to be reparameterized
     phi~normal(0,1);
     }
-    
-    generated quantities {
-    vector[TT] y_rep; // replications from posterior predictive dist
+ 
+ generated quantities {
+  vector[TT] y_rep; //predictions of y
+  for (t in 1:TT) {
+    y_rep[t]= normal_rng(X[t], sdo);
 
-    for (t in 2:TT) {
-    y_rep[t]=normal_rng(phi*x[t-1]+b0+b1*light[t], sdp);
-    
-    }
-    }
-    }
-    
+  }
+}
+ 
     "
     ,fill=TRUE)
 sink()
@@ -151,17 +179,17 @@ fit.sdo <- stan("ss_reg_missing data.stan", data = data,  iter = 5000, chains = 
 print(fit)
 rstan::check_hmc_diagnostics(fit.sdo)
 fit_extract<-rstan::extract(fit.sdo)
-traceplot(fit.sdo, pars=c( "sdp","phi" ))
+traceplot(fit.sdo, pars=c( "sdp","phi", "sdo" ))
 traceplot(fit.sdo, pars=c("b0", "b1"))
 
 #pairs(fit, pars = c("sdo", "sdp", "b0","phi","b1","lp__"), las = 1)
 
-plot_sdo <- stan_dens(fit.sdo, pars="sdo") + geom_vline(xintercept =sdo)
+plot_sdo <- stan_dens(fit.sdo, pars="sdo") + geom_vline(xintercept =sdo_sd)
 plot_sdp <- stan_dens(fit.sdo, pars="sdp") + geom_vline(xintercept = sd.p)
 plot_phi <- stan_dens(fit.sdo, pars="phi") + geom_vline(xintercept = phi)
 plot_b1 <- stan_dens(fit.sdo, pars="b1") + geom_vline(xintercept = b1)
 plot_b0 <- stan_dens(fit.sdo, pars="b0") + geom_vline(xintercept = b0)
-grid.arrange(plot_b0,plot_b1, plot_phi,plot_sdp, nrow=2)
+grid.arrange(plot_b0,plot_b1, plot_phi,plot_sdp,plot_sdo, nrow=2)
 
 
 
