@@ -12,8 +12,8 @@ library(lubridate)
 set.seed(620)
 
 ###Simulate data
-TT<-366 #length of data
-t<-0:TT #time
+N<-366 #length of data
+t<-0:N #time
 time<-seq(as.POSIXct("2020/1/1"),as.POSIXct("2020/12/31"), by="day") #for light
 
 ##light
@@ -47,7 +47,7 @@ light<-lightest(time, 47.8762, -114.03, 105) #Flathead Bio Station just for fun
 light<-log(light)
 
 ##GPP based on time-series model with known paramters
-x<-length(t) #for storage
+x<-NA
 x[1]=40 #for initialization
 b0<-1 #intercept
 phi<-0.8 #autoregressive parameter
@@ -55,24 +55,22 @@ b1<-1.5 #light parameter
 sd.p<-1 #process error
 
 #Estimate latent state
-for (t in 2:TT){
-        x[t] = phi*x[t-1]+b0+b1*light[t]+rnorm(1, 0, sd.p)
+for (t in 2:N){
+        x[t] = phi*x[t-1]+b1*light[t]+rnorm(1, 0, sd.p)
 }
 #Estimate observed data
-sdo <- rnorm(TT, 0, 1.5)
+sdo <-rnorm(N, 0, 1.5)
 y <- x + sdo
 
-#Create fixed observation for inclusion in  model
 sdo_sd<-mean(abs(sdo))
 
-
 ##Plot observed and latent
-plot(1:TT, x[1:366],
+plot(1:N, x[1:366],
      pch=3, cex = 0.8, col="blue", ty="o", lty = 3,
      xlab = "t", ylab = expression(z[t]),
-     xlim = c(0,TT), ylim = c(min(y), max(y)+max(y)/5),
+     xlim = c(0,N), ylim = c(min(y), max(y)+max(y)/5),
      las = 1)
-points(1:TT, y,
+points(1:N, y,
        pch = 19, cex = 0.7, col="red", ty = "o")
 legend("top",
        legend = c("Obs.", "Latent states"),
@@ -104,64 +102,74 @@ sink("ss_reg_missing data.stan")
 
 cat("
     data {
-    int TT; // Number of observations
-    vector[TT] y_miss; // Response variable, including missing values
+    int<lower=1> N; // Number of observations
+    vector[N] y_miss; // Response variable, including missing values
     int y_nMiss; // number of missing values
     int y_index_mis[y_nMiss]; // index or location of missing values within the dataset
-    real light[TT]; //light data
+    real light[N]; //light data
     }
     
     parameters {
     vector[y_nMiss] y_imp;// Missing data
-    vector[TT] X; // latent state data
-    real<lower = 0> sdp; // process error
-    real<lower = 0> sdo; // process error
-    real phi;  // auto-regressive parameter
-    real b0; // intercept
+    vector[N] X; // latent state data
+    real<lower = 0> sigma_proc; // process error
+    real<lower = 0> sigma_obs; // observation error
+    real<lower = 0, upper=1 > phi;  // auto-regressive parameter
     real b1; // light parameter 
     }
     
     transformed parameters { 
-    vector[TT] y;
+    vector[N] y;
     y=y_miss; // makes the data a transformed variable
     y[y_index_mis] =y_imp; // replaces missing data in y with estimated data
     } 
     
     model {
-    for (t in 2:TT){
-    X[t] ~ normal(phi*X[t-1]+b0+b1*light[t], sdp); // process model with unknown process error //regression model with AR errors
+        X[1]~normal(y[1],sigma_proc); //set initial state
     
-    y[t] ~ normal(X[t], sdo); // observation model with fixed observation error
-        }  
+    for(i in 1:N){
+    y[i] ~ normal(X[i], sigma_obs); // observation model
+    }
+    
+    for (t in 2:N){
+    X[t] ~ normal(phi*X[t-1]+b1*light[t], sigma_proc); // process model with unknown process error //regression model with AR errors
+    
+    }  
     
     // error priors
-    sdp ~ normal(0, 1); 
-    sdo ~ normal(0, 1.4);
+    sigma_proc ~ normal(0, 1); 
+    sigma_obs ~ normal(0, 2);
     
     // single parameters priors 
-    b0~normal(0, 1);
-    b1~normal(0, 1);
+    b1~normal(0, 5);
    
     //Prior for AR coefficient needs to be reparameterized
-    phi~normal(0,1);
+    phi~beta(1,1);
     }
  
- generated quantities {
-  vector[TT] y_rep; //predictions of y
-  for (t in 1:TT) {
-    y_rep[t]= normal_rng(X[t], sdo);
+generated quantities {
+ vector[N] x_rep; // replications from posterior predictive dist
+ vector [N] y_rep;
+ x_rep[1]=normal_rng(y[1], 0.1);
+ 
+ for (t in 2:N) {
+ x_rep[t]=normal_rng(phi*X[t-1]+b1*light[t], sigma_proc);
+ }
+ for (t in 1:N) {
+ y_rep[t]=normal_rng(x_rep[t], sigma_obs);
+ }
 
-  }
-}
+  
+ }
  
     "
-    ,fill=TRUE)
+,fill=TRUE)
 sink()
 closeAllConnections()
 
 ##Load data
 
-data <- list(   TT = length(y_miss),
+data <- list(   N = N,
                 y_nMiss = y_nMiss,
                 y_nObs = y_nObs,
                 y_index_mis =y_index_mis,
@@ -173,73 +181,38 @@ data <- list(   TT = length(y_miss),
 
 
 ##Run Stan
+fit<- stan("ss_missing data.stan", data = data,  iter = 5000, chains = 4)
 
-fit.sdo <- stan("ss_reg_missing data.stan", data = data,  iter = 5000, chains = 3)
+##Print and extract
+fit_extract<-rstan::extract(fit)
+print(fit, pars=c( "sigma_proc","phi", "b1", "sigma_obs" ))
 
-print(fit)
-rstan::check_hmc_diagnostics(fit.sdo)
-fit_extract<-rstan::extract(fit.sdo)
-traceplot(fit.sdo, pars=c( "sdp","phi", "sdo" ))
-traceplot(fit.sdo, pars=c("b0", "b1"))
+##HMC diagnostics
+rstan::check_hmc_diagnostics(fit)
 
-#pairs(fit, pars = c("sdo", "sdp", "b0","phi","b1","lp__"), las = 1)
+##Traceplots
+traceplot(fit, pars=c( "sigma_proc", "sigma_obs" ))
+traceplot(fit, pars=c("phi", "b1"))
 
-plot_sdo <- stan_dens(fit.sdo, pars="sdo") + geom_vline(xintercept =sdo_sd)
-plot_sdp <- stan_dens(fit.sdo, pars="sdp") + geom_vline(xintercept = sd.p)
-plot_phi <- stan_dens(fit.sdo, pars="phi") + geom_vline(xintercept = phi)
-plot_b1 <- stan_dens(fit.sdo, pars="b1") + geom_vline(xintercept = b1)
-plot_b0 <- stan_dens(fit.sdo, pars="b0") + geom_vline(xintercept = b0)
-grid.arrange(plot_b0,plot_b1, plot_phi,plot_sdp,plot_sdo, nrow=2)
+##Posterior densities comopared to known parameters
+plot_sdo <- stan_dens(fit, pars="sigma_obs") + geom_vline(xintercept =1.5)
+plot_sdp <- stan_dens(fit, pars="sigma_proc") + geom_vline(xintercept = sd.p)
+plot_phi <- stan_dens(fit, pars="phi") + geom_vline(xintercept = phi)
+plot_b1 <- stan_dens(fit, pars="b1") + geom_vline(xintercept = b1)
+grid.arrange(plot_b1, plot_phi,plot_sdp,plot_sdo, nrow=2)
 
-
-
-##Posterioir Predictive check
-yrep1 <- fit_extract$log_y_rep
+##Posterioir Predictive check and test statistic
+yrep1 <- fit_extract$y_rep
 samp100 <- sample(nrow(yrep1), 100)
 ppc_dens_overlay(y_miss, yrep1[samp100, ]) 
 ppc_stat(y_miss, yrep1[samp100, ])
 
-##Manual calculation of posterior predictive check (Did I do it right in Stan?)
-# extract the samples
-nsims<-dim(fit_extract$sdp)[1]
-
-X_s<-fit_extract$X
-sdp_s<-fit_extract$sdp
-phi_s<-fit_extract$phi
-b0_s<-fit_extract$b0
-b1_s<-fit_extract$b1
-
-# empty matrix to store samples
-y_rep <- matrix(NA, nrow = TT, ncol = nsims)
-
-for (t in 2:TT){
-  y_rep[t,] = rnorm(nsims, mean=phi_s*X_s[t-1]+b0_s+b1_s*light[t],sd= sdp_s)
-}  
-
-colnames(y_rep) <- 1:nsims
-
-dr <- as_tibble(y_rep)
-dr <- dr %>% bind_cols(i = 1:TT, y_obs = y_miss)
-
-dr <- dr %>% 
-  pivot_longer(`1`:`100`, names_to = "sim", values_to = "y_rep")
-
-data.df<- data.frame(matrix(unlist(data), nrow=365, byrow=T),stringsAsFactors=FALSE)
-
-dr %>% 
-  filter(dr %in% samp100) %>% 
-  ggplot(aes(y_rep, group = sim)) + 
-  geom_density(alpha = 0.2, aes(color = "y_rep")) + 
-  geom_density( data=data.df%>% mutate(sim = 1), 
-               aes(x = y_miss, col = "y")) + 
-  scale_color_manual(name = "", 
-                     values = c("y" = "darkblue", 
-                                "y_rep" = "lightblue")) + 
-  theme_bw(base_size = 16)
+##Shineystan for everything else
+launch_shinystan(fit)
 
 
 
-
+######Compare 'missing' data with simulated data
 ##Create object with estimated missing data
 
 fit_summary<-summary(fit, probs=c(0.05,.5,.95))$summary
