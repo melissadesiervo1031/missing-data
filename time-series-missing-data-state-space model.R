@@ -98,7 +98,7 @@ y_miss[is.na(y_miss)] <- -100
 
 ##Stan Code
 
-sink("ss_reg_missing data.stan")
+sink("ss_missing data.stan")
 
 cat("
     data {
