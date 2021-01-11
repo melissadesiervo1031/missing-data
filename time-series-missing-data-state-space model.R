@@ -46,17 +46,23 @@ lightest<- function (time, lat, longobs, longstd) {
 light<-lightest(time, 47.8762, -114.03, 105) #Flathead Bio Station just for fun
 light<-log(light)
 
+##Turbidity--Duwamish River, Tukwila, Washington (https://www.sciencebase.gov/catalog/item/5a1dba7de4b09fc93dd7c022)
+fake.turb<-read.csv("fake_turb.csv")
+length(fake.turb$turb)
+turb<-fake.turb$turb
+
 ##GPP based on time-series model with known paramters
 x<-NA
-x[1]=40 #for initialization
+x[1]=90 #for initialization
 b0<-1 #intercept
-phi<-0.8 #autoregressive parameter
+phi<-0.9 #autoregressive parameter
 b1<-1.5 #light parameter
+b2<--.05 #turbidity parameter
 sd.p<-1 #process error
 
 #Estimate latent state
 for (t in 2:N){
-        x[t] = phi*x[t-1]+b1*light[t]+rnorm(1, 0, sd.p)
+        x[t] = phi*x[t-1]+b1*light[t]+b2*turb[t]+rnorm(1, 0, sd.p)
 }
 #Estimate observed data
 sdo <-rnorm(N, 0, 1.5)
@@ -98,7 +104,7 @@ y_miss[is.na(y_miss)] <- -100
 
 ##Stan Code
 
-sink("ss_missing data.stan")
+sink("ss_missing data_add turb.stan")
 
 cat("
     data {
@@ -107,6 +113,7 @@ cat("
     int y_nMiss; // number of missing values
     int y_index_mis[y_nMiss]; // index or location of missing values within the dataset
     real light[N]; //light data
+    real turb[N]; //turb data
     }
     
     parameters {
@@ -115,7 +122,8 @@ cat("
     real<lower = 0> sigma_proc; // process error
     real<lower = 0> sigma_obs; // observation error
     real<lower = 0, upper=1 > phi;  // auto-regressive parameter
-    real b1; // light parameter 
+    real b1; // light parameter
+    real b2; // turb paramater
     }
     
     transformed parameters { 
@@ -125,14 +133,14 @@ cat("
     } 
     
     model {
-        X[1]~normal(y[1],sigma_proc); //set initial state
+    X[1]~normal(y[1],sigma_proc); //set initial state
     
     for(i in 1:N){
     y[i] ~ normal(X[i], sigma_obs); // observation model
     }
     
     for (t in 2:N){
-    X[t] ~ normal(phi*X[t-1]+b1*light[t], sigma_proc); // process model with unknown process error //regression model with AR errors
+    X[t] ~ normal(phi*X[t-1]+b1*light[t]+b2*turb[t], sigma_proc); // process model with unknown process error //regression model with AR errors
     
     }  
     
@@ -142,6 +150,7 @@ cat("
     
     // single parameters priors 
     b1~normal(0, 5);
+    b2~normal(0, 5);
    
     //Prior for AR coefficient needs to be reparameterized
     phi~beta(1,1);
@@ -153,7 +162,7 @@ generated quantities {
  x_rep[1]=normal_rng(y[1], 0.1);
  
  for (t in 2:N) {
- x_rep[t]=normal_rng(phi*X[t-1]+b1*light[t], sigma_proc);
+ x_rep[t]=normal_rng(phi*X[t-1]+b1*light[t]+b2*turb[t], sigma_proc);
  }
  for (t in 1:N) {
  y_rep[t]=normal_rng(x_rep[t], sigma_obs);
@@ -175,13 +184,14 @@ data <- list(   N = N,
                 y_index_mis =y_index_mis,
                 y_index_obs = y_index_obs,
                 y_miss= y_miss,
-                light=light
+                light=light, 
+                turb=turb
                 
 )
 
 
 ##Run Stan
-fit<- stan("ss_missing data.stan", data = data,  iter = 5000, chains = 4)
+fit.turb<- stan("ss_missing data_add turb.stan", data = data,  iter = 5000, chains = 4)
 
 ##Print and extract
 fit_extract<-rstan::extract(fit)
@@ -210,6 +220,33 @@ ppc_stat(y_miss, yrep1[samp100, ])
 ##Shineystan for everything else
 launch_shinystan(fit)
 
+##Print and extract
+fit_extract<-rstan::extract(fit.turb)
+print(fit.turb, pars=c( "sigma_proc","phi", "b1","b2", "sigma_obs" ))
+
+##HMC diagnostics
+rstan::check_hmc_diagnostics(fit.turb)
+
+##Traceplots
+traceplot(fit.turb, pars=c( "sigma_proc", "sigma_obs" ))
+traceplot(fit.turb, pars=c("phi", "b1", "b2"))
+
+##Posterior densities comopared to known parameters
+plot_sdo <- stan_dens(fit.turb, pars="sigma_obs") + geom_vline(xintercept =1.5)
+plot_sdp <- stan_dens(fit.turb, pars="sigma_proc") + geom_vline(xintercept = sd.p)
+plot_phi <- stan_dens(fit.turb, pars="phi") + geom_vline(xintercept = phi)
+plot_b1 <- stan_dens(fit.turb, pars="b1") + geom_vline(xintercept = b1)+xlab("Light beta")
+plot_b2 <- stan_dens(fit.turb, pars="b2") + geom_vline(xintercept = b2)+xlab("Turbidity beta")
+grid.arrange(plot_b1, plot_phi,plot_sdp,plot_sdo, plot_b2, nrow=2)
+
+##Posterioir Predictive check and test statistic
+yrep1 <- fit_extract$y_rep
+samp100 <- sample(nrow(yrep1), 100)
+ppc_dens_overlay(y_miss, yrep1[samp100, ]) 
+ppc_stat(y_miss, yrep1[samp100, ])
+
+##Shineystan for everything else
+launch_shinystan(fit)
 
 
 ######Compare 'missing' data with simulated data
