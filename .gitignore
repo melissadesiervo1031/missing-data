@@ -7,3 +7,6 @@ ss_reg_missing data.stan
 ss_missing data.rds
 state_space.rds
 state_space.stan
+ss estimate turb.stan
+ss estimate turb.rds
+ss_missing data_add turb.stan
