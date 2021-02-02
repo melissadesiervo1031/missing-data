@@ -10,3 +10,41 @@ state_space.stan
 ss estimate turb.stan
 ss estimate turb.rds
 ss_missing data_add turb.stan
+graphs.R
+Rstan_hist_missing 100.pdf
+Rstan_hist_missing data 10.pdf
+Rstan_hist_missing data 25.pdf
+Rstan_hist_missing data 50.pdf
+Rstan_hist_missing data 75.pdf
+Rstan_missing data 10.csv
+Rstan_missing data 100.csv
+Rstan_missing data 100_proc_0.5.csv
+Rstan_missing data 10_proc_0.5.csv
+Rstan_missing data 175_proc_0.5.csv
+Rstan_missing data 25.csv
+Rstan_missing data 25_proc_0.5.csv
+Rstan_missing data 50.csv
+Rstan_missing data 50_proc_0.5.csv
+Rstan_missing data 75.csv
+Rstan_missing data 75_proc_0.5.csv
+Rstan_missing data summary.csv
+Rstan_ppc_missing 100.pdf
+Rstan_ppc_missing data 10.pdf
+Rstan_ppc_missing data 25.pdf
+Rstan_ppc_missing data 50.pdf
+Rstan_ppc_missing data 75.pdf
+Rstan_reg_missing data 100.pdf
+Rstan_reg_missing data 25.pdf
+Rstan_reg_missing data 50.pdf
+Rstan_reg_missing data 75.pdf
+Rstan_trace_missing 75.pdf
+ss_missing data.stan
+ss_missing data_add turb.rds
+Stan fit 1_hist.pdf
+Stan fit 3.csv
+Stan fit_miss50_scatter.pdf
+Stanfit_miss50_hist.pdf
+fake_turb.csv
+ss_missing data.stan
+fake_turb.csv
+ss_missing data.stan
