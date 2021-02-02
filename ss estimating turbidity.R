@@ -1,6 +1,4 @@
 
-
-
 ##Turbidity--Duwamish River, Tukwila, Washington (https://www.sciencebase.gov/catalog/item/5a1dba7de4b09fc93dd7c022)
 fake.turb<-read.csv("fake_turb.csv")
 
