@@ -145,10 +145,10 @@ legend("top",
 
 set.seed(90)
 #Store simulated data in a list 
-y_miss<-list(x,x,x,x,x,x,x,x)
+y_miss<-list(x,x,x,x,x,x)
 
 #vector of missing number amounts
-missing_n<-c(0,10,50,100,150,200,275,350)
+missing_n<-c(0,50,100,200,400,600)
 
 missing_n_week/7
 
@@ -179,8 +179,9 @@ for(i in 1:length(missing_n)){
 set.seed(60)
 
 y_miss<-list(x,x,x,x,x,x,x,x)
+
 #vector of missing number amounts
-missing_n_tot<-c(0,10,50,100,150,200,275,350)
+missing_n_tot<-c(0,50,100,200,400,500, 550, 650)
 
 missing_n_week<-round(missing_n_tot/7)
 
@@ -208,22 +209,22 @@ for(i in 2:length(missing_n_week)){
    y_missing_integers[[i]]<-c(y_missing_integers[[i]],q,w,e,t,y,u)
   }
 
+##Remove last value from indexes 6-8. Unique to this random seed and weeks.
+#Accidentally added a missing value to the end because it picked a value close to the end
+
+
 
 #Assign NAs to the missing data in each list
-for(i in 2:length(y_missing_integers)){
+for(i in 1:length(y_missing_integers)){
   z<-y_miss[[i]]
   z[y_missing_integers[[i]]]<-NA
   #z[1]<-x[1]
   y_miss[[i]]<-z
 }
 
-summary(y_miss)
-##Remove last value from indexes 6-8. Unique to this random seed and weeks.
-#Accidentally added a missing value to the end because it picked a value close to the end
 
-#for(i in 6:8){
- # y_miss[[i]]<-y_miss[[i]][1:length(y_miss[[i]])-1]
-#}
+
+summary(y_miss)
 
 
 #Check that each list has the right amount of missing data (or close to it...)
@@ -257,6 +258,10 @@ for(i in 1:length(missing_n_week)){
 } 
 
 
+  y_miss[[7]]<-y_miss[[7]][1:length(y_miss[[7]])-1]
+  y_miss[[8]]<-y_miss[[8]][1:length(y_miss[[8]])-1]
+
+summary(y_miss)
 ##Stan Code
 
 sink("ss_missing data.stan")
@@ -417,7 +422,7 @@ fit_summary_pars_bayes <- vector("list",length(missing_n_week))
 for (i in 1:length(missing_n_week)){
    fit_summary_pars_bayes[[i]]<-(summary(fit.miss[[i]], pars=c("sdp","phi", "b1", "b0"), probs=c(0.025,.5,.975))$summary)
    }
-fit_summary_pars_bayes[[8]]
+fit_summary_pars_bayes[[5]]
 
 ##Unlist,cleanup, and add factors
 fit_summary_bayes<-as.data.frame(do.call(rbind.data.frame, fit_summary_pars_bayes)) #Unlist
@@ -446,7 +451,7 @@ ggplot(data=fit_summary_bayes, aes(x=mean, y=prop.missing ))+
   ylab("Percent of Missing Data")+
   xlab("Parameter Estimate")+
   scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
-  scale_x_continuous(limits=c(0,0.9))+
+  scale_x_continuous(limits=c(0,1))+
   theme(axis.title.x=element_text(size=18,colour = "black"))+
   theme(axis.title.y=element_text(size=18,colour = "black"))+
   theme(axis.text.y=element_text(size=18,colour = "black"))+
@@ -584,9 +589,9 @@ for(i in 8){
   x_obs<-x[y_missing_integers[[i]]]
   x_combined<-as.data.frame(cbind(x_imp_data$q.mean,x_imp_data$q.sd,x_obs,x_imp_data$q.min,x_imp_data$q.max))
   g<-ggplot(data=x_imp_data, aes(x=q.ts, y=q.mean))+
+    geom_errorbar(data=x_imp_data,aes(x=q.ts,ymin=q.min, ymax=q.max))+
     geom_point(data=x_obs_data, aes(x=ts, y=x, color="gray"), size=3)+
     geom_point(aes(color="red"), size=3)+
-    geom_errorbar(data=x_imp_data,aes(x=q.ts,ymin=q.min, ymax=q.max))+ 
     theme_classic()+
     theme(axis.title.x=element_text(size=18,colour = "black"))+
     theme(axis.title.y=element_text(size=18,colour = "black"))+
@@ -600,10 +605,10 @@ for(i in 8){
           axis.ticks.x=element_blank())
   
   s<-ggplot(data=x_combined, aes(x=x_obs, y=V1))+
-    geom_point( size=3)+
     geom_abline(intercept=0, slope=1)+
     theme_classic()+
     geom_errorbar(aes(ymin=q.min, ymax=q.max))+
+    geom_point( size=3)+
     theme(legend.position="top")+
     ylab("Imputed data (mean and range)")+
     xlab("Simulated data")+
@@ -611,14 +616,14 @@ for(i in 8){
     theme(axis.title.y=element_text(size=18,colour = "black"))+
     theme(axis.text.y=element_text(size=18,colour = "black"))+
     theme(axis.text.x=element_text(size=18,colour = "black"))
-  compare.density(data.amelia[[i]], var = "y_miss1", xlab="Data", main="", lwd=2)
+  compare.density(data.amelia[[8]], var = "y_miss1", xlab="Data", main="", lwd=2)
   plot(g)
   plot(s)
   
 }
      
 
-?compare.density
+
 
 
 fit.amelia <- vector("list",length(missing_n_week))
@@ -632,7 +637,7 @@ for(i in 2:length(missing_n_week)){##two because the list holding the lists star
   data.stan.amelia[[i]]<-list.1
   }
 
-plot(data.stan.amelia[[8]][[2]],data.stan.amelia[[8]][[3]])
+plot(data.stan.amelia[[2]][[2]],data.stan.amelia[[2]][[3]])
 ##Run Stan
 
 
@@ -640,7 +645,7 @@ plot(data.stan.amelia[[8]][[2]],data.stan.amelia[[8]][[3]])
   fit.stan.miss.imp<- vector("list",5)
   model<-"toy2p.stan"
   model<-stan_model(model)
-  for(i in 6){
+  for(i in 7){
     for(g in 1:5){
     ##Load data
     data <- list(   N = N,
@@ -657,19 +662,20 @@ plot(data.stan.amelia[[8]][[2]],data.stan.amelia[[8]][[3]])
   }
     
   ##Pull param estimates into list
-  fit_summary_pars_amelia <- vector("list",length(missing_n_week))
-  list.2<- vector("list",5)
-  for (i in 2:length(missing_n_week)){
+  fit_summary_pars_amelia <- vector("list",4)
+  list.2<- vector("list",4)
+  for (i in 2:5){
     for (g in 1:5){
       list.2[[g]] <-summary(fit.stan.miss.amelia[[i]][[g]], pars=c("sdp","phi", "b1", "b0"), probs=c(0.025,.5,.975))$summary
   }
   fit_summary_pars_amelia[[i]]<-list.2
   }
-  fit_summary_pars_amelia[[8]][[2]]
+  fit_summary_pars_amelia<-fit_summary_pars_amelia[-1]
   
   ##Unlist,cleanup, and add factors
-  fit_summary<- vector("list",7)
-  for(i in 1:7){
+  fit_summary<- vector("list",4)
+  
+  for(i in 1:4){
     fit_summary[[i]]<-as.data.frame(do.call(rbind,fit_summary_pars_amelia[[i]]))
   fit_summary[[i]]$param<-rep(c("sdp","phi", "b1","b0"), times=length(5) )#add parameter factor
   fit_summary[[i]]$prop.missing<-rep(prop.miss[i+1], each=4) #add prop of missing data
@@ -701,7 +707,7 @@ plot(data.stan.amelia[[8]][[2]],data.stan.amelia[[8]][[3]])
     ylab("Percent of Missing Data")+
     xlab("Parameter Estimate")+
     scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
-    scale_x_continuous(limits=c(0,0.9))+
+    scale_x_continuous(limits=c(0,1.2))+
     theme(axis.title.x=element_text(size=18,colour = "black"))+
     theme(axis.title.y=element_text(size=18,colour = "black"))+
     theme(axis.text.y=element_text(size=18,colour = "black"))+
