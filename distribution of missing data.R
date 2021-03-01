@@ -1,7 +1,9 @@
 library(tidyr)
 library(MASS)
+library(data.table)
+library(plyr)
+library(ggplot2)
 #Time series
-setwd("G:/My Drive/Postdoc/Metabolism time series")
 
 #Load Data
 ts.SDW<-read.csv("SDW.ts_with light.csv")
@@ -70,4 +72,77 @@ df %>%
   summarise(total = sum(length_miss,na.rm=TRUE)) %>% 
   with(plot(jd, total, ylab="Total missing data by Julian Day", xlab="Julian day"))
 
+####STREAMPULSE DATA####
+###Load and prep data
+setwd("C:/Users/mtrentman/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
+sp<-read.table(file = 'daily_predictions.tsv',header = TRUE)
 
+#Format date for filling in dates with missing data
+sp$date.f<-as.Date(sp$date,format="%Y-%m-%d")
+
+#Remove negative GPP values
+sp<- subset(sp,GPP >= 0)
+
+###Fill in missing dates
+t<-c()
+for (i in levels(sp[, 1])){
+  dummy <- sp[sp$site_name==i,]
+  t<-rbind(t,complete(date.f = seq.Date(min(dummy$date.f), max(dummy$date.f), by="day"),data=dummy))
+}
+
+#Add year
+t$year<-format(as.Date(t$date.f, format="%Y-%m-%d"),"%Y")
+
+#Fill in site_name gaps
+t<-as.data.frame(t %>% fill(site_name))
+
+###Count NAs
+cdata <- ddply(t, c("site_name", "year"), summarize,
+               N    = length(GPP),
+               N.miss= sum(is.na(GPP)),
+               Prop.miss=round(sum(is.na(GPP))/length(GPP)*100))
+
+###Summary of NAs               
+#Histogram
+hist(cdata$Prop.miss, main="Distribution of percent missing data from Appling et al. site*years", xlab="Percent missing data")
+#summary stats
+summary(cdata$Prop.miss)
+
+##Find sites with low missing data
+low.miss<-which(cdata$N==365 & cdata$Prop.miss<4)
+cdata[low.miss,]
+
+##Pull those sites and plot
+low.miss.1<-subset(t, site_name=="nwis_03409500" & year==2016)
+low.miss.2<-subset(t, site_name=="nwis_04125460" & year==2016)
+
+ggplot(data=low.miss.1, aes(x=date, y=GPP))+
+  geom_point(color="black", size=3)+
+  geom_errorbar(aes(x=date,ymin=GPP.lower, ymax=GPP.upper), width=0.2, size=0.5)+
+  theme(legend.position="top")+
+  theme_classic()+
+  theme(axis.title.x=element_text(size=18,colour = "black"))+
+  theme(axis.title.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.x=element_text(size=18,colour = "black"))+
+  theme(legend.position="top")+
+  ylab("GPP")+
+  xlab("Time (days)")+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+
+ggplot(data=low.miss.2, aes(x=date, y=GPP))+
+  geom_point(color="black", size=3)+
+  geom_errorbar(aes(x=date,ymin=GPP.lower, ymax=GPP.upper), width=0.2, size=0.5)+
+  theme(legend.position="top")+
+  theme_classic()+
+  theme(axis.title.x=element_text(size=18,colour = "black"))+
+  theme(axis.title.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.x=element_text(size=18,colour = "black"))+
+  theme(legend.position="top")+
+  ylab("GPP")+
+  xlab("Time (days)")+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+ 
