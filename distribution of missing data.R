@@ -1,8 +1,21 @@
+library(rstan)
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+library(dplyr)
+library(shinystan)
+library(faux)
+library(bayesplot)
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+library(lubridate)
+library(data.table)
+library(Amelia)
 library(tidyr)
 library(MASS)
-library(data.table)
 library(plyr)
 library(ggplot2)
+
 #Time series
 
 #Load Data
@@ -29,9 +42,9 @@ length_miss[1]<-1
 
 #loop over data and return the length of gaps
 for (i in 2:length(df$GPP)){
-x[i]<-ifelse(N[i]==1,1+x[i-1], 0) #If data is missing add to yesterdays value by 1. If data observed then 0.
-length_miss[i]<-ifelse(x[i]==0,x[i-1], NA) #Save length of gap on the day data is observed (0) after a gap
-length_miss[i]<-ifelse(length_miss[i]==0,NA,length_miss[i]) #Replace days with observed data with NA
+  x[i]<-ifelse(N[i]==1,1+x[i-1], 0) #If data is missing add to yesterdays value by 1. If data observed then 0.
+  length_miss[i]<-ifelse(x[i]==0,x[i-1], NA) #Save length of gap on the day data is observed (0) after a gap
+  length_miss[i]<-ifelse(length_miss[i]==0,NA,length_miss[i]) #Replace days with observed data with NA
 }
 
 ## Calculate length of observed data before gap. Same as above but for lengths of observed data
@@ -40,7 +53,7 @@ z[1]<-N[1]
 length_obs<-NA
 for (i in 2:length(df$GPP)){
   z[i]<-ifelse(N[i]==0,1+z[i-1], 0)
- length_obs[i]<-ifelse(z[i]==0,z[i-1], NA)
+  length_obs[i]<-ifelse(z[i]==0,z[i-1], NA)
   length_obs[i]<-ifelse(length_obs[i]==0,NA,length_obs[i] )
 }
 
@@ -72,51 +85,110 @@ df %>%
   summarise(total = sum(length_miss,na.rm=TRUE)) %>% 
   with(plot(jd, total, ylab="Total missing data by Julian Day", xlab="Julian day"))
 
-####STREAMPULSE DATA####
+####STREAMPULSE DATA###
 ###Load and prep data
-setwd("C:/Users/mtrentman/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
-sp<-read.table(file = 'daily_predictions.tsv',header = TRUE)
+#setwd("C:/Users/mtrentman/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
+setwd("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
+sp<-read.table('daily.predictions.filled.tsv',header = TRUE) ##Missing dates filled in
+sp$date.f<-as.Date(sp$date.f,format="%Y-%m-%d")
+#sp<-read.csv(file = 'daily_predictions.csv',header = TRUE) ##Raw data
+sd<-read.table(file = 'site_data.tsv',header = TRUE)##Site data
+
+# Filling missing dates ---------------------------------------------------
 
 #Format date for filling in dates with missing data
 sp$date.f<-as.Date(sp$date,format="%Y-%m-%d")
+sp$site_name<-as.factor(sp$site_name)
+sp$year<-as.factor(format(as.Date(sp$date.f, format="%Y-%m-%d"),"%Y"))#Add year
 
 #Remove negative GPP values
 sp<- subset(sp,GPP >= 0)
 
-###Fill in missing dates
+###Fill in missing dates by site-year
 t<-c()
-for (i in levels(sp[, 1])){
-  dummy <- sp[sp$site_name==i,]
-  t<-rbind(t,complete(date.f = seq.Date(min(dummy$date.f), max(dummy$date.f), by="day"),data=dummy))
+sites<-(levels(sp[, 1]))
+dummy1<-c()
+for (i in 1:length(sites)){
+  # for (g in levels(sp[,31])){
+  dummy1 <-subset(sp,site_name==sites[i]) 
+  #dummy2 <- sp[sp$year==g,]
+  t<-rbind(t,complete(date.f = seq.Date(min(dummy1$date.f), max(dummy1$date.f), by="day"),data=dummy1))
 }
-
-#Add year
-t$year<-format(as.Date(t$date.f, format="%Y-%m-%d"),"%Y")
+#}
 
 #Fill in site_name gaps
 t<-as.data.frame(t %>% fill(site_name))
+t$year<-as.factor(format(as.Date(t$date.f, format="%Y-%m-%d"),"%Y"))#Add year
+
+write.table(t, "daily.predictions.filled.tsv",quote=FALSE, sep='\t',row.names = FALSE)
+
+
+##I filled in and saved the data
+# Find sites --------------------------------------------------------------
 
 ###Count NAs
-cdata <- ddply(t, c("site_name", "year"), summarize,
+cdata <- ddply(sp, c("site_name", "year"), summarize,
                N    = length(GPP),
                N.miss= sum(is.na(GPP)),
                Prop.miss=round(sum(is.na(GPP))/length(GPP)*100))
 
-###Summary of NAs               
-#Histogram
-hist(cdata$Prop.miss, main="Distribution of percent missing data from Appling et al. site*years", xlab="Percent missing data")
-#summary stats
-summary(cdata$Prop.miss)
 
 ##Find sites with low missing data
-low.miss<-which(cdata$N==365 & cdata$Prop.miss<4)
-cdata[low.miss,]
+full.year<-subset(cdata, N==365)
+
+###Summary of NAs               
+#Histogram
+hist(full.year$Prop.miss, main="Distribution of percent missing data from Appling et al. site*years", xlab="Percent missing data")
+#summary stats
+summary(full.year$Prop.miss)
+
+##Find sites with low missing data
+low.miss<-cdata[which(cdata$N==365 & cdata$Prop.miss<4),]
+
 
 ##Pull those sites and plot
-low.miss.1<-subset(t, site_name=="nwis_03409500" & year==2016)
-low.miss.2<-subset(t, site_name=="nwis_04125460" & year==2016)
+low.miss.1<-subset(sp, site_name==low.miss$site_name[1] & year==2016)
+low.miss.2<-subset(sp, site_name==low.miss$site_name[2] & year==2016)
+
+##Simulate light for each site
+hms<-rep("12:00:00", times=length(low.miss.1$date))
+low.miss.1$date<-as.POSIXct(paste(low.miss.1$date.f, hms),tryFormats = c("%Y-%m-%d %H:%M:%OS"))
+low.miss.2$date<-as.POSIXct(paste(low.miss.2$date.f, hms),tryFormats = c("%Y-%m-%d %H:%M:%OS"))
+
+##light
+# From Yard et al. (1995) Ecological Modelling.  Remember your trig?  
+# calculate light as umol photon m-2 s-1.
+# Arguments are:  
+# time = a date and time input (posixct object)
+# lat = latitude of field site
+# longobs = longitude of field site
+# longstd = standard longitude of the field site (NOTE: watch daylight savings time!!!). For PST, longstd is be 120 degrees. But during PDT it is 105 degrees. MST is 105 deg. MDT is 90. 
+
+
+# convert degrees to radians
+radi<-function(degrees){(degrees*pi/180)}
+
+# function to estimate light
+lightest<- function (time, lat, longobs, longstd) {
+  jday<-yday(time)
+  E<- 9.87*sin(radi((720*(jday-81))/365)) - 7.53*cos(radi((360*(jday-81))/365)) - 1.5*sin(radi((360*(jday-81))/365))
+  LST<-as.numeric(time-trunc(time))
+  ST<-LST+(3.989/1440)*(longstd-longobs)+E/1440
+  solardel<- 23.439*sin(radi(360*((283+jday)/365)))
+  hourangle<-(0.5-ST)*360
+  theta<- acos( sin(radi(solardel)) * sin(radi(lat)) + cos(radi(solardel)) * cos(radi(lat)) * cos(radi(hourangle)) )
+  suncos<-ifelse(cos(theta)<0, 0, cos(theta))
+  GI<- suncos*2326
+  GI	
+  
+}
+low.miss.1$sim.light<-lightest(time=low.miss.1$date, lat=sd$lat[sd$site_name==low.miss$site_name[1]], longobs=sd$lon[sd$site_name==low.miss$site_name[1]],longstd=75)
+low.miss.2$sim.light<-lightest(time=low.miss.2$date, lat=sd$lat[sd$site_name==low.miss$site_name[2]], longobs=sd$lon[sd$site_name==low.miss$site_name[2]],longstd=75) 
+
+###Plot site data and light
 
 ggplot(data=low.miss.1, aes(x=date, y=GPP))+
+  geom_line(aes(x=date, y=sim.light/700))+
   geom_point(color="black", size=3)+
   geom_errorbar(aes(x=date,ymin=GPP.lower, ymax=GPP.upper), width=0.2, size=0.5)+
   theme(legend.position="top")+
@@ -133,6 +205,7 @@ ggplot(data=low.miss.1, aes(x=date, y=GPP))+
 
 ggplot(data=low.miss.2, aes(x=date, y=GPP))+
   geom_point(color="black", size=3)+
+  geom_line(aes(x=date, y=sim.light/700))+
   geom_errorbar(aes(x=date,ymin=GPP.lower, ymax=GPP.upper), width=0.2, size=0.5)+
   theme(legend.position="top")+
   theme_classic()+
@@ -145,4 +218,453 @@ ggplot(data=low.miss.2, aes(x=date, y=GPP))+
   xlab("Time (days)")+
   theme(axis.text.x=element_blank(),
         axis.ticks.x=element_blank())
+
+
+##Force some missing data-BY WEEK##
+#Note-the model will still work if no data is missing but the objects in the next block of code (i.e., "y_index_mis", etc.)
+#still need to be created
+set.seed(50)
+x<-low.miss.2$GPP
+y_miss<-list(x,x,x,x,x,x)
+#vector of missing number amounts
+missing_n_tot<-c(0,25,50,100,150,300)
+
+missing_n_week<-round(missing_n_tot/7)
+
+#Create a list to store missing data integers
+y_missing_integers<-c()
+
+#Create initial missing data integer set. Then build on with the for loop
+y_missing_integers[[1]]<-which(is.na(y_miss[[1]]))
+
+#Adds the previous missing data integers to the next set. This makes them nested.
+#i.e, all the missing data 10 integers are added to 15 more to make missing data 15.
+for(i in 2:length(missing_n_week)){
+  h<-which(x %in% sample(x,(missing_n_week[i]-missing_n_week[i-1]), replace = FALSE))
+  y_missing_integers[[i]]<-c(h,y_missing_integers[[i-1]])
+}
+
+
+for(i in 2:length(missing_n_week)){
+  q<-y_missing_integers[[i]]-3
+  w<-y_missing_integers[[i]]-2
+  e<-y_missing_integers[[i]]-1
+  t<-y_missing_integers[[i]]+1
+  y<-y_missing_integers[[i]]+2
+  u<-y_missing_integers[[i]]+3
+  y_missing_integers[[i]]<-c(q,w,e,t,y,u)
+}
+
+##Remove last value from indexes 6-8. Unique to this random seed and weeks.
+#Accidentally added a missing value to the end because it picked a value close to the end
+
+
+
+#Assign NAs to the missing data in each list
+for(i in 1:length(y_missing_integers)){
+  z<-y_miss[[i]]
+  z[y_missing_integers[[i]]]<-NA
+  #z[1]<-x[1]
+  y_miss[[i]]<-z
+}
+
+y_miss[[6]]<-y_miss[[6]][1:length(y_miss[[6]])-1]
+
+summary(y_miss)
+
+miss<-sapply(y_miss, function(x) sum(length(which(is.na(x)))))
+prop.miss<-round(miss/length(x)*100)
+prop.miss
+
+##Create objects with the location (index) of missing or observed data AND number
+## of missing or observed data
+#FOR SINGLE VECTOR
+#y_index_mis <- which(is.na(y_miss)) # Identify the rows for each variable in airquality with NA
+#y_index_obs <- which(!is.na(y_miss)) # Identify the rows for each variable in airquality with observed data
+#y_nMiss <- length(y_index_mis)# How many NAs?
+#y_nObs <- length(y_index_obs) # How many NAs?
+
+##Create objects with the location (index) of missing or observed data AND number
+## of missing or observed data
+#FOR LIST OF VECTORS
+y_index_mis <- lapply(y_miss,function(var){which(is.na(var))}) # Identify the rows for each variable in airquality with NA
+y_index_obs <- lapply(y_miss,function(var){which(!is.na(var))}) # Identify the rows for each variable in airquality with observed data
+y_nMiss <- lapply(y_index_mis,function(var){length(var)}) # How many NAs?
+y_nObs <- lapply(y_index_obs,function(var){length(var)}) # How many NAs?
+
+
+##Replace NAs with arbitrary number to make Stan happy
+for(i in 1:length(missing_n_week)){
+  r<-y_miss[[i]]
+  r[y_missing_integers[[i]]]<--100 #arbitrary number
+  r[1]<-x[1]
+  y_miss[[i]]<-r
+} 
+y_miss[[6]]<-y_miss[[6]][1:length(y_miss[[6]])-1]
+summary(y_miss)
+
+sink("toy2p.stan")
+
+cat("
  
+/*----------------------- Data --------------------------*/
+  /* Data block: defines the objects that will be inputted as data */
+  data {
+    int N; // Length of state and observation time series
+    vector[N] y_miss; // Observations
+    real z0; // Initial state value
+    vector[N] light;
+    int y_nMiss; // number of missing values
+    int y_index_mis[y_nMiss]; // index or location of missing values within the dataset
+  }
+/*----------------------- Parameters --------------------------*/
+  /* Parameter block: defines the variables that will be sampled */
+  parameters {
+    vector<lower = 0>[y_nMiss] y_imp;// Missing data
+    real<lower=0> sdp; // Standard deviation of the process equation
+    //real<lower=0> sdo; // Standard deviation of the observation equation
+    real b0;
+    real b1;
+    real<lower = 0, upper=1 > phi; // Auto-regressive parameter
+    //vector[N] z; // State time series
+  }
+  transformed parameters { 
+    vector[N] y;
+    y=y_miss; // makes the data a transformed variable
+    y[y_index_mis] =y_imp; // replaces missing data in y with estimated data
+    } 
+  /*----------------------- Model --------------------------*/
+  /* Model block: defines the model */
+  model {
+    // Prior distributions
+    //sdo ~ normal(0, 1);
+    sdp ~ cauchy(0, 1);
+    phi ~ beta(1,1);
+    b0 ~ normal(0,5);
+    b1 ~ normal(0,5);
+    // Distribution for the first state
+    y[1] ~ normal(z0, sdp);
+    // Distributions for all other states
+    for(t in 2:N){
+      y[t] ~ normal(b0+y[t-1]*phi+light[t]*b1, sdp);
+    }
+    // Distributions for the observations
+   //for(t in 1:N){
+    
+    //  y[t] ~ normal(z[t], sdo);
+   //}
+  }
+  generated quantities {
+ vector[N] y_rep; // replications from posterior predictive dist
+ y_rep[1]=normal_rng(y[1], 0.1);
+ 
+ for (t in 2:N) {
+ y_rep[t]=normal_rng(b0+y[t-1]*phi+light[t]*b1, sdp);
+ }
+  }
+    "
+    ,fill=TRUE)
+sink()
+closeAllConnections()
+
+fit.miss <- vector("list",length(missing_n_week))
+model<-"toy2p.stan"
+model<-stan_model(model)
+for(i in 2:length(missing_n_week)){
+  ##Load data
+  data <- list(   N = length(y_miss[[i]]),
+                  y_nMiss = unlist(y_nMiss[[i]]),
+                  y_index_mis = unlist(y_index_mis[[i]]),
+                  y_miss= unlist(y_miss[[i]]),
+                  light=log(low.miss.2$sim.light),
+                  z0=y_miss[[i]][1])
+  
+  ##Run Stan
+  fit.miss[[i]]<- rstan::sampling(object=model, data = data,  iter = 4000, chains = 4, control=list(max_treedepth = 15))
+}
+
+
+
+##HMC diagnostics
+rstan::check_hmc_diagnostics(fit.miss[[1]])
+
+##Traceplots
+traceplot(fit.miss[[1]], pars=c("phi", "b0","sdp", "b1"))
+
+##PPC
+fit_extract<-rstan::extract(fit.miss[[6]])
+yrep1 <- fit_extract$y_rep
+samp100 <- sample(nrow(yrep1), 100)
+ppc_dens_overlay(y_miss[[2]], yrep1[samp100, ]) + xlim(-2, 15)
+ppc_stat(y, yrep1[samp100, ])
+
+##Exctract parameters
+fit_summary_pars_bayes <- vector("list",length(missing_n_week))
+for (i in 1:length(missing_n_week)){
+  fit_summary_pars_bayes[[i]]<-(summary(fit.miss[[i]], pars=c("sdp","phi", "b1", "b0"), probs=c(0.025,.5,.975))$summary)
+}
+#check
+fit_summary_pars_bayes[[6]]
+
+##Unlist,cleanup, and add factors
+fit_summary_bayes<-as.data.frame(do.call(rbind.data.frame, fit_summary_pars_bayes)) #Unlist
+fit_summary_bayes$param<-rep(c("sdp","phi", "b1","b0"), times=length(missing_n_week) )#add parameter factor
+fit_summary_bayes$prop.missing<-rep(prop.miss, times=rep(4,times=length(missing_n_week))) #add prop of missing data
+row.names(fit_summary_bayes)<-1:(length(missing_n_week)*4) #remove row names
+fit_summary_bayes$param<-as.factor(fit_summary_bayes$param) #make factor
+fit_summary_bayes$prop.missing<-as.factor(fit_summary_bayes$prop.missing) #make factor
+colnames(fit_summary_bayes)<-c("mean", "se-mean", "sd", "min", "med", "high","n_eff", "rhat", "param","prop.missing")
+summary(fit_summary_bayes) #check it looks good
+head(fit_summary_bayes)
+
+##Save lowest missing data as "known" for comparison with more missing data
+known.data<-fit_summary_bayes$mean[fit_summary_bayes$prop.missing==3]
+known<-as.data.frame(known.data)
+
+known.param<-c("sdp","phi", "b1","b0")
+#known.missing<-c(5, 5, 5,5)
+known<-as.data.frame(cbind(known.data, known.param))
+known$known.data<-as.numeric(as.character(known$known.data))
+
+
+##Plot parameters
+ggplot(data=fit_summary_bayes, aes(x=mean, y=prop.missing ))+
+  geom_point(aes( color=param, group=param),size=3,position=position_dodge(0.5))+
+  theme_classic()+
+  geom_errorbar(aes(xmin=min, xmax=high,color=param, group=param), width=0.2, size=0.5,position=position_dodge(0.5))+
+  theme(legend.position="top")+
+  ylab("Percent of Missing Data")+
+  xlab("Parameter Estimate")+
+  scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
+  scale_x_continuous(limits=c(-6,1))+
+  theme(axis.title.x=element_text(size=18,colour = "black"))+
+  theme(axis.title.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.x=element_text(size=18,colour = "black"))+
+  geom_vline(xintercept = known.data,color=c("black", "darkgray", "green", "blue"))
+
+
+##Create object with estimated data
+fit_summary_bayes_data<-(summary(fit.miss[[6]], probs=c(0.025,.5,.975))$summary)
+my_data <- as_tibble(fit_summary_bayes_data)
+y_est_data<-my_data %>% slice(1:length(y_index_mis[[6]]))
+
+##Create object with observed data
+date<-1:length(y_miss[[6]])
+y_obs_data<-as.data.frame(cbind(date[y_index_mis[[6]]],low.miss.2$GPP[y_index_mis[[6]]]))
+colnames(y_obs_data)<-c("date","y")
+#y_obs_data$date<-as.Date(y_obs_data$date, origin = "1969-12-30")
+#x_data<-summary(fit_extract$x, probs=c(0.05,.5,.95))
+##Merge observed and estimated
+
+y_combined<-cbind(y_obs_data,y_est_data)
+
+##rename column names for clarity
+
+colnames(y_combined)<-c("date", "observed", "estimated", "se_mean_est", "sd_est", "low", "median","high", "n_eff", "rhat")
+
+##check that column names are correct
+
+head(y_combined)
+
+##Plot observed and estimated direct comparison
+ggplot(data=y_combined, aes(x=observed, y=estimated))+
+  geom_point( size=3)+
+  geom_abline(intercept=0, slope=1)+
+  theme_classic()+
+  geom_errorbar(aes(ymin=low, ymax=high))+
+  theme(legend.position="top")+
+  ylab("Estimated GPP")+
+  xlab("Observed GPP")+
+  theme(axis.title.x=element_text(size=18,colour = "black"))+
+  theme(axis.title.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.x=element_text(size=18,colour = "black"))
+
+
+raw_data<-as.data.frame(cbind(low.miss.1$GPP,date))
+
+ggplot(data=y_combined, aes(x=date, y=estimated))+
+  geom_point(data=raw_data, aes(x=date, y=x, color="gray"), size=3)+
+  geom_errorbar(data=y_combined,aes(x=date,ymin=low, ymax=high))+ 
+  geom_point(aes(color="red"), size=3)+
+  theme_classic()+
+  theme(axis.title.x=element_text(size=18,colour = "black"))+
+  theme(axis.title.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.x=element_text(size=18,colour = "black"))+
+  scale_color_identity(guide = "legend", name=element_blank(), labels=c("Simulated data", "Imputed data"))+
+  theme(legend.position="top")+
+  ylab("Data")+
+  xlab("Time")+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+
+###############################
+#####Multiple Imputations######
+###############################
+
+data.amelia<- vector("list",length(missing_n_week))
+for(i in 1:length(missing_n_week)){
+  y_miss1<-na_if(y_miss[[i]], -100)
+  y_miss1[i][[1]]<-y_miss[[i]][1]
+  w<-as.data.frame(cbind(y_miss1,low.miss.2$sim.light,low.miss.2$date.f))
+  colnames(w)<-c("y_miss1", "sim.light", "ts")
+  z2<-amelia(w, m = 5, p2s=1, ts="ts", lags="y_miss1", bounds=rbind(c(1,0,Inf)))
+  summary(z2)
+  data.amelia[[i]]<-z2
+}
+
+
+#Assign NAs to the missing data in each list
+for(i in 1:length(missing_n_week)){
+  z1<-data.amelia[[i]]$imputations$imp1$y_miss1
+  z2<-data.amelia[[i]]$imputations$imp2$y_miss1
+  z3<-data.amelia[[i]]$imputations$imp3$y_miss1
+  z4<-data.amelia[[i]]$imputations$imp4$y_miss1
+  z5<-data.amelia[[i]]$imputations$imp5$y_miss1
+  q1<-unique(z1[y_missing_integers[[i]]])
+  q2<-unique(z2[y_missing_integers[[i]]])
+  q3<-unique(z3[y_missing_integers[[i]]])
+  q4<-unique(z4[y_missing_integers[[i]]])
+  q5<-unique(z5[y_missing_integers[[i]]])
+  q.ts<-unique(low.miss.2$date.f[y_missing_integers[[i]]])
+  q<-cbind(q1,q2,q3,q4,q5)
+  q.mean<- apply(q[,-1], 1, mean)
+  q.min<-apply(q[,-1], 1, min)
+  q.max<-apply(q[,-1], 1, max)
+  q.sd<- apply(q[,-1], 1, sd)
+  x_obs_data<-as.data.frame(cbind(x,low.miss.2$date.f))
+  x_imp_data<-as_tibble(cbind(q.mean,q.sd,q.ts, q.min,q.max))
+  x_imp_data<-as.data.frame(x_imp_data %>% slice(1:length(unique(y_missing_integers[[i]]))))
+  x_obs<-as.data.frame(low.miss.2$GPP[unique(y_missing_integers[[i]])])
+  x_combined<-as.data.frame(cbind(x_imp_data$q.mean,x_imp_data$q.sd,x_obs,x_imp_data$q.min,x_imp_data$q.max))
+  colnames(x_combined)<-c("imp.mean", "imp.sd", "obs", "imp.min","imp.max")
+  g<-ggplot(data=x_imp_data, aes(x=q.ts, y=q.mean))+
+    geom_errorbar(data=x_imp_data,aes(x=q.ts,ymin=q.min, ymax=q.max))+
+    geom_point(data=x_obs_data, aes(x=V2, y=x, color="gray"), size=3)+
+    geom_point(aes(color="red"), size=3)+
+    theme_classic()+
+    theme(axis.title.x=element_text(size=18,colour = "black"))+
+    theme(axis.title.y=element_text(size=18,colour = "black"))+
+    theme(axis.text.y=element_text(size=18,colour = "black"))+
+    theme(axis.text.x=element_text(size=18,colour = "black"))+
+    scale_color_identity(guide = "legend", name=element_blank(), labels=c("Simulated data", "Imputed data"))+
+    theme(legend.position="top")+
+    ylab("Data")+
+    xlab("Time")+
+    theme(axis.text.x=element_blank(),
+          axis.ticks.x=element_blank())
+  
+  s<-ggplot(data=x_combined, aes(x=obs, y=imp.mean))+
+    geom_abline(intercept=0, slope=1)+
+    theme_classic()+
+    geom_errorbar(aes(ymin=imp.min, ymax=imp.max))+
+    geom_point( size=3)+
+    theme(legend.position="top")+
+    ylab("Imputed data (mean and range)")+
+    xlab("Simulated data")+
+    theme(axis.title.x=element_text(size=18,colour = "black"))+
+    theme(axis.title.y=element_text(size=18,colour = "black"))+
+    theme(axis.text.y=element_text(size=18,colour = "black"))+
+    theme(axis.text.x=element_text(size=18,colour = "black"))
+  compare.density(data.amelia[[i]], var = "y_miss1", xlab="Data", main="", lwd=2)
+  plot(g)
+  plot(s)
+  
+}
+
+
+
+
+
+fit.amelia <- vector("list",length(missing_n_week))
+data.stan.amelia <- vector("list",(length(missing_n_week)))
+list.1<- vector("list",(6))
+for(i in 1:length(missing_n_week)){##two because the list holding the lists starts with a list of misc data that arent the estimates
+  for(g in 1:5){
+    list.1[[g]] <- data.amelia[[i]]$imputations[[g]]$y_miss1
+    
+  }
+  data.stan.amelia[[i]]<-list.1
+}
+
+plot(data.stan.amelia[[6]][[2]],data.stan.amelia[[6]][[3]])
+##Run Stan
+
+
+fit.stan.miss.amelia <- vector("list",length(missing_n_week))
+fit.stan.miss.imp<- vector("list",5)
+model<-"toy2p.stan"
+model<-stan_model(model)
+for(i in 6){
+  for(g in 1:5){
+    ##Load data
+    data <- list(   N = length(y_miss[[i]]),
+                    y_nMiss = unlist(y_nMiss[[i]]),
+                    y_index_mis = unlist(y_index_mis[[i]]),
+                    y_miss= unlist(data.stan.amelia[[i]][[g]]),
+                    light=log(low.miss.1$sim.light),
+                    z0=y_miss[[i]][1])
+    
+    ##Run Stan
+    fit.stan.miss.imp[[g]]<- rstan::sampling(object=model, data = data,  iter = 4000, chains = 4, control=list(max_treedepth = 15))
+  }
+  fit.stan.miss.amelia[[i]]<-fit.stan.miss.imp
+}
+
+##Pull param estimates into list
+fit_summary_pars_amelia <- vector("list",6)
+list.2<- vector("list",5)
+for (i in 1:6){
+  for (g in 1:5){
+    list.2[[g]] <-summary(fit.stan.miss.amelia[[i]][[g]], pars=c("sdp","phi", "b1", "b0"), probs=c(0.025,.5,.975))$summary
+  }
+  fit_summary_pars_amelia[[i]]<-list.2
+}
+fit_summary_pars_amelia[[6]]#<-fit_summary_pars_amelia[-1]
+
+##Unlist,cleanup, and add factors
+fit_summary<- vector("list",6)
+
+for(i in 1:6){
+  fit_summary[[i]]<-as.data.frame(do.call(rbind,fit_summary_pars_amelia[[i]]))
+  fit_summary[[i]]$param<-rep(c("sdp","phi", "b1","b0"), times=length(5) )#add parameter factor
+  fit_summary[[i]]$prop.missing<-rep(prop.miss[i], each=4) #add prop of missing data
+  fit_summary[[i]]$imp.set<-rep(1:5, each=4) #add prop of missing data
+  row.names(fit_summary[[i]])<-1:20 #remove row names
+  fit_summary[[i]]$param<-as.factor(fit_summary[[i]]$param) #make factor
+  fit_summary[[i]]$prop.missing<-as.factor(fit_summary[[i]]$prop.missing) #make factor
+  colnames(fit_summary[[i]])<-c("mean", "se-mean", "sd", "min", "med", "high","n_eff", "rhat", "param","prop.missing", "imp.set")
+}
+fit_summary<-as.data.frame(do.call(rbind,fit_summary))
+
+
+summary(fit_summary) #check it looks good
+head(fit_summary)
+
+##Save lowest missing data as "known" for comparison with more missing data
+known.data<-subset(fit_summary,prop.missing==3 & imp.set==1)
+
+known.param<-c("sdp","phi", "b1","b0")
+#known.missing<-c(5, 5, 5,5)
+known<-as.data.frame(cbind(known.data$mean, known.param))
+colnames(known)<-c("mean", "param")
+known$mean<-as.numeric(as.character(known$mean))
+
+ggplot(data=fit_summary, aes(x=mean, y=prop.missing ))+
+  geom_point(aes( color=param, group=param),size=3,position=position_dodge(0.5))+
+  theme_classic()+
+  geom_errorbar(aes(xmin=min, xmax=high,color=param, group=param), width=0.2,position=position_dodge(0.5))+
+  theme(legend.position="top")+
+  ylab("Percent of Missing Data")+
+  xlab("Parameter Estimate")+
+  scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
+  scale_x_continuous(limits=c(-10,2))+
+  theme(axis.title.x=element_text(size=18,colour = "black"))+
+  theme(axis.title.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.x=element_text(size=18,colour = "black"))+
+  geom_vline(xintercept = known$mean,color=c("black", "darkgray", "green", "blue"))
+
+
