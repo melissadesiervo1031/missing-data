@@ -31,6 +31,8 @@ ts.SDW<- subset(ts.SDW,GPP >= 0)
 ##Fill in missing dates
 df<-complete(date = seq.Date(min(ts.SDW$date), max(ts.SDW$date), by="day"), data=ts.SDW)
 
+length(which(is.na(df$GPP), TRUE))/length(df$GPP)
+
 ##Code data to be missing=1 or observed=0
 N<-ifelse(is.na(df$GPP),1,0)
 
@@ -87,13 +89,14 @@ df %>%
 
 ####STREAMPULSE DATA###
 ###Load and prep data
-#setwd("C:/Users/mtrentman/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
-setwd("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
+setwd("C:/Users/mtrentman/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
+#setwd("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
 sp<-read.table('daily.predictions.filled.tsv',header = TRUE) ##Missing dates filled in
 sp$date.f<-as.Date(sp$date.f,format="%Y-%m-%d")
-#sp<-read.csv(file = 'daily_predictions.csv',header = TRUE) ##Raw data
+sp$site_name<-as.character(sp$site_name)
+#sp<-read.table(file = 'daily_predictions.tsv',header = TRUE) ##Raw data
 sd<-read.table(file = 'site_data.tsv',header = TRUE)##Site data
-
+sd$site_name<-as.character(sd$site_name)
 # Filling missing dates ---------------------------------------------------
 
 #Format date for filling in dates with missing data
@@ -184,6 +187,7 @@ lightest<- function (time, lat, longobs, longstd) {
 }
 low.miss.1$sim.light<-lightest(time=low.miss.1$date, lat=sd$lat[sd$site_name==low.miss$site_name[1]], longobs=sd$lon[sd$site_name==low.miss$site_name[1]],longstd=75)
 low.miss.2$sim.light<-lightest(time=low.miss.2$date, lat=sd$lat[sd$site_name==low.miss$site_name[2]], longobs=sd$lon[sd$site_name==low.miss$site_name[2]],longstd=75) 
+
 
 ###Plot site data and light
 

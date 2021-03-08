@@ -1,0 +1,151 @@
+---
+title: "Missing data summary"
+author: "Matt T"
+date: "3/8/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE, message = FALSE)
+fig.dim = c(3, 3)
+library(rstan)
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+library(dplyr)
+library(shinystan)
+library(faux)
+library(bayesplot)
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+library(lubridate)
+library(data.table)
+library(Amelia)
+library(tidyr)
+library(MASS)
+library(plyr)
+library(ggplot2)
+
+options(scipen=999)
+
+setwd("C:/Users/mtrentman/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
+#setwd("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
+sp<-read.table('daily.predictions.filled.tsv',header = TRUE) ##Missing dates filled in
+sp$date.f<-as.Date(sp$date.f,format="%Y-%m-%d")
+sp$site_name<-as.character(sp$site_name)
+#sp<-read.table(file = 'daily_predictions.tsv',header = TRUE) ##Raw data
+sd<-read.table(file = 'site_data.tsv',header = TRUE)##Site data
+sd$site_name<-as.character(sd$site_name)
+
+
+# Find sites --------------------------------------------------------------
+
+###Count NAs
+cdata <- ddply(sp, c("site_name", "year"), summarize,
+               N    = length(GPP),
+               N.miss= sum(is.na(GPP)),
+               Prop.miss=round(sum(is.na(GPP))/length(GPP)*100))
+
+
+##Find sites with low missing data
+full.year<-subset(cdata, N==365)
+
+###Summary of NAs               
+#Histogram
+hist(full.year$Prop.miss, main="Distribution of percent missing data from Appling et al. site*years", xlab="Percent missing data")
+abline(v=40.1, col="red")
+
+#summary stats
+summary(full.year$Prop.miss)
+```
+
+##Missing data in the context of Appling et al. and SDW dataset
+I filled in the dates with missing data in the Appling et al. paper by site \cdot year. Above is the histogram of the percent of missing data for each site \cdot year with data measured on the first and last day of the year. I am making the assumption that if data were measured at the beginning and end of the year then they were likley collecting data for the whole year. There are obviously flaws to that assumption but it was the easiest way to address whether data was missing because it was actively being collected or not.
+
+The \textcolor{red}{red line} is the same data for entire 10 year Shatto Ditch dataset. 
+
+
+```{r echo=FALSE}
+##Find sites with low missing data
+low.miss<-cdata[which(cdata$N==365 & cdata$Prop.miss<4),]
+
+
+##Pull those sites and plot
+low.miss.1<-subset(sp, site_name==low.miss$site_name[1] & year==2016)
+low.miss.2<-subset(sp, site_name==low.miss$site_name[2] & year==2016)
+
+##Simulate light for each site
+hms<-rep("12:00:00", times=length(low.miss.1$date))
+low.miss.1$date<-as.POSIXct(paste(low.miss.1$date.f, hms),tryFormats = c("%Y-%m-%d %H:%M:%OS"))
+low.miss.2$date<-as.POSIXct(paste(low.miss.2$date.f, hms),tryFormats = c("%Y-%m-%d %H:%M:%OS"))
+
+##light
+# From Yard et al. (1995) Ecological Modelling.  Remember your trig?  
+# calculate light as umol photon m-2 s-1.
+# Arguments are:  
+# time = a date and time input (posixct object)
+# lat = latitude of field site
+# longobs = longitude of field site
+# longstd = standard longitude of the field site (NOTE: watch daylight savings time!!!). For PST, longstd is be 120 degrees. But during PDT it is 105 degrees. MST is 105 deg. MDT is 90. 
+
+
+# convert degrees to radians
+radi<-function(degrees){(degrees*pi/180)}
+
+# function to estimate light
+lightest<- function (time, lat, longobs, longstd) {
+  jday<-yday(time)
+  E<- 9.87*sin(radi((720*(jday-81))/365)) - 7.53*cos(radi((360*(jday-81))/365)) - 1.5*sin(radi((360*(jday-81))/365))
+  LST<-as.numeric(time-trunc(time))
+  ST<-LST+(3.989/1440)*(longstd-longobs)+E/1440
+  solardel<- 23.439*sin(radi(360*((283+jday)/365)))
+  hourangle<-(0.5-ST)*360
+  theta<- acos( sin(radi(solardel)) * sin(radi(lat)) + cos(radi(solardel)) * cos(radi(lat)) * cos(radi(hourangle)) )
+  suncos<-ifelse(cos(theta)<0, 0, cos(theta))
+  GI<- suncos*2326
+  GI	
+  
+}
+low.miss.1$sim.light<-lightest(time=low.miss.1$date, lat=sd$lat[sd$site_name==low.miss$site_name[1]], longobs=sd$lon[sd$site_name==low.miss$site_name[1]],longstd=75)
+low.miss.2$sim.light<-lightest(time=low.miss.2$date, lat=sd$lat[sd$site_name==low.miss$site_name[2]], longobs=sd$lon[sd$site_name==low.miss$site_name[2]],longstd=75) 
+
+###Plot site data and light
+
+ggplot(data=low.miss.1, aes(x=date, y=GPP))+
+  geom_line(aes(x=date, y=sim.light/700))+
+  geom_point(color="black", size=3)+
+  geom_errorbar(aes(x=date,ymin=GPP.lower, ymax=GPP.upper), width=0.2, size=0.5)+
+  theme(legend.position="top")+
+  theme_classic()+
+  theme(axis.title.x=element_text(size=18,colour = "black"))+
+  theme(axis.title.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.x=element_text(size=18,colour = "black"))+
+  theme(legend.position="top")+
+  ylab("GPP")+
+  xlab("Time (days)")+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+
+ggplot(data=low.miss.2, aes(x=date, y=GPP))+
+  geom_point(color="black", size=3)+
+  geom_line(aes(x=date, y=sim.light/700))+
+  geom_errorbar(aes(x=date,ymin=GPP.lower, ymax=GPP.upper), width=0.2, size=0.5)+
+  theme(legend.position="top")+
+  theme_classic()+
+  theme(axis.title.x=element_text(size=18,colour = "black"))+
+  theme(axis.title.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.x=element_text(size=18,colour = "black"))+
+  theme(legend.position="top")+
+  ylab("GPP")+
+  xlab("Time (days)")+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+
+```
+
+
+
