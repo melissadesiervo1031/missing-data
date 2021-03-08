@@ -1,15 +1,15 @@
 ---
 title: "Missing data summary"
 author: "Matt T"
-date: "3/8/2021"
+date:  "`r Sys.Date()`"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
+  
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,warning = FALSE, message = FALSE)
-fig.dim = c(3, 3)
 library(rstan)
 options(mc.cores = parallel::detectCores())
 rstan_options(auto_write = TRUE)
@@ -27,11 +27,14 @@ library(tidyr)
 library(MASS)
 library(plyr)
 library(ggplot2)
+library(summarytools)
+library(knitr)
+
 
 options(scipen=999)
 
-setwd("C:/Users/mtrentman/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
-#setwd("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
+#setwd("C:/Users/mtrentman/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
+setwd("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
 sp<-read.table('daily.predictions.filled.tsv',header = TRUE) ##Missing dates filled in
 sp$date.f<-as.Date(sp$date.f,format="%Y-%m-%d")
 sp$site_name<-as.character(sp$site_name)
@@ -39,7 +42,21 @@ sp$site_name<-as.character(sp$site_name)
 sd<-read.table(file = 'site_data.tsv',header = TRUE)##Site data
 sd$site_name<-as.character(sd$site_name)
 
+##Function to switch font color depending on the output (HTML or PDF)
+colorize <- function(x, color) {
+  if (knitr::is_latex_output()) {
+    sprintf("\\textcolor{%s}{%s}", color, x)
+  } else if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", color, 
+      x)
+  } else x
+}
 
+```
+### Missing data in the context of Appling et al. dataset
+I filled in the dates with missing data in the Appling et al. paper by site $\cdot$ year and made a historgram of missing data frequencies. I am making the assumption that if data were measured at the beginning and end of the year then they were likley collecting data for the whole year. There are obviously flaws to that assumption but it was the easiest way to address whether data was missing because it was actively being collected or not. The `r colorize("red line", "red")` is the percent of missing data for entire 10 year Shatto Ditch dataset. 
+
+``````{r figs, echo=FALSE, fig.cap="Figure caption: The histogram shows the percent of missing data for each site x year with data measured on the first and last day of the year.", fig.show="hold", out.width="50%"}
 # Find sites --------------------------------------------------------------
 
 ###Count NAs
@@ -61,18 +78,24 @@ abline(v=40.1, col="red")
 summary(full.year$Prop.miss)
 ```
 
-##Missing data in the context of Appling et al. and SDW dataset
-I filled in the dates with missing data in the Appling et al. paper by site \cdot year. Above is the histogram of the percent of missing data for each site \cdot year with data measured on the first and last day of the year. I am making the assumption that if data were measured at the beginning and end of the year then they were likley collecting data for the whole year. There are obviously flaws to that assumption but it was the easiest way to address whether data was missing because it was actively being collected or not.
 
-The \textcolor{red}{red line} is the same data for entire 10 year Shatto Ditch dataset. 
+Next, I searched the Appling et al dataset for the site $\cdot$ year(s) with least amount of missing data. There was not a site $\cdot$ year combination with a full year of data, but there were two with less than 3% of data missing. 
 
-
-```{r echo=FALSE}
+```{r echo=FALSE, results='asis'}
 ##Find sites with low missing data
 low.miss<-cdata[which(cdata$N==365 & cdata$Prop.miss<4),]
 
 
-##Pull those sites and plot
+cols<-c(1:2,4:5)
+knitr::kable(low.miss[,cols], caption="Table header: Site x years with less than 3% of missing data", col.names=(c("Site", "Year","Missing data (count)", "Prop. of year missing")),row.names = FALSE)
+```
+
+Fortunately, they each have somewhat unique annual GPP trends.
+
+
+
+```{r figures-side, echo=FALSE, fig.cap="Figure caption: Two sites with low missing data from Appling et al. Data points represent the estimate and the error bars are the 95% credible interval. The line is modeled light using Yard et al. 1995 (NOTE: Light is scaled to fit on the graph) ", fig.show="hold", out.width="50%"}
+
 low.miss.1<-subset(sp, site_name==low.miss$site_name[1] & year==2016)
 low.miss.2<-subset(sp, site_name==low.miss$site_name[2] & year==2016)
 
@@ -111,8 +134,12 @@ lightest<- function (time, lat, longobs, longstd) {
 low.miss.1$sim.light<-lightest(time=low.miss.1$date, lat=sd$lat[sd$site_name==low.miss$site_name[1]], longobs=sd$lon[sd$site_name==low.miss$site_name[1]],longstd=75)
 low.miss.2$sim.light<-lightest(time=low.miss.2$date, lat=sd$lat[sd$site_name==low.miss$site_name[2]], longobs=sd$lon[sd$site_name==low.miss$site_name[2]],longstd=75) 
 
+par(mar=c(4,4,.1,.1))
 ###Plot site data and light
 
+main1<-sd$long_name[sd$site_name==low.miss$site_name[1]]
+year1<-sd$long_name[sd$site_name==low.miss$year[1]]
+main2<-sd$long_name[sd$site_name==low.miss$site_name[2]]
 ggplot(data=low.miss.1, aes(x=date, y=GPP))+
   geom_line(aes(x=date, y=sim.light/700))+
   geom_point(color="black", size=3)+
@@ -126,8 +153,10 @@ ggplot(data=low.miss.1, aes(x=date, y=GPP))+
   theme(legend.position="top")+
   ylab("GPP")+
   xlab("Time (days)")+
-  theme(axis.text.x=element_blank(),
-        axis.ticks.x=element_blank())
+  ylim(c(0,7))+
+  ggtitle(paste0(sd$long_name[sd$site_name==low.miss$site_name[1]],"-"," ", 2016))+
+  annotate(geom="text", x=low.miss.1$date[300],
+  y=6,label=paste(low.miss$Prop.miss[1],"% of data missing"),color="red")                 
 
 ggplot(data=low.miss.2, aes(x=date, y=GPP))+
   geom_point(color="black", size=3)+
@@ -142,10 +171,13 @@ ggplot(data=low.miss.2, aes(x=date, y=GPP))+
   theme(legend.position="top")+
   ylab("GPP")+
   xlab("Time (days)")+
-  theme(axis.text.x=element_blank(),
-        axis.ticks.x=element_blank())
+  ylim(c(0,7))+
+  ggtitle(paste0(sd$long_name[sd$site_name==low.miss$site_name[2]],"-"," ", 2016))+
+  annotate(geom="text", x=low.miss.2$date[300],
+  y=6,label=paste(low.miss$Prop.miss[2],"% of data missing"),color="red")  
 
 ```
-
+### Estimating missing data on real datasets
+I filled in the dates with missing data in the Appling et al. paper by site $\cdot$ year. The histogram shows the percent of missing data for each site $\cdot$ year with data measured on the first and last day of the year. I am making the assumption that if data were measured at the beginning and end of the year then they were likley collecting data for the whole year. There are obviously flaws to that assumption but it was the easiest way to address whether data was missing because it was actively being collected or not. The `r colorize("red line", "red")` is the percent of missing data for entire 10 year Shatto Ditch dataset. 
 
 
