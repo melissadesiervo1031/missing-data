@@ -89,9 +89,12 @@ df %>%
 
 ####STREAMPULSE DATA###
 ###Load and prep data
-setwd("C:/Users/mtrentman/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
-#setwd("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
-sp<-read.table('daily.predictions.filled.tsv',header = TRUE) ##Missing dates filled in
+##MTT desktop
+#setwd("C:/Users/mtrentman/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
+##Hall laptop
+setwd("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
+#sp<-read.table('daily.predictions.filled.tsv',header = TRUE) ##Missing dates filled in
+sp<-read.csv('daily.predictions.filled.csv',header = TRUE) ##Missing dates filled in
 sp$date.f<-as.Date(sp$date.f,format="%Y-%m-%d")
 sp$site_name<-as.character(sp$site_name)
 #sp<-read.table(file = 'daily_predictions.tsv',header = TRUE) ##Raw data
@@ -256,7 +259,7 @@ for(i in 2:length(missing_n_week)){
   t<-y_missing_integers[[i]]+1
   y<-y_missing_integers[[i]]+2
   u<-y_missing_integers[[i]]+3
-  y_missing_integers[[i]]<-c(q,w,e,t,y,u)
+  y_missing_integers[[i]]<-c(y_missing_integers[[i]],q,w,e,t,y,u)
 }
 
 ##Remove last value from indexes 6-8. Unique to this random seed and weeks.
@@ -390,16 +393,16 @@ for(i in 2:length(missing_n_week)){
 
 
 ##HMC diagnostics
-rstan::check_hmc_diagnostics(fit.miss[[1]])
+rstan::check_hmc_diagnostics(fit.miss[[6]])
 
 ##Traceplots
-traceplot(fit.miss[[1]], pars=c("phi", "b0","sdp", "b1"))
+traceplot(fit.miss[[6]], pars=c("phi", "b0","sdp", "b1"))
 
 ##PPC
 fit_extract<-rstan::extract(fit.miss[[6]])
 yrep1 <- fit_extract$y_rep
 samp100 <- sample(nrow(yrep1), 100)
-ppc_dens_overlay(y_miss[[2]], yrep1[samp100, ]) + xlim(-2, 15)
+ppc_dens_overlay(y_miss[[6]], yrep1[samp100, ]) + xlim(-2, 15)
 ppc_stat(y, yrep1[samp100, ])
 
 ##Exctract parameters
@@ -593,7 +596,7 @@ for(i in 1:length(missing_n_week)){##two because the list holding the lists star
   data.stan.amelia[[i]]<-list.1
 }
 
-plot(data.stan.amelia[[6]][[2]],data.stan.amelia[[6]][[3]])
+plot(data.stan.amelia[[5]][[2]],data.stan.amelia[[5]][[3]])
 ##Run Stan
 
 
@@ -618,20 +621,20 @@ for(i in 6){
 }
 
 ##Pull param estimates into list
-fit_summary_pars_amelia <- vector("list",6)
+fit_summary_pars_amelia <- vector("list",length(missing_n_week))
 list.2<- vector("list",5)
-for (i in 1:6){
+for (i in 1:length(missing_n_week)){
   for (g in 1:5){
     list.2[[g]] <-summary(fit.stan.miss.amelia[[i]][[g]], pars=c("sdp","phi", "b1", "b0"), probs=c(0.025,.5,.975))$summary
   }
   fit_summary_pars_amelia[[i]]<-list.2
 }
-fit_summary_pars_amelia[[6]]#<-fit_summary_pars_amelia[-1]
+fit_summary_pars_amelia[[2]]#<-fit_summary_pars_amelia[-1]
 
 ##Unlist,cleanup, and add factors
-fit_summary<- vector("list",6)
+fit_summary<- vector("list",length(missing_n_week))
 
-for(i in 1:6){
+for(i in 1:length(missing_n_week)){
   fit_summary[[i]]<-as.data.frame(do.call(rbind,fit_summary_pars_amelia[[i]]))
   fit_summary[[i]]$param<-rep(c("sdp","phi", "b1","b0"), times=length(5) )#add parameter factor
   fit_summary[[i]]$prop.missing<-rep(prop.miss[i], each=4) #add prop of missing data

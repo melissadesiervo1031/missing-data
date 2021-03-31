@@ -35,7 +35,8 @@ options(scipen=999)
 
 #setwd("C:/Users/mtrentman/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
 setwd("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
-sp<-read.table('daily.predictions.filled.tsv',header = TRUE) ##Missing dates filled in
+#setwd("~/GitHub/missing-data")
+sp<-read.csv('daily.predictions.filled.csv',header = TRUE) ##Missing dates filled in
 sp$date.f<-as.Date(sp$date.f,format="%Y-%m-%d")
 sp$site_name<-as.character(sp$site_name)
 #sp<-read.table(file = 'daily_predictions.tsv',header = TRUE) ##Raw data
@@ -56,7 +57,7 @@ colorize <- function(x, color) {
 ### Missing data in the context of Appling et al. dataset
 I filled in the dates with missing data in the Appling et al. paper by site $\cdot$ year and made a historgram of missing data frequencies. I am making the assumption that if data were measured at the beginning and end of the year then they were likley collecting data for the whole year. There are obviously flaws to that assumption but it was the easiest way to address whether data was missing because it was actively being collected or not. The `r colorize("red line", "red")` is the percent of missing data for entire 10 year Shatto Ditch dataset. 
 
-``````{r figs, echo=FALSE, fig.cap="Figure caption: The histogram shows the percent of missing data for each site x year with data measured on the first and last day of the year.", fig.show="hold", out.width="50%"}
+``````{r figs, echo=FALSE, fig.cap="Figure caption: The histogram shows the percent of missing data for each site x year with data measured on the first and last day of the year.", fig.show="hold", out.width="75%"}
 # Find sites --------------------------------------------------------------
 
 ###Count NAs
@@ -87,7 +88,7 @@ low.miss<-cdata[which(cdata$N==365 & cdata$Prop.miss<4),]
 
 
 cols<-c(1:2,4:5)
-knitr::kable(low.miss[,cols], caption="Table header: Site x years with less than 3% of missing data", col.names=(c("Site", "Year","Missing data (count)", "Prop. of year missing")),row.names = FALSE)
+knitr::kable(low.miss[,cols],col.names=(c("Site", "Year","Missing data (count)", "Prop. of year missing")),row.names = FALSE)
 ```
 
 Fortunately, they each have somewhat unique annual GPP trends.
@@ -178,6 +179,156 @@ ggplot(data=low.miss.2, aes(x=date, y=GPP))+
 
 ```
 ### Estimating missing data on real datasets
-I filled in the dates with missing data in the Appling et al. paper by site $\cdot$ year. The histogram shows the percent of missing data for each site $\cdot$ year with data measured on the first and last day of the year. I am making the assumption that if data were measured at the beginning and end of the year then they were likley collecting data for the whole year. There are obviously flaws to that assumption but it was the easiest way to address whether data was missing because it was actively being collected or not. The `r colorize("red line", "red")` is the percent of missing data for entire 10 year Shatto Ditch dataset. 
+I randomly removed data in 7-day blocks ranging from 2 to 60% of the original data
+
+
+
+```{r, echo=FALSE}
+##Force some missing data-BY WEEK##
+#Note-the model will still work if no data is missing but the objects in the next block of code (i.e., "y_index_mis", etc.)
+#still need to be created
+set.seed(50)
+x<-low.miss.1$GPP
+y_miss<-list(x,x,x,x,x,x)
+#vector of missing number amounts
+missing_n_tot<-c(0,25,50,100,150,300)
+
+missing_n_week<-round(missing_n_tot/7)
+
+#Create a list to store missing data integers
+y_missing_integers<-c()
+
+#Create initial missing data integer set. Then build on with the for loop
+y_missing_integers[[1]]<-which(is.na(y_miss[[1]]))
+
+#Adds the previous missing data integers to the next set. This makes them nested.
+#i.e, all the missing data 10 integers are added to 15 more to make missing data 15.
+for(i in 2:length(missing_n_week)){
+  h<-which(x %in% sample(x,(missing_n_week[i]-missing_n_week[i-1]), replace = FALSE))
+  y_missing_integers[[i]]<-c(h,y_missing_integers[[i-1]])
+}
+
+
+for(i in 2:length(missing_n_week)){
+  q<-y_missing_integers[[i]]-3
+  w<-y_missing_integers[[i]]-2
+  e<-y_missing_integers[[i]]-1
+  t<-y_missing_integers[[i]]+1
+  y<-y_missing_integers[[i]]+2
+  u<-y_missing_integers[[i]]+3
+  y_missing_integers[[i]]<-c(q,w,e,t,y,u)
+}
+
+##Remove last value from indexes 6-8. Unique to this random seed and weeks.
+#Accidentally added a missing value to the end because it picked a value close to the end
+
+
+
+#Assign NAs to the missing data in each list
+for(i in 1:length(y_missing_integers)){
+  z<-y_miss[[i]]
+  z[y_missing_integers[[i]]]<-NA
+  #z[1]<-x[1]
+  y_miss[[i]]<-z
+}
+
+y_miss[[6]]<-y_miss[[6]][1:length(y_miss[[6]])-1]
+
+miss<-sapply(y_miss, function(x) sum(length(which(is.na(x)))))
+prop.miss<-round(miss/length(x)*100)
+prop.miss
+
+##Create objects with the location (index) of missing or observed data AND number
+## of missing or observed data
+#FOR SINGLE VECTOR
+#y_index_mis <- which(is.na(y_miss)) # Identify the rows for each variable in airquality with NA
+#y_index_obs <- which(!is.na(y_miss)) # Identify the rows for each variable in airquality with observed data
+#y_nMiss <- length(y_index_mis)# How many NAs?
+#y_nObs <- length(y_index_obs) # How many NAs?
+
+##Create objects with the location (index) of missing or observed data AND number
+## of missing or observed data
+#FOR LIST OF VECTORS
+y_index_mis <- lapply(y_miss,function(var){which(is.na(var))}) # Identify the rows for each variable in airquality with NA
+y_index_obs <- lapply(y_miss,function(var){which(!is.na(var))}) # Identify the rows for each variable in airquality with observed data
+y_nMiss <- lapply(y_index_mis,function(var){length(var)}) # How many NAs?
+y_nObs <- lapply(y_index_obs,function(var){length(var)}) # How many NAs?
+
+
+##Replace NAs with arbitrary number to make Stan happy
+for(i in 1:length(missing_n_week)){
+  r<-y_miss[[i]]
+  r[y_missing_integers[[i]]]<--100 #arbitrary number
+  r[1]<-x[1]
+  y_miss[[i]]<-r
+} 
+y_miss[[6]]<-y_miss[[6]][1:length(y_miss[[6]])-1]
+
+```
+
+```{r, echo=FALSE,out.width="49%",out.height="20%",fig.cap="caption",fig.show='hold',fig.align='center'}
+
+knitr::include_graphics(c("/Users/matt/Documents/GitHub/missing-data/lowmiss1_ts_60perc.jpg","/Users/matt/Documents/GitHub/missing-data/lowmiss2_ts_60perc.jpeg"))
+``` 
+
+
+
+
+```{r,eval=FALSE}
+"
+ 
+/*----------------------- Data --------------------------*/
+  /* Data block: defines the objects that will be inputted as data */
+  data {
+    int N; // Length of state and observation time series
+    vector[N] y_miss; // Observations
+    real z0; // Initial state value
+    vector[N] light; //log of light observations
+    int y_nMiss; // number of missing values
+    int y_index_mis[y_nMiss]; // index or location of missing values within the dataset
+  }
+/*----------------------- Parameters --------------------------*/
+  /* Parameter block: defines the variables that will be sampled */
+  parameters {
+    vector<lower = 0>[y_nMiss] y_imp;// Missing data
+    real<lower=0> sdp; // Standard deviation of the process equation
+    //real<lower=0> sdo; // Standard deviation of the observation equation
+    real b0;
+    real b1;
+    real<lower = 0, upper=1 > phi; // Auto-regressive parameter
+    //vector[N] z; // State time series
+  }
+  transformed parameters { 
+    vector[N] y;
+    y=y_miss; // makes the data a transformed variable
+    y[y_index_mis] =y_imp; // replaces missing data in y with estimated data
+    } 
+  /*----------------------- Model --------------------------*/
+  /* Model block: defines the model */
+  model {
+    // Prior distributions
+    sdp ~ normal(0, 1);
+    phi ~ beta(1,1);
+    b0 ~ normal(0,5);
+    b1 ~ normal(0,5);
+    
+    // Distribution for the first value
+    y[1] ~ normal(z0, sdp);
+   
+    // Distributions for all other states
+    for(t in 2:N){
+      y[t] ~ normal(b0+y[t-1]*phi+light[t]*b1, sdp);
+    }
+    
+   generated quantities {
+    vector[N] y_rep; // replications from posterior predictive dist
+    y_rep[1]=normal_rng(y[1], 0.1);
+ 
+    for (t in 2:N) {
+    y_rep[t]=normal_rng(b0+y[t-1]*phi+light[t]*b1, sdp);
+ }
+  }
+"
+```
 
 
