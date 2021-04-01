@@ -178,10 +178,8 @@ ggplot(data=low.miss.2, aes(x=date, y=GPP))+
   y=6,label=paste(low.miss$Prop.miss[2],"% of data missing"),color="red")  
 
 ```
-### Estimating missing data on real datasets
-I randomly removed data in 7-day blocks ranging from 2 to 60% of the original data
-
-
+### Estimating missing data on real datasets--Bayesian parameter estimation
+I randomly removed data in 7-day blocks ranging from 2 to 60% of the original data.
 
 ```{r, echo=FALSE}
 ##Force some missing data-BY WEEK##
@@ -265,13 +263,7 @@ for(i in 1:length(missing_n_week)){
 y_miss[[6]]<-y_miss[[6]][1:length(y_miss[[6]])-1]
 
 ```
-
-```{r, echo=FALSE,out.width="49%",out.height="20%",fig.cap="caption",fig.show='hold',fig.align='center'}
-
-knitr::include_graphics(c("/Users/matt/Documents/GitHub/missing-data/lowmiss1_ts_60perc.jpg","/Users/matt/Documents/GitHub/missing-data/lowmiss2_ts_60perc.jpeg"))
-``` 
-
-
+Then used an AR(1) missing data process-model with an intercept and light covariate to model the parameters and missing data.
 
 
 ```{r,eval=FALSE}
@@ -331,4 +323,12 @@ knitr::include_graphics(c("/Users/matt/Documents/GitHub/missing-data/lowmiss1_ts
 "
 ```
 
+```{r, echo=FALSE,out.width="49%",out.height="20%",fig.cap="caption",fig.show='hold',fig.align='center'}
 
+knitr::include_graphics(c("/Users/matt/Documents/GitHub/missing-data/lowmiss1_bayes_param.jpeg","/Users/matt/Documents/GitHub/missing-data/lowmiss2_ts_60perc.jpeg"))
+``` 
+
+```{r, echo=FALSE,out.width="49%",out.height="20%",fig.cap="caption",fig.show='hold',fig.align='center'}
+
+knitr::include_graphics(c("/Users/matt/Documents/GitHub/missing-data/lowmiss1_ts_60perc.jpg","/Users/matt/Documents/GitHub/missing-data/lowmiss2_ts_60perc.jpeg"))
+``` 
