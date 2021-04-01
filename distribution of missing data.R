@@ -374,16 +374,16 @@ cat("
 sink()
 closeAllConnections()
 
-fit.miss <- vector("list",length(missing_n_week))
+fit.miss1 <- vector("list",length(missing_n_week))
 model<-"toy2p.stan"
 model<-stan_model(model)
-for(i in 2:length(missing_n_week)){
+for(i in 1:length(missing_n_week)){
   ##Load data
   data <- list(   N = length(y_miss[[i]]),
                   y_nMiss = unlist(y_nMiss[[i]]),
                   y_index_mis = unlist(y_index_mis[[i]]),
                   y_miss= unlist(y_miss[[i]]),
-                  light=log(low.miss.2$sim.light),
+                  light=log(low.miss.1$sim.light),
                   z0=y_miss[[i]][1])
   
   ##Run Stan
@@ -443,7 +443,7 @@ ggplot(data=fit_summary_bayes, aes(x=mean, y=prop.missing ))+
   ylab("Percent of Missing Data")+
   xlab("Parameter Estimate")+
   scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
-  scale_x_continuous(limits=c(-6,1))+
+  scale_x_continuous(limits=c(-12,1.8))+
   theme(axis.title.x=element_text(size=18,colour = "black"))+
   theme(axis.title.y=element_text(size=18,colour = "black"))+
   theme(axis.text.y=element_text(size=18,colour = "black"))+
@@ -604,7 +604,7 @@ fit.stan.miss.amelia <- vector("list",length(missing_n_week))
 fit.stan.miss.imp<- vector("list",5)
 model<-"toy2p.stan"
 model<-stan_model(model)
-for(i in 6){
+for(i in 1:length(missing_n_week)){
   for(g in 1:5){
     ##Load data
     data <- list(   N = length(y_miss[[i]]),
@@ -667,11 +667,49 @@ ggplot(data=fit_summary, aes(x=mean, y=prop.missing ))+
   ylab("Percent of Missing Data")+
   xlab("Parameter Estimate")+
   scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
-  scale_x_continuous(limits=c(-10,2))+
+  scale_x_continuous(limits=c(0.4,1.8))+
   theme(axis.title.x=element_text(size=18,colour = "black"))+
   theme(axis.title.y=element_text(size=18,colour = "black"))+
   theme(axis.text.y=element_text(size=18,colour = "black"))+
   theme(axis.text.x=element_text(size=18,colour = "black"))+
   geom_vline(xintercept = known$mean,color=c("black", "darkgray", "green", "blue"))
 
+saveRDS(fit.miss, file = "full_bayes_lowmiss1.RDS") 
+saveRDS(fit.stan.miss.amelia, file = "full_amelia_lowmiss1.RDS")
 
+###GAM
+library(mgcv)
+library(MASS)
+library(cowplot)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(feather)
+
+x <- seq(0, pi * 2, 0.1)
+sin_x <- sin(x)
+y <- sin_x + rnorm(n = length(x), mean = 0, sd = sd(sin_x / 2))
+Sample_data <- data.frame(y,x)
+
+ggplot(Sample_data, aes(x, y)) + geom_point()
+
+gam_y <- gam(y ~ s(x), method = "REML")
+x_new <- seq(0, max(x), length.out = 100)
+y_pred <- predict(gam_y, data.frame(x = x_new))
+ggplot(Sample_data, aes(x, y)) + geom_point() + geom_smooth(method = "gam", formula = y ~s(x))
+
+par(mfrow = c(2,2))
+gam.check(gam_y)
+
+low.miss.1$doy<-seq(1:length(low.miss.1$GPP))
+
+gam_1 <- gam(GPP ~ s(doy, bs = "cc", k = 5)+
+               s(sim.light,bs = "re", k = 5),
+             data = low.miss.1,
+             family = gaussian,
+             method = "REML")
+
+plot(gam_1, shade = TRUE)
+
+
+summary(gam_1)
