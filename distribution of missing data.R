@@ -16,7 +16,9 @@ library(MASS)
 library(plyr)
 library(ggplot2)
 
-#Time series
+
+# SDW time series ---------------------------------------------------------
+
 
 #Load Data
 ts.SDW<-read.csv("SDW.ts_with light.csv")
@@ -87,7 +89,83 @@ df %>%
   summarise(total = sum(length_miss,na.rm=TRUE)) %>% 
   with(plot(jd, total, ylab="Total missing data by Julian Day", xlab="Julian day"))
 
-####STREAMPULSE DATA###
+# Kalamath River (SV) time series ---------------------------------------------------------
+setwd("C:/Users/matt/Documents/Laurel/SV_metab")
+
+#Load Data
+ts.SV<-read.csv("params.csv")
+ts.SV$year<-(year(ts.SV$date))
+
+##Format date for filling in dates with missing data
+ts.SV$date<-as.Date(ts.SV$date,format="%Y-%m-%d")
+
+##Remove negative GPP values
+ts.SV<- subset(ts.SV,GPP.daily >= 0)
+ts.SV<- subset(ts.SV, year>=2018)
+ts.SV$year<-as.factor(year(ts.SV$date))
+
+##Fill in missing dates
+df<-complete(date = seq.Date(min(ts.SV$date), max(ts.SV$date), by="day"), data=ts.SV)
+
+length(which(is.na(df$GPP.daily), TRUE))/length(df$GPP.daily)
+
+##Code data to be missing=1 or observed=0
+N<-ifelse(is.na(df$GPP.daily),1,0)
+
+## Calculate length of data gaps
+#prepare vectors for loop
+x<-NA
+length_miss<-NA
+x[1]<-N[1]
+length_miss[1]<-1
+
+#loop over data and return the length of gaps
+for (i in 2:length(df$GPP.daily)){
+  x[i]<-ifelse(N[i]==1,1+x[i-1], 0) #If data is missing add to yesterdays value by 1. If data observed then 0.
+  length_miss[i]<-ifelse(x[i]==0,x[i-1], NA) #Save length of gap on the day data is observed (0) after a gap
+  length_miss[i]<-ifelse(length_miss[i]==0,NA,length_miss[i]) #Replace days with observed data with NA
+}
+
+## Calculate length of observed data before gap. Same as above but for lengths of observed data
+z<-NA
+z[1]<-N[1]
+length_obs<-NA
+for (i in 2:length(df$GPP.daily)){
+  z[i]<-ifelse(N[i]==0,1+z[i-1], 0)
+  length_obs[i]<-ifelse(z[i]==0,z[i-1], NA)
+  length_obs[i]<-ifelse(length_obs[i]==0,NA,length_obs[i] )
+}
+
+
+## save to full dataset and check that everything is correct
+df$length_obs<-length_obs
+df$length_miss<-length_miss
+
+## estimate negative binomial distribution parameters of missing data length integers
+length_miss_parm<-length_miss[complete.cases(length_miss)]
+length_miss_attempted<-sum(length_miss_parm[length_miss_parm<90])/sum(length_miss_parm)
+
+
+## plot histogram
+hist(length_miss_parm, breaks=seq(0,max(length_miss_parm+1),by=1), prob=TRUE, ylim=c(0,0.4), xlab="Length of missing data gap",
+     #main="Negative binomial distribution with mu=8.6 and size=0.65")
+     main="Histogram of missing data gap lengths from Shatto")
+
+## plot distribution of negative binomial using estimated parameters
+x=0:max(length_miss_parm)
+dist<-dnbinom(x=x,size=ff[[1]][1],mu=ff[[1]][2])
+points(dist, col="red")
+
+## plot sum of gaps by julian day (the day the gap ended)
+#No observable trend. Suggests there is no bias of missing data for a specific time of the year
+#Missing data seems to be randomly dispersed throughout the year
+df %>% 
+  group_by(jd) %>% 
+  summarise(total = sum(length_miss,na.rm=TRUE)) %>% 
+  with(plot(jd, total, ylab="Total missing data by Julian Day", xlab="Julian day"))
+
+# Appling et al. data ------------------------------------------------------
+
 ###Load and prep data
 ##MTT desktop
 #setwd("C:/Users/mtrentman/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
@@ -130,8 +208,12 @@ write.table(t, "daily.predictions.filled.tsv",quote=FALSE, sep='\t',row.names = 
 
 
 ##I filled in and saved the data
-# Find sites --------------------------------------------------------------
 
+
+# Filter sites ------------------------------------------------------------
+
+
+# Filter sites
 ###Count NAs
 cdata <- ddply(sp, c("site_name", "year"), summarize,
                N    = length(GPP),
@@ -192,6 +274,7 @@ low.miss.1$sim.light<-lightest(time=low.miss.1$date, lat=sd$lat[sd$site_name==lo
 low.miss.2$sim.light<-lightest(time=low.miss.2$date, lat=sd$lat[sd$site_name==low.miss$site_name[2]], longobs=sd$lon[sd$site_name==low.miss$site_name[2]],longstd=75) 
 
 
+
 ###Plot site data and light
 
 ggplot(data=low.miss.1, aes(x=date, y=GPP))+
@@ -225,6 +308,9 @@ ggplot(data=low.miss.2, aes(x=date, y=GPP))+
   xlab("Time (days)")+
   theme(axis.text.x=element_blank(),
         axis.ticks.x=element_blank())
+
+
+# Force missing data ------------------------------------------------------
 
 
 ##Force some missing data-BY WEEK##
@@ -310,6 +396,13 @@ for(i in 1:length(missing_n_week)){
 y_miss[[6]]<-y_miss[[6]][1:length(y_miss[[6]])-1]
 summary(y_miss)
 
+#saveRDS(low.miss.1, file = "low.miss.1.missing.RDS") 
+#saveRDS(low.miss.2, file = "low.miss.2.missing.RDS") 
+
+
+# Stan model --------------------------------------------------------------
+
+
 sink("toy2p.stan")
 
 cat("
@@ -374,7 +467,12 @@ cat("
 sink()
 closeAllConnections()
 
-fit.miss1 <- vector("list",length(missing_n_week))
+
+# Bayesian Parameter estimation -------------------------------------------
+
+
+
+fit.miss <- vector("list",length(missing_n_week))
 model<-"toy2p.stan"
 model<-stan_model(model)
 for(i in 1:length(missing_n_week)){
@@ -387,9 +485,10 @@ for(i in 1:length(missing_n_week)){
                   z0=y_miss[[i]][1])
   
   ##Run Stan
-  fit.miss[[i]]<- rstan::sampling(object=model, data = data,  iter = 4000, chains = 4, control=list(max_treedepth = 15))
+  fit.miss1[[i]]<- rstan::sampling(object=model, data = data,  iter = 4000, chains = 4, control=list(max_treedepth = 15))
 }
 
+#saveRDS(fit.miss, file = "full_bayes_lowmiss2.RDS") 
 
 
 ##HMC diagnostics
@@ -404,6 +503,7 @@ yrep1 <- fit_extract$y_rep
 samp100 <- sample(nrow(yrep1), 100)
 ppc_dens_overlay(y_miss[[6]], yrep1[samp100, ]) + xlim(-2, 15)
 ppc_stat(y, yrep1[samp100, ])
+
 
 ##Exctract parameters
 fit_summary_pars_bayes <- vector("list",length(missing_n_week))
@@ -432,6 +532,10 @@ known.param<-c("sdp","phi", "b1","b0")
 #known.missing<-c(5, 5, 5,5)
 known<-as.data.frame(cbind(known.data, known.param))
 known$known.data<-as.numeric(as.character(known$known.data))
+
+
+#saveRDS(fit_summary_bayes, file = "summary_bayes_lowmiss2.RDS") 
+#saveRDS(known.data, file = "known_data_bayes_lowmiss2.RDS") 
 
 
 ##Plot parameters
@@ -507,15 +611,17 @@ ggplot(data=y_combined, aes(x=date, y=estimated))+
   theme(axis.text.x=element_blank(),
         axis.ticks.x=element_blank())
 
-###############################
-#####Multiple Imputations######
-###############################
+
+
+# Multiple Imputations ----------------------------------------------------
+
+
 
 data.amelia<- vector("list",length(missing_n_week))
 for(i in 1:length(missing_n_week)){
   y_miss1<-na_if(y_miss[[i]], -100)
   y_miss1[i][[1]]<-y_miss[[i]][1]
-  w<-as.data.frame(cbind(y_miss1,low.miss.2$sim.light,low.miss.2$date.f))
+  w<-as.data.frame(cbind(y_miss1,low.miss.1$sim.light,low.miss.1$date.f))
   colnames(w)<-c("y_miss1", "sim.light", "ts")
   z2<-amelia(w, m = 5, p2s=1, ts="ts", lags="y_miss1", bounds=rbind(c(1,0,Inf)))
   summary(z2)
@@ -600,7 +706,7 @@ plot(data.stan.amelia[[5]][[2]],data.stan.amelia[[5]][[3]])
 ##Run Stan
 
 
-fit.stan.miss.amelia <- vector("list",length(missing_n_week))
+fit.stan.miss.amelia2 <- vector("list",length(missing_n_week))
 fit.stan.miss.imp<- vector("list",5)
 model<-"toy2p.stan"
 model<-stan_model(model)
@@ -617,25 +723,25 @@ for(i in 1:length(missing_n_week)){
     ##Run Stan
     fit.stan.miss.imp[[g]]<- rstan::sampling(object=model, data = data,  iter = 4000, chains = 4, control=list(max_treedepth = 15))
   }
-  fit.stan.miss.amelia[[i]]<-fit.stan.miss.imp
+  fit.stan.miss.amelia2[[i]]<-fit.stan.miss.imp
 }
 
 ##Pull param estimates into list
-fit_summary_pars_amelia <- vector("list",length(missing_n_week))
+fit_summary_pars_amelia1 <- vector("list",length(missing_n_week))
 list.2<- vector("list",5)
 for (i in 1:length(missing_n_week)){
   for (g in 1:5){
-    list.2[[g]] <-summary(fit.stan.miss.amelia[[i]][[g]], pars=c("sdp","phi", "b1", "b0"), probs=c(0.025,.5,.975))$summary
+    list.2[[g]] <-summary(fit.stan.miss.amelia1[[i]][[g]], pars=c("sdp","phi", "b1", "b0"), probs=c(0.025,.5,.975))$summary
   }
-  fit_summary_pars_amelia[[i]]<-list.2
+  fit_summary_pars_amelia1[[i]]<-list.2
 }
-fit_summary_pars_amelia[[2]]#<-fit_summary_pars_amelia[-1]
+fit_summary_pars_amelia1[[2]]#<-fit_summary_pars_amelia[-1]
 
 ##Unlist,cleanup, and add factors
 fit_summary<- vector("list",length(missing_n_week))
 
 for(i in 1:length(missing_n_week)){
-  fit_summary[[i]]<-as.data.frame(do.call(rbind,fit_summary_pars_amelia[[i]]))
+  fit_summary[[i]]<-as.data.frame(do.call(rbind,fit_summary_pars_amelia1[[i]]))
   fit_summary[[i]]$param<-rep(c("sdp","phi", "b1","b0"), times=length(5) )#add parameter factor
   fit_summary[[i]]$prop.missing<-rep(prop.miss[i], each=4) #add prop of missing data
   fit_summary[[i]]$imp.set<-rep(1:5, each=4) #add prop of missing data
@@ -651,7 +757,7 @@ summary(fit_summary) #check it looks good
 head(fit_summary)
 
 ##Save lowest missing data as "known" for comparison with more missing data
-known.data<-subset(fit_summary,prop.missing==3 & imp.set==1)
+known.data<-subset(fit_summary,prop.missing==2 & imp.set==1)
 
 known.param<-c("sdp","phi", "b1","b0")
 #known.missing<-c(5, 5, 5,5)
@@ -674,10 +780,19 @@ ggplot(data=fit_summary, aes(x=mean, y=prop.missing ))+
   theme(axis.text.x=element_text(size=18,colour = "black"))+
   geom_vline(xintercept = known$mean,color=c("black", "darkgray", "green", "blue"))
 
-saveRDS(fit.miss, file = "full_bayes_lowmiss1.RDS") 
-saveRDS(fit.stan.miss.amelia, file = "full_amelia_lowmiss1.RDS")
+saveRDS(fit.stan.miss.amelia1, file = "full_amelia_lowmiss1.RDS")
+saveRDS(known, file = "known_data_amelia_lowmiss1.RDS") 
+saveRDS(fit_summary, file = "summary_amelia_lowmiss1.RDS") 
 
-###GAM
+
+filename <- file.choose()
+Canteen_clean <- readRDS(filename)
+
+
+
+# GAM ---------------------------------------------------------------------
+
+
 library(mgcv)
 library(MASS)
 library(cowplot)
