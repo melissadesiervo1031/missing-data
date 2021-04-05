@@ -6,8 +6,10 @@ output:
   html_document: default
   pdf_document: default
   
----
-
+--- 
+```{r, echo=FALSE}
+knitr::opts_chunk$set(error = TRUE)
+```
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,warning = FALSE, message = FALSE)
 library(rstan)
@@ -33,8 +35,8 @@ library(knitr)
 
 options(scipen=999)
 
-#setwd("C:/Users/mtrentman/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
-setwd("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
+setwd("C:/Users/mtrentman/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
+#setwd("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
 #setwd("~/GitHub/missing-data")
 sp<-read.csv('daily.predictions.filled.csv',header = TRUE) ##Missing dates filled in
 sp$date.f<-as.Date(sp$date.f,format="%Y-%m-%d")
@@ -329,7 +331,7 @@ Then used an AR(1) missing data process-model with an intercept and light covari
 ### Bayes parameter-low miss 1
 ```{r bayes-param-compare, echo=FALSE, fig.cap="Figure X: Parameter estimates from Bayesian missing-data model. (A)= all data, (B)= positive data ", fig.show="hold", out.width="50%"}
 
-setwd("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
+#setwd("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
 fit_summary_bayes <- readRDS("summary_bayes_lowmiss1.RDS")
 known.data<- readRDS("known_data_bayes_lowmiss1.RDS")
 
@@ -371,7 +373,7 @@ ggplot(data=fit_summary_bayes, aes(x=mean, y=prop.missing ))+
 
 ### Amelia parameter-low miss 1
 ```{r , echo=FALSE, fig.cap="Figure X: Parameter estimates from Bayesian missing-data model. (A)= all data, (B)= positive data ", fig.show="hold", out.width="50%"}
-setwd("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
+#setwd("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
 fit.miss<- readRDS("full_amelia_lowmiss1.RDS")
 fit_summary_amelia <- readRDS("summary_amelia_lowmiss1.RDS")
 known.data<- readRDS("known_data_amelia_lowmiss1.RDS")
@@ -416,7 +418,7 @@ ggplot(data=fit_summary_amelia, aes(x=mean, y=prop.missing ))+
 
 ### Bayes estimated data-low miss 1
 ```{r,echo=FALSE,fig.cap="Figure X: Estimated missing data with 95% CI. (A)=scatter plot of observed vs. expected. (B)= time-series of estimated data overlapping known data.", fig.show="hold", out.width="50%" }
-setwd("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
+#setwd("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
 ##Force some missing data-BY WEEK##
 #Note-the model will still work if no data is missing but the objects in the next block of code (i.e., "y_index_mis", etc.)
 #still need to be created
@@ -563,7 +565,7 @@ ggplot(data=y_combined, aes(x=date, y=estimated))+
 ```
 ### Amelia estimated data-low miss 1
 ```{r echo=FALSE,echo=FALSE,results='hide',fig.keep='all', fig.cap="Figure X: Estimated missing data with 95% CI. (A)=scatter plot of observed vs. expected. (B)= time-series of estimated data overlapping known data.", fig.show="hold", message=TRUE, out.width="50%"}
-setwd("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
+#setwd("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
 data.amelia<- vector("list",6)
 invisible(for(i in 1:6){
   y_miss1<-na_if(y_miss[[i]], -100)
@@ -722,7 +724,7 @@ y_miss[[6]]<-y_miss[[6]][1:length(y_miss[[6]])-1]
 
 ### Bayes parameter-low miss 2
 ```{r , echo=FALSE, fig.cap="Figure X: Parameter estimates from Bayesian missing-data model. (A)= all data, (B)= positive data ", fig.show="hold", out.width="50%"}
-setwd("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
+#setwd("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
 fit.miss<- readRDS("full_bayes_lowmiss2.RDS")
 fit_summary_bayes <- readRDS("summary_bayes_lowmiss2.RDS")
 known.data<- readRDS("known_data_bayes_lowmiss2.RDS")
@@ -808,7 +810,7 @@ ggplot(data=fit_summary_amelia, aes(x=mean, y=prop.missing ))+
 ```
 ### Bayes estimated data-low miss 2
 ```{r,echo=FALSE,fig.cap="Figure X: Estimated missing data with 95% CI. (A)=scatter plot of observed vs. expected. (B)= time-series of estimated data overlapping known data.", fig.show="hold", out.width="50%" }
-setwd("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
+#setwd("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
 ##Create object with estimated data
 fit_summary_bayes_data<-(summary(fit.miss[[6]], probs=c(0.025,.5,.975))$summary)
 my_data <- as_tibble(fit_summary_bayes_data)
