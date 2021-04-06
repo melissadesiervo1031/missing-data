@@ -35,8 +35,8 @@ library(knitr)
 
 options(scipen=999)
 
-setwd("C:/Users/mtrentman/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
-#setwd("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
+#setwd("C:/Users/mtrentman/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
+setwd("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions")
 #setwd("~/GitHub/missing-data")
 sp<-read.csv('daily.predictions.filled.csv',header = TRUE) ##Missing dates filled in
 sp$date.f<-as.Date(sp$date.f,format="%Y-%m-%d")
@@ -95,8 +95,6 @@ knitr::kable(low.miss[,cols],col.names=(c("Site", "Year","Missing data (count)",
 ```
 
 Fortunately, they each have somewhat unique annual GPP trends.
-
-
 
 ```{r figures-side, echo=FALSE, fig.cap="Figure caption: Two sites with low missing data from Appling et al. Data points represent the estimate and the error bars are the 95% credible interval. The line is modeled light using Yard et al. 1995 (NOTE: Light is scaled to fit on the graph) ", fig.show="hold", out.width="50%"}
 
@@ -270,8 +268,11 @@ summary(y_miss)
 ```
 ### Model
 Then used an AR(1) missing data process-model with an intercept and light covariate to model the parameters and missing data.
+$$
+GPP=\beta_0+phi\times GPP_{t-1}+\beta_1\times X_{light}+\epsilon
+$$
 
-
+### Stan Code
 ```{r,eval=FALSE}
 "
  
@@ -328,6 +329,155 @@ Then used an AR(1) missing data process-model with an intercept and light covari
   }
 "
 ```
+
+```{r, include=FALSE}
+## Simulated Data
+###Simulate data
+N<-365 #length of data
+t<-1:N #time
+time<-seq(as.POSIXct("2020/1/1"),as.POSIXct("2020/12/31"), by="day") #for light
+
+##light
+# From Yard et al. (1995) Ecological Modelling.  Remember your trig?  
+# calculate light as umol photon m-2 s-1.
+# Arguments are:  
+# time = a date and time input (posixct object)
+# lat = latitude of field site
+# longobs = longitude of field site
+# longstd = standard longitude of the field site (NOTE: watch daylight savings time!!!). For PST, longstd is be 120 degrees. But during PDT it is 105 degrees. MST is 105 deg. MDT is 90. 
+
+
+# convert degrees to radians
+radi<-function(degrees){(degrees*pi/180)}
+
+# function to estimate light
+lightest<- function (time, lat, longobs, longstd) {
+  jday<-yday(time)
+  E<- 9.87*sin(radi((720*(jday-81))/365)) - 7.53*cos(radi((360*(jday-81))/365)) - 1.5*sin(radi((360*(jday-81))/365))
+  LST<-as.numeric(time-trunc(time))
+  ST<-LST+(3.989/1440)*(longstd-longobs)+E/1440
+  solardel<- 23.439*sin(radi(360*((283+jday)/365)))
+  hourangle<-(0.5-ST)*360
+  theta<- acos( sin(radi(solardel)) * sin(radi(lat)) + cos(radi(solardel)) * cos(radi(lat)) * cos(radi(hourangle)) )
+  suncos<-ifelse(cos(theta)<0, 0, cos(theta))
+  GI<- suncos*2326
+  GI	
+  
+}
+light<-lightest(time, 47.8762, -114.03, 105) #Flathead Bio Station just for fun
+light.l<-log(light)
+light.c<-(light-mean(light))/sd(light)
+mean(light.c)
+sd(light.c)
+
+
+##GPP based on time-series model with known paramters
+set.seed(553)
+x<-NA
+sdp <- 0.1
+phi <-0.8
+b0<-0.1
+b1<-0.1
+x[1]<-3.5
+# Set the seed, so we can reproduce the results
+set.seed(553)
+# For-loop that simulates the state through time, using i instead of t,
+for (t in 2:N){
+  x[t] = b0+phi*x[t-1]+light.l[t]*b1+rnorm(1, 0, sdp)
+}
+
+```
+### Simulated-randomly missing days
+$$
+GPP=\beta_0+\phi\times GPP_{t-1}+\beta_1\times X_{light}+\epsilon_{sdp}
+$$
+$\beta_0$=0.1\
+$\epsilon_{sdp}$= 0.1\
+$\phi$=0.8\
+$\beta_1$=0.1\
+$X_{light}$=modeled from Yard et al. (1995) Ecological Modeling\
+
+
+``` {r , echo=FALSE, fig.cap="Figure caption: Two sites with low missing data from Appling et al. Data points represent the estimate and the error bars are the 95% credible interval. The line is modeled light using Yard et al. 1995 (NOTE: Light is scaled to fit on the graph) ", fig.show="hold", out.width="50%"}
+y_full<-as.data.frame(cbind(x,time))
+
+ggplot(data=y_full, aes(x=time, y=x))+
+  geom_point(color="black", size=3)+
+  theme_classic()+
+  theme(axis.title.x=element_text(size=18,colour = "black"))+
+  theme(axis.title.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.x=element_text(size=18,colour = "black"))+
+  theme(legend.position="top")+
+  ylab("Data")+
+  xlab("Time (days)")+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  ggtitle("Full dataset")
+
+
+```
+
+```{r, include=FALSE}
+##Force some missing data-BY DAY##
+#Note-the model will still work if no data is missing but the objects in the next block of code (i.e., "y_index_mis", etc.)
+#still need to be created
+
+set.seed(90)
+#Store simulated data in a list 
+y_miss<-list(x,x,x,x,x,x)
+
+#vector of missing number amounts
+missing_n<-c(0,25,50,100,150,300)
+
+#Create a list to store missing data integers
+y_missing_integers<-c()
+
+#Create initial missing data integer set. Then build on with the for loop
+y_missing_integers[[1]]<- which(x %in% sample(x,missing_n[1]))
+
+#Adds the previous missing data integers to the next set. This makes them nested.
+#i.e, all the missing data 10 integers are added to 15 more to make missing data 15.
+for(i in 2:length(missing_n)){
+h<-which(x %in% sample(x,(missing_n[i]-missing_n[i-1]), replace = FALSE))
+y_missing_integers[[i]]<-c(h,y_missing_integers[[i-1]])
+}
+
+#Assign NAs to the missing data in each list
+for(i in 1:length(missing_n)){
+  z<-y_miss[[i]]
+  z[y_missing_integers[[i]]]<-NA
+  z[1]<-x[1]
+  y_miss[[i]]<-z
+}
+
+#Check that each list has the right amount of missing data (or close to it...)
+miss<-sapply(y_miss, function(x) sum(length(which(is.na(x)))))
+prop.miss<-round(miss/length(x)*100)
+prop.miss
+
+##Create objects with the location (index) of missing or observed data AND number
+## of missing or observed data
+#FOR LIST OF VECTORS
+y_index_mis <- lapply(y_miss,function(var){which(is.na(var))}) # Identify the rows for each variable in airquality with NA
+y_index_obs <- lapply(y_miss,function(var){which(!is.na(var))}) # Identify the rows for each variable in airquality with observed data
+y_nMiss <- lapply(y_index_mis,function(var){length(var)}) # How many NAs?
+y_nObs <- lapply(y_index_obs,function(var){length(var)}) # How many NAs?
+
+
+##Replace NAs with arbitrary number to make Stan happy
+for(i in 1:length(missing_n_week)){
+  r<-y_miss[[i]]
+  r[y_missing_integers[[i]]]<--100 #arbitrary number
+  r[1]<-x[1]
+  y_miss[[i]]<-r
+} 
+
+
+
+```
+
+
 ### Bayes parameter-low miss 1
 ```{r bayes-param-compare, echo=FALSE, fig.cap="Figure X: Parameter estimates from Bayesian missing-data model. (A)= all data, (B)= positive data ", fig.show="hold", out.width="50%"}
 
@@ -769,7 +919,6 @@ ggplot(data=fit_summary_bayes, aes(x=mean, y=prop.missing ))+
 ### Amelia parameter-low miss 2
 ```{r , echo=FALSE, fig.cap="Figure X: Parameter estimates from Bayesian missing-data model. (A)= all data, (B)= positive data ", fig.show="hold", out.width="50%"}
 
-fit.miss<- readRDS("full_amelia_lowmiss2.RDS")
 fit_summary_amelia <- readRDS("summary_amelia_lowmiss2.RDS")
 known.data<- readRDS("known_data_amelia_lowmiss2.RDS")
 
@@ -783,7 +932,7 @@ ggplot(data=fit_summary_amelia, aes(x=mean, y=prop.missing ))+
   ylab("Percent of Missing Data")+
   xlab("Parameter Estimate")+
   scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
-  scale_x_continuous(limits=c(-5,1))+
+  scale_x_continuous(limits=c(-12,1.8))+
   theme(axis.title.x=element_text(size=18,colour = "black"))+
   theme(axis.title.y=element_text(size=18,colour = "black"))+
   theme(axis.text.y=element_text(size=18,colour = "black"))+
@@ -799,7 +948,7 @@ ggplot(data=fit_summary_amelia, aes(x=mean, y=prop.missing ))+
   ylab("Percent of Missing Data")+
   xlab("Parameter Estimate")+
   scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
-  scale_x_continuous(limits=c(0,1))+
+  scale_x_continuous(limits=c(0,1.8))+
   theme(axis.title.x=element_text(size=18,colour = "black"))+
   theme(axis.title.y=element_text(size=18,colour = "black"))+
   theme(axis.text.y=element_text(size=18,colour = "black"))+
