@@ -438,7 +438,7 @@ cat("
   model {
     // Prior distributions
     //sdo ~ normal(0, 1);
-    sdp ~ cauchy(0, 1);
+    sdp ~ normal(0, 1);
     phi ~ beta(1,1);
     b0 ~ normal(0,5);
     b1 ~ normal(0,5);
@@ -727,21 +727,21 @@ for(i in 1:length(missing_n_week)){
 }
 
 ##Pull param estimates into list
-fit_summary_pars_amelia1 <- vector("list",length(missing_n_week))
+fit_summary_pars_amelia2 <- vector("list",length(missing_n_week))
 list.2<- vector("list",5)
 for (i in 1:length(missing_n_week)){
   for (g in 1:5){
-    list.2[[g]] <-summary(fit.stan.miss.amelia1[[i]][[g]], pars=c("sdp","phi", "b1", "b0"), probs=c(0.025,.5,.975))$summary
+    list.2[[g]] <-summary(fit.stan.miss.amelia2[[i]][[g]], pars=c("sdp","phi", "b1", "b0"), probs=c(0.025,.5,.975))$summary
   }
-  fit_summary_pars_amelia1[[i]]<-list.2
+  fit_summary_pars_amelia2[[i]]<-list.2
 }
-fit_summary_pars_amelia1[[2]]#<-fit_summary_pars_amelia[-1]
+fit_summary_pars_amelia2[[2]]#<-fit_summary_pars_amelia[-1]
 
 ##Unlist,cleanup, and add factors
 fit_summary<- vector("list",length(missing_n_week))
 
 for(i in 1:length(missing_n_week)){
-  fit_summary[[i]]<-as.data.frame(do.call(rbind,fit_summary_pars_amelia1[[i]]))
+  fit_summary[[i]]<-as.data.frame(do.call(rbind,fit_summary_pars_amelia2[[i]]))
   fit_summary[[i]]$param<-rep(c("sdp","phi", "b1","b0"), times=length(5) )#add parameter factor
   fit_summary[[i]]$prop.missing<-rep(prop.miss[i], each=4) #add prop of missing data
   fit_summary[[i]]$imp.set<-rep(1:5, each=4) #add prop of missing data
@@ -780,9 +780,9 @@ ggplot(data=fit_summary, aes(x=mean, y=prop.missing ))+
   theme(axis.text.x=element_text(size=18,colour = "black"))+
   geom_vline(xintercept = known$mean,color=c("black", "darkgray", "green", "blue"))
 
-saveRDS(fit.stan.miss.amelia1, file = "full_amelia_lowmiss1.RDS")
-saveRDS(known, file = "known_data_amelia_lowmiss1.RDS") 
-saveRDS(fit_summary, file = "summary_amelia_lowmiss1.RDS") 
+saveRDS(fit.stan.miss.amelia2, file = "full_amelia_lowmiss2.RDS")
+saveRDS(known, file = "known_data_amelia_lowmiss2.RDS") 
+saveRDS(fit_summary, file = "summary_amelia_lowmiss2.RDS") 
 
 
 filename <- file.choose()

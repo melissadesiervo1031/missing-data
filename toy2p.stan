@@ -13,7 +13,7 @@
 /*----------------------- Parameters --------------------------*/
   /* Parameter block: defines the variables that will be sampled */
   parameters {
-    vector[y_nMiss] y_imp;// Missing data
+    vector<lower = 0>[y_nMiss] y_imp;// Missing data
     real<lower=0> sdp; // Standard deviation of the process equation
     //real<lower=0> sdo; // Standard deviation of the observation equation
     real b0;
@@ -31,7 +31,7 @@
   model {
     // Prior distributions
     //sdo ~ normal(0, 1);
-    sdp ~ cauchy(0, 1);
+    sdp ~ normal(0, 1);
     phi ~ beta(1,1);
     b0 ~ normal(0,5);
     b1 ~ normal(0,5);
@@ -46,5 +46,13 @@
     
     //  y[t] ~ normal(z[t], sdo);
    //}
+  }
+  generated quantities {
+ vector[N] y_rep; // replications from posterior predictive dist
+ y_rep[1]=normal_rng(y[1], 0.1);
+ 
+ for (t in 2:N) {
+ y_rep[t]=normal_rng(b0+y[t-1]*phi+light[t]*b1, sdp);
+ }
   }
     
