@@ -15,7 +15,7 @@ library(tidyr)
 library(MASS)
 library(plyr)
 library(ggplot2)
-
+library(countreg)
 
 # SDW time series ---------------------------------------------------------
 
@@ -41,6 +41,7 @@ N<-ifelse(is.na(df$GPP),1,0)
 ## Calculate length of data gaps
 #prepare vectors for loop
 x<-NA 
+length_miss<-NA
 x[1]<-N[1]
 length_miss[1]<-1
 
@@ -48,7 +49,7 @@ length_miss[1]<-1
 for (i in 2:length(df$GPP)){
   x[i]<-ifelse(N[i]==1,1+x[i-1], 0) #If data is missing add to yesterdays value by 1. If data observed then 0.
   length_miss[i]<-ifelse(x[i]==0,x[i-1], NA) #Save length of gap on the day data is observed (0) after a gap
-  length_miss[i]<-ifelse(length_miss[i]==0,NA,length_miss[i]) #Replace days with observed data with NA
+ # length_miss[i]<-ifelse(length_miss[i]==0,NA,length_miss[i]) #Replace days with observed data with NA
 }
 
 ## Calculate length of observed data before gap. Same as above but for lengths of observed data
@@ -58,7 +59,7 @@ length_obs<-NA
 for (i in 2:length(df$GPP)){
   z[i]<-ifelse(N[i]==0,1+z[i-1], 0)
   length_obs[i]<-ifelse(z[i]==0,z[i-1], NA)
-  length_obs[i]<-ifelse(length_obs[i]==0,NA,length_obs[i] )
+ # length_obs[i]<-ifelse(length_obs[i]==0,NA,length_obs[i] )
 }
 
 
@@ -68,18 +69,24 @@ df$length_miss<-length_miss
 
 ## estimate negative binomial distribution parameters of missing data length integers
 length_miss_parm<-length_miss[complete.cases(length_miss)]
-ff <- fitdistr(length_miss_parm, "Negative Binomial")
-ff
+length_miss_parm<-length_miss_parm[length_miss_parm<90]
+func<- function(P){
+  -sum( dzinbinom (length_miss_parm, mu= P[1], size = P[2],pi=P[3], log= TRUE))
+}
+
+mle<-nlm(func,P<- c(7,0.5,0.2))
+
 
 ## plot histogram
-hist(length_miss_parm, breaks=seq(0,max(length_miss_parm+1),by=1), prob=TRUE, ylim=c(0,0.4), xlab="Length of missing data gap",
+hist(length_miss_parm, breaks=seq(0,max(length_miss[complete.cases(length_miss)]),by=1), prob=TRUE, ylim=c(0,1.2), xlab="Length of missing data gap",
      #main="Negative binomial distribution with mu=8.6 and size=0.65")
      main="Histogram of missing data gap lengths from Shatto")
 
 ## plot distribution of negative binomial using estimated parameters
-x=0:max(length_miss_parm)
-dist<-dnbinom(x=x,size=ff[[1]][1],mu=ff[[1]][2])
+x=0:max(length_miss[complete.cases(length_miss)])
+dist<-dzinbinom(x=x,size=mle$estimate[2],mu=mle$estimate[1], pi=mle$estimate[3])
 points(dist, col="red")
+plot(x, dist)
 
 ## plot sum of gaps by julian day (the day the gap ended)
 #No observable trend. Suggests there is no bias of missing data for a specific time of the year
@@ -710,14 +717,14 @@ fit.stan.miss.amelia2 <- vector("list",length(missing_n_week))
 fit.stan.miss.imp<- vector("list",5)
 model<-"toy2p.stan"
 model<-stan_model(model)
-for(i in 1:length(missing_n_week)){
+for(i in 1:length(missing_n)){
   for(g in 1:5){
     ##Load data
     data <- list(   N = length(y_miss[[i]]),
                     y_nMiss = unlist(y_nMiss[[i]]),
                     y_index_mis = unlist(y_index_mis[[i]]),
                     y_miss= unlist(data.stan.amelia[[i]][[g]]),
-                    light=log(low.miss.1$sim.light),
+                    light=light.l,
                     z0=y_miss[[i]][1])
     
     ##Run Stan
