@@ -11,7 +11,10 @@ library(gridExtra)
 library(lubridate)
 library(data.table)
 library(Amelia)
-###Simulate data
+
+
+# Simulate data -----------------------------------------------------------
+
 N<-365 #length of data
 t<-1:N #time
 time<-seq(as.POSIXct("2020/1/1"),as.POSIXct("2020/12/30"), by="day") #for light
@@ -53,11 +56,11 @@ sd(light.c)
 ##GPP based on time-series model with known paramters
 set.seed(553)
 x<-NA
-sdp <- 0.1
-phi <-0.8
+sdp <- 0.01
+phi <-0.5
 b0<-0.1
 b1<-0.1
-x[1]<-3.5
+x[1]<-1.5
 # Set the seed, so we can reproduce the results
 set.seed(553)
 # For-loop that simulates the state through time, using i instead of t,
@@ -129,41 +132,38 @@ legend("top",
        lty = c(3, 1),
        horiz=TRUE, bty="n", cex=0.9)
 
-#Center data
-#y<-(y-mean(y))/sd(y)
-#mean(y)
-#sd(y)
 
-#x<-(x-mean(x))/sd(x)
-#mean(x)
-#sd(x)
+# Force some missing data-BY DAY ------------------------------------------
 
-
-##Force some missing data-BY DAY##
 #Note-the model will still work if no data is missing but the objects in the next block of code (i.e., "y_index_mis", etc.)
 #still need to be created
 
 set.seed(90)
-#Store simulated data in a list 
-y_miss<-list(x,x,x,x,x,x)
+#Store simulated data in a list (1 more than new missing datasets)
+y_miss<-list(x,x,x,x,x,x,x,x)
 
 #vector of missing number amounts
-missing_n<-c(0,25,50,100,150,300)
+missing_n<-c(0,round(N*0.15),round(N*0.3),round(N*0.4),round(N*0.5),round(N*0.6),round(N*0.7),round(N*0.8))
 #Create a list to store missing data integers
 y_missing_integers<-c()
+#Create a vector of the length of data representing the indexes
+index<-c()
+index[[1]]<-1:N
 
 #Create initial missing data integer set. Then build on with the for loop
-y_missing_integers[[1]]<- which(x %in% sample(x,missing_n[1]))
+y_missing_integers[[1]]<-sample(index,missing_n[1],replace = FALSE)
+#index<-index[-y_missing_integers[[1]]]
 
 #Adds the previous missing data integers to the next set. This makes them nested.
 #i.e, all the missing data 10 integers are added to 15 more to make missing data 15.
 for(i in 2:length(missing_n)){
-h<-which(x %in% sample(x,(missing_n[i]-missing_n[i-1]), replace = FALSE))
-y_missing_integers[[i]]<-c(h,y_missing_integers[[i-1]])
+ h<-sample(index[[i-1]],(missing_n[i]-missing_n[i-1]), replace = FALSE)
+ index[[i]]<-setdiff(index[[i-1]],h)
+ y_missing_integers[[i]]<-unlist(c(h,y_missing_integers[[i-1]]))
 }
 
 #Assign NAs to the missing data in each list
-for(i in 1:length(missing_n)){
+for(i in 2:length(missing_n)){
   z<-y_miss[[i]]
   z[y_missing_integers[[i]]]<-NA
   z[1]<-x[1]
@@ -192,7 +192,7 @@ y_nObs <- lapply(y_index_obs,function(var){length(var)}) # How many NAs?
 
 
 ##Replace NAs with arbitrary number to make Stan happy
-for(i in 1:length(missing_n_week)){
+for(i in 2:length(missing_n)){
   r<-y_miss[[i]]
   r[y_missing_integers[[i]]]<--100 #arbitrary number
   r[1]<-x[1]
@@ -202,8 +202,8 @@ for(i in 1:length(missing_n_week)){
 summary(y_miss)
 
 
-##Stan Code
 
+# Stan Code ---------------------------------------------------------------
 
 
 sink("toy2p.stan")
@@ -264,7 +264,9 @@ cat("
  for (t in 2:N) {
  y_rep[t]=normal_rng(b0+y[t-1]*phi+light[t]*b1, sdp);
  }
+ 
   }
+
     "
     ,fill=TRUE)
 sink()
@@ -272,16 +274,14 @@ closeAllConnections()
 
 
 
-
-
-
-
-
+# Bayes parameter estimation model ----------------------------------------
 
 fit.miss <- vector("list",length(missing_n))
 model<-"toy2p.stan"
 model<-stan_model(model)
+
 for(i in 1:length(missing_n)){
+ 
 ##Load data
 data <- list(   N = length(y_miss[[i]]),
                 y_nMiss = unlist(y_nMiss[[i]]),
@@ -297,22 +297,24 @@ fit.miss[[i]]<- rstan::sampling(object=model, data = data,  iter = 4000, chains 
 
 
 ##Pull param estimates into list
-fit_summary_pars_bayes <- vector("list",length(missing_n_week))
-for (i in 1:length(missing_n_week)){
+fit_summary_pars_bayes <- vector("list",length(missing_n))
+for (i in 1:8){
    fit_summary_pars_bayes[[i]]<-(summary(fit.miss[[i]], pars=c("sdp","phi", "b1", "b0"), probs=c(0.025,.5,.975))$summary)
    }
-fit_summary_pars_bayes[[6]]
+fit_summary_pars_bayes[[7]]
 
+fit_summary_bayes<- vector("list",length(missing_n))
 ##Unlist,cleanup, and add factors
 fit_summary_bayes<-as.data.frame(do.call(rbind.data.frame, fit_summary_pars_bayes)) #Unlist
-fit_summary_bayes$param<-rep(c("sdp","phi", "b1","b0"), times=length(missing_n_week) )#add parameter factor
-fit_summary_bayes$prop.missing<-rep(prop.miss, times=c(4,4,4,4,4,4)) #add prop of missing data
-row.names(fit_summary_bayes)<-1:(length(missing_n_week)*4) #remove row names
+fit_summary_bayes$param<-rep(c("sdp","phi", "b1","b0"), times=length(missing_n) )#add parameter factor
+fit_summary_bayes$prop.missing<-rep(prop.miss, times=c(4,4,4,4,4,4,4,4)) #add prop of missing data
+row.names(fit_summary_bayes)<-1:(length(missing_n)*4) #remove row names
 fit_summary_bayes$param<-as.factor(fit_summary_bayes$param) #make factor
 fit_summary_bayes$prop.missing<-as.factor(fit_summary_bayes$prop.missing) #make factor
 colnames(fit_summary_bayes)<-c("mean", "se-mean", "sd", "min", "med", "high","n_eff", "rhat", "param","prop.missing")
 summary(fit_summary_bayes) #check it looks good
 head(fit_summary_bayes)
+fit_summary_bayes<-as.data.frame(fit_summary_bayes)
 
 known.data<-c(sdp,phi,b1,b0)
 known<-as.data.frame(known.data)
@@ -330,7 +332,7 @@ ggplot(data=fit_summary_bayes, aes(x=mean, y=prop.missing ))+
   ylab("Percent of Missing Data")+
   xlab("Parameter Estimate")+
   scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
-  scale_x_continuous(limits=c(-.1,0.9))+
+  scale_x_continuous(limits=c(-.2,0.9))+
   theme(axis.title.x=element_text(size=18,colour = "black"))+
   theme(axis.title.y=element_text(size=18,colour = "black"))+
   theme(axis.text.y=element_text(size=18,colour = "black"))+
@@ -338,10 +340,10 @@ ggplot(data=fit_summary_bayes, aes(x=mean, y=prop.missing ))+
   geom_vline(xintercept = known.data,color=c("blue", "darkgray", "green", "black"))
   
 
-#saveRDS(fit.miss, file = "full_sim_day_bayes.RDS")
-#saveRDS(fit_summary_pars_bayes, file = "summary_sim_day_bayes.RDS")
-#saveRDS(known, file = "known_sim_day_bayes.RDS")
-write.csv(fit_summary_pars_bayes, "Rstan_missing data_bayes_week.csv")
+saveRDS(fit.miss, file = "full_sim_day_bayes_sdp_01_phi_5.RDS")
+saveRDS(fit_summary_bayes, file = "summary_sim_day_bayes_sdp_01_phi_5.RDS")
+saveRDS(known, file = "known_sim_day_bayes_sdp_01_phi_5.RDS")
+write.csv(fit_summary_pars_bayes, "Rstan_missing data_bayes_sdp_01_phi_5.csv")
 ##Print and extract
 fit_extract<-rstan::extract(fit[[1]])
 print(fit[[2]], pars=c( "sigma_proc","phi", "b1", "sigma_obs" ))
@@ -374,14 +376,14 @@ launch_shinystan(fit)
 ######Compare 'missing' data with simulated data
 ##Create object with estimated missing data
 
-fit_summary<-summary(fit.miss[[8]], probs=c(0.025,.5,.975))$summary
+fit_summary<-summary(fit.miss[[6]], probs=c(0.025,.5,.975))$summary
 
 my_data <- as_tibble(fit_summary)
-y_est_data<-my_data %>% slice(1:length(y_index_mis[[8]]))
+y_est_data<-my_data %>% slice(1:length(y_index_mis[[6]]))
 
 ##Create object with observed data
 date<-1:N
-y_obs_data<-as.data.frame(cbind(date[y_index_mis[[8]]],x[y_index_mis[[8]]]))
+y_obs_data<-as.data.frame(cbind(date[y_index_mis[[6]]],x[y_index_mis[[6]]]))
 colnames(y_obs_data)<-c("date","y")
 #y_obs_data$date<-as.Date(y_obs_data$date, origin = "1969-12-30")
 #x_data<-summary(fit_extract$x, probs=c(0.05,.5,.95))
@@ -430,9 +432,10 @@ ggplot(data=y_combined, aes(x=date, y=estimated))+
   theme(axis.text.x=element_blank(),
         axis.ticks.x=element_blank())
 
-###############################
-#####Multiple Imputations######
-###############################
+
+
+# Missing Imputations model -----------------------------------------------
+
 ts<-as.Date(time,format="%m/%d/%Y")
 
 data.amelia<- vector("list",length(missing_n))
@@ -522,17 +525,17 @@ plot(data.stan.amelia[[6]][[2]],data.stan.amelia[[6]][[3]])
 ##Run Stan
 
 
-  fit.stan.miss.amelia <- vector("list",length(missing_n_week))
+  fit.stan.miss.amelia <- vector("list",length(missing_n))
   fit.stan.miss.imp<- vector("list",5)
   model<-"toy2p.stan"
   model<-stan_model(model)
-  for(i in 1){
+  for(i in 3:6){
     for(g in 1:5){
     ##Load data
     data <- list(  N = length(y_miss[[i]]),
                    y_nMiss = unlist(y_nMiss[[i]]),
                    y_index_mis = unlist(y_index_mis[[i]]),
-                   y_miss= unlist(y_miss[[i]]),
+                   y_miss= unlist(data.stan.amelia[[i]][[g]]),
                    light=light.l,
                    z0=y_miss[[i]][1])
     
@@ -543,22 +546,22 @@ plot(data.stan.amelia[[6]][[2]],data.stan.amelia[[6]][[3]])
   }
     
   ##Pull param estimates into list
-  fit_summary_pars_amelia <- vector("list",length(missing_n_week))
+  fit_summary_pars_amelia <- vector("list",length(missing_n))
   list.2<- vector("list",5)
-  for (i in 2:length(missing_n_week)){
+  for (i in 1:6){#:length(missing_n_week)){
     for (g in 1:5){
       list.2[[g]] <-summary(fit.stan.miss.amelia[[i]][[g]], pars=c("sdp","phi", "b1", "b0"), probs=c(0.025,.5,.975))$summary
   }
   fit_summary_pars_amelia[[i]]<-list.2
   }
-  fit_summary_pars_amelia[[8]][[2]]
+  fit_summary_pars_amelia[[6]][[2]]
   
   ##Unlist,cleanup, and add factors
-  fit_summary<- vector("list",7)
-  for(i in 1:7){
+  fit_summary<- vector("list",6)
+  for(i in 2:6){
     fit_summary[[i]]<-as.data.frame(do.call(rbind,fit_summary_pars_amelia[[i]]))
   fit_summary[[i]]$param<-rep(c("sdp","phi", "b1","b0"), times=length(5) )#add parameter factor
-  fit_summary[[i]]$prop.missing<-rep(prop.miss[i+1], each=4) #add prop of missing data
+  fit_summary[[i]]$prop.missing<-rep(prop.miss[i], each=4) #add prop of missing data
   row.names(fit_summary[[i]])<-1:20 #remove row names
   fit_summary[[i]]$param<-as.factor(fit_summary[[i]]$param) #make factor
   fit_summary[[i]]$prop.missing<-as.factor(fit_summary[[i]]$prop.missing) #make factor
@@ -579,18 +582,20 @@ plot(data.stan.amelia[[6]][[2]],data.stan.amelia[[6]][[3]])
   
   ggplot(data=fit_summary, aes(x=mean, y=prop.missing ))+
     geom_point(aes( color=param, group=param),size=3,position=position_dodge(0.5))+
-    #geom_point(data=fit_summary[[3]],aes(x=mean, y=prop.missing, color=param, group=param),size=3,position=position_dodge(0.5))+
-    #geom_point(data=fit_summary[[4]],aes(x=mean, y=prop.missing, color=param, group=param),size=3,position=position_dodge(0.5))+
     theme_classic()+
     geom_errorbar(aes(xmin=min, xmax=high,color=param, group=param), width=0.2,position=position_dodge(0.5))+
     theme(legend.position="top")+
     ylab("Percent of Missing Data")+
     xlab("Parameter Estimate")+
     scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
-    scale_x_continuous(limits=c(0,0.9))+
+    scale_x_continuous(limits=c(-.1,0.9))+
     theme(axis.title.x=element_text(size=18,colour = "black"))+
     theme(axis.title.y=element_text(size=18,colour = "black"))+
     theme(axis.text.y=element_text(size=18,colour = "black"))+
     theme(axis.text.x=element_text(size=18,colour = "black"))+
     geom_vline(xintercept = known.data,color=c("blue", "darkgray", "green", "black"))
+  
+  #saveRDS(fit.stan.miss.amelia, file = "full_sim_day_amelia.RDS")
+  #saveRDS(fit_summary, file = "summary_sim_day_amelia.RDS")
+  #saveRDS(known, file = "known_sim_day_amelia.RDS")
   
