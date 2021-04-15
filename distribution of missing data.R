@@ -16,7 +16,7 @@ library(MASS)
 library(plyr)
 library(ggplot2)
 library(countreg)
-
+library(abind)
 # SDW time series ---------------------------------------------------------
 
 
@@ -280,14 +280,48 @@ lightest<- function (time, lat, longobs, longstd) {
 low.miss.1$sim.light<-lightest(time=low.miss.1$date, lat=sd$lat[sd$site_name==low.miss$site_name[1]], longobs=sd$lon[sd$site_name==low.miss$site_name[1]],longstd=75)
 low.miss.2$sim.light<-lightest(time=low.miss.2$date, lat=sd$lat[sd$site_name==low.miss$site_name[2]], longobs=sd$lon[sd$site_name==low.miss$site_name[2]],longstd=75) 
 
+##Impute missing covariates for prediction
+#save location of missing data
+
+lowmiss1_missing_integers<-which(is.na(low.miss.1$GPP))
+lowmiss2_missing_integers<-which(is.na(low.miss.2$GPP))
+
+#Do multiple imputations and save shortwave light and discharge  
+lowmiss1<-as.data.frame(cbind(low.miss.1$GPP,low.miss.1$temp.water,low.miss.1$discharge, low.miss.1$shortwave,low.miss.1$date.f))
+colnames(lowmiss1)<-c("GPP", "temp","q","meas.light", "ts")
+z2<-amelia( lowmiss1, m = 5, p2s=1, ts="ts", lags="GPP", bounds=rbind(c(1,0,Inf)))
+i1<-z2$imputations[2]
+i2<-z2$imputations$imp2
+i3<-z2$imputations$imp3
+i4<-z2$imputations$imp4
+i5<-z2$imputations$imp5
+arr <- abind(i1,i2,i3,i4,i5, along = 3)
+z3<-as.data.frame(rowMeans(arr, dims = 2))
+low.miss.1$imp.shortwave<-z3$meas.light
+low.miss.1$imp.discharge<-z3$q
+
+lowmiss2<-as.data.frame(cbind(low.miss.2$GPP,low.miss.2$temp.water,low.miss.2$discharge, low.miss.2$shortwave,low.miss.2$date.f))
+colnames(lowmiss2)<-c("GPP", "temp","q","meas.light", "ts")
+z2<-amelia( lowmiss2, m = 5, p2s=1, ts="ts", lags="GPP", bounds=rbind(c(1,0,Inf)))
+i1<-z2$imputations$imp1
+i2<-z2$imputations$imp2
+i3<-z2$imputations$imp3
+i4<-z2$imputations$imp4
+i5<-z2$imputations$imp5
+arr <- abind(i1,i2,i3,i4,i5, along = 3)
+z3<-as.data.frame(rowMeans(arr, dims = 2))
+low.miss.2$imp.shortwave<-z3$meas.light
+low.miss.2$imp.discharge<-z3$q
+
 
 
 ###Plot site data and light
 
 ggplot(data=low.miss.1, aes(x=date, y=GPP))+
-  geom_line(aes(x=date, y=sim.light/700))+
   geom_point(color="black", size=3)+
   geom_errorbar(aes(x=date,ymin=GPP.lower, ymax=GPP.upper), width=0.2, size=0.5)+
+  geom_line(aes(x=date, y=imp.shortwave/100), color="orange")+
+  geom_line(aes(x=date, y=imp.discharge/10), color="blue")+
   theme(legend.position="top")+
   theme_classic()+
   theme(axis.title.x=element_text(size=18,colour = "black"))+
@@ -302,8 +336,9 @@ ggplot(data=low.miss.1, aes(x=date, y=GPP))+
 
 ggplot(data=low.miss.2, aes(x=date, y=GPP))+
   geom_point(color="black", size=3)+
-  geom_line(aes(x=date, y=sim.light/700))+
   geom_errorbar(aes(x=date,ymin=GPP.lower, ymax=GPP.upper), width=0.2, size=0.5)+
+  geom_line(aes(x=date, y=imp.shortwave/100), color="orange")+
+  geom_line(aes(x=date, y=imp.discharge/5), color="blue")+
   theme(legend.position="top")+
   theme_classic()+
   theme(axis.title.x=element_text(size=18,colour = "black"))+
@@ -315,6 +350,8 @@ ggplot(data=low.miss.2, aes(x=date, y=GPP))+
   xlab("Time (days)")+
   theme(axis.text.x=element_blank(),
         axis.ticks.x=element_blank())
+
+
 
 
 # Force missing data ------------------------------------------------------
