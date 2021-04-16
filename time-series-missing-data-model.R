@@ -56,11 +56,11 @@ sd(light.c)
 ##GPP based on time-series model with known paramters
 set.seed(553)
 x<-NA
-sdp <- 0.01
-phi <-0.5
+sdp <- 0.1
+phi <-0.8
 b0<-0.1
 b1<-0.1
-x[1]<-1.5
+x[1]<-3.5
 # Set the seed, so we can reproduce the results
 set.seed(553)
 # For-loop that simulates the state through time, using i instead of t,
@@ -137,9 +137,7 @@ legend("top",
 
 #Note-the model will still work if no data is missing but the objects in the next block of code (i.e., "y_index_mis", etc.)
 #still need to be created
-
 set.seed(90)
-#Store simulated data in a list (1 more than new missing datasets)
 y_miss<-list(x,x,x,x,x,x,x,x)
 
 #vector of missing number amounts
@@ -280,7 +278,7 @@ fit.miss <- vector("list",length(missing_n))
 model<-"toy2p.stan"
 model<-stan_model(model)
 
-for(i in 1:length(missing_n)){
+for(i in 2){#:length(missing_n)){
  
 ##Load data
 data <- list(   N = length(y_miss[[i]]),
@@ -340,9 +338,11 @@ ggplot(data=fit_summary_bayes, aes(x=mean, y=prop.missing ))+
   geom_vline(xintercept = known.data,color=c("blue", "darkgray", "green", "black"))
   
 
-saveRDS(fit.miss, file = "full_sim_day_bayes_sdp_01_phi_5.RDS")
-saveRDS(fit_summary_bayes, file = "summary_sim_day_bayes_sdp_01_phi_5.RDS")
-saveRDS(known, file = "known_sim_day_bayes_sdp_01_phi_5.RDS")
+saveRDS(fit.miss, file = "full_sim_day_bayes_sdp_1_phi_8.RDS")
+saveRDS(fit_summary_bayes, file = "summary_sim_day_bayes_sdp_1_phi_8.RDS")
+saveRDS(known, file = "known_sim_day_bayes_sdp_1_phi_8.RDS")
+
+
 write.csv(fit_summary_pars_bayes, "Rstan_missing data_bayes_sdp_01_phi_5.csv")
 ##Print and extract
 fit_extract<-rstan::extract(fit[[1]])
