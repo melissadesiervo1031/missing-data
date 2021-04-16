@@ -290,7 +290,7 @@ lowmiss2_missing_integers<-which(is.na(low.miss.2$GPP))
 lowmiss1<-as.data.frame(cbind(low.miss.1$GPP,low.miss.1$temp.water,low.miss.1$discharge, low.miss.1$shortwave,low.miss.1$date.f))
 colnames(lowmiss1)<-c("GPP", "temp","q","meas.light", "ts")
 z2<-amelia( lowmiss1, m = 5, p2s=1, ts="ts", lags="GPP", bounds=rbind(c(1,0,Inf)))
-i1<-z2$imputations[2]
+i1<-z2$imputations$imp1
 i2<-z2$imputations$imp2
 i3<-z2$imputations$imp3
 i4<-z2$imputations$imp4
@@ -361,54 +361,38 @@ ggplot(data=low.miss.2, aes(x=date, y=GPP))+
 #Note-the model will still work if no data is missing but the objects in the next block of code (i.e., "y_index_mis", etc.)
 #still need to be created
 set.seed(50)
-x<-low.miss.2$GPP
-y_miss<-list(x,x,x,x,x,x)
+
+x<-low.miss.1$GPP
+N<-length(x)
+y_miss<-list(x,x,x,x,x,x,x,x)
 #vector of missing number amounts
-missing_n_tot<-c(0,25,50,100,150,300)
-
-missing_n_week<-round(missing_n_tot/7)
-
+missing_n<-c(0,round(N*0.15),round(N*0.3),round(N*0.4),round(N*0.5),round(N*0.6),round(N*0.7),round(N*0.8))
 #Create a list to store missing data integers
 y_missing_integers<-c()
+#Create a vector of the length of data representing the indexes
+index<-c()
+index[[1]]<-1:N
 
 #Create initial missing data integer set. Then build on with the for loop
 y_missing_integers[[1]]<-which(is.na(y_miss[[1]]))
+#index<-index[-y_missing_integers[[1]]]
 
 #Adds the previous missing data integers to the next set. This makes them nested.
 #i.e, all the missing data 10 integers are added to 15 more to make missing data 15.
-for(i in 2:length(missing_n_week)){
-  h<-which(x %in% sample(x,(missing_n_week[i]-missing_n_week[i-1]), replace = FALSE))
-  y_missing_integers[[i]]<-c(h,y_missing_integers[[i-1]])
+for(i in 2:length(missing_n)){
+  h<-sample(index[[i-1]],(missing_n[i]-missing_n[i-1]), replace = FALSE)
+  index[[i]]<-setdiff(index[[i-1]],h)
+  y_missing_integers[[i]]<-unlist(c(h,y_missing_integers[[i-1]]))
 }
-
-
-for(i in 2:length(missing_n_week)){
-  q<-y_missing_integers[[i]]-3
-  w<-y_missing_integers[[i]]-2
-  e<-y_missing_integers[[i]]-1
-  t<-y_missing_integers[[i]]+1
-  y<-y_missing_integers[[i]]+2
-  u<-y_missing_integers[[i]]+3
-  y_missing_integers[[i]]<-c(y_missing_integers[[i]],q,w,e,t,y,u)
-}
-
-##Remove last value from indexes 6-8. Unique to this random seed and weeks.
-#Accidentally added a missing value to the end because it picked a value close to the end
-
-
 
 #Assign NAs to the missing data in each list
-for(i in 1:length(y_missing_integers)){
+for(i in 2:length(missing_n)){
   z<-y_miss[[i]]
   z[y_missing_integers[[i]]]<-NA
-  #z[1]<-x[1]
+  z[1]<-x[1]
   y_miss[[i]]<-z
 }
-
-y_miss[[6]]<-y_miss[[6]][1:length(y_miss[[6]])-1]
-
-summary(y_miss)
-
+#Check that each list has the right amount of missing data (or close to it...)
 miss<-sapply(y_miss, function(x) sum(length(which(is.na(x)))))
 prop.miss<-round(miss/length(x)*100)
 prop.miss
@@ -431,13 +415,13 @@ y_nObs <- lapply(y_index_obs,function(var){length(var)}) # How many NAs?
 
 
 ##Replace NAs with arbitrary number to make Stan happy
-for(i in 1:length(missing_n_week)){
+for(i in 1:length(missing_n)){
   r<-y_miss[[i]]
   r[y_missing_integers[[i]]]<--100 #arbitrary number
   r[1]<-x[1]
   y_miss[[i]]<-r
 } 
-y_miss[[6]]<-y_miss[[6]][1:length(y_miss[[6]])-1]
+
 summary(y_miss)
 
 #saveRDS(low.miss.1, file = "low.miss.1.missing.RDS") 
@@ -458,6 +442,7 @@ cat("
     vector[N] y_miss; // Observations
     real z0; // Initial state value
     vector[N] light;
+    vector[N] dis;
     int y_nMiss; // number of missing values
     int y_index_mis[y_nMiss]; // index or location of missing values within the dataset
   }
@@ -469,6 +454,7 @@ cat("
     //real<lower=0> sdo; // Standard deviation of the observation equation
     real b0;
     real b1;
+    real b2;
     real<lower = 0, upper=1 > phi; // Auto-regressive parameter
     //vector[N] z; // State time series
   }
@@ -486,11 +472,12 @@ cat("
     phi ~ beta(1,1);
     b0 ~ normal(0,5);
     b1 ~ normal(0,5);
+    b2 ~ normal(0,5);
     // Distribution for the first state
     y[1] ~ normal(z0, sdp);
     // Distributions for all other states
     for(t in 2:N){
-      y[t] ~ normal(b0+y[t-1]*phi+light[t]*b1, sdp);
+      y[t] ~ normal(b0+y[t-1]*phi+light[t]*b1+b2*dis[t], sdp);
     }
     // Distributions for the observations
    //for(t in 1:N){
@@ -503,9 +490,11 @@ cat("
  y_rep[1]=normal_rng(y[1], 0.1);
  
  for (t in 2:N) {
- y_rep[t]=normal_rng(b0+y[t-1]*phi+light[t]*b1, sdp);
+ y_rep[t]=normal_rng(b0+y[t-1]*phi+light[t]*b1+b2*dis[t], sdp);
  }
+ 
   }
+  
     "
     ,fill=TRUE)
 sink()
@@ -516,16 +505,17 @@ closeAllConnections()
 
 
 
-fit.miss <- vector("list",length(missing_n_week))
+fit.miss1 <- vector("list",length(missing_n))
 model<-"toy2p.stan"
 model<-stan_model(model)
-for(i in 1:length(missing_n_week)){
+for(i in 1:length(missing_n)){
   ##Load data
   data <- list(   N = length(y_miss[[i]]),
                   y_nMiss = unlist(y_nMiss[[i]]),
                   y_index_mis = unlist(y_index_mis[[i]]),
-                  y_miss= unlist(y_miss[[i]]),
-                  light=log(low.miss.1$sim.light),
+                  y_miss= unlist(y_miss[[1]]),
+                  light=log(low.miss.1$imp.shortwave),
+                  dis=log(low.miss.1$imp.discharge),
                   z0=y_miss[[i]][1])
   
   ##Run Stan
@@ -536,7 +526,7 @@ for(i in 1:length(missing_n_week)){
 
 
 ##HMC diagnostics
-rstan::check_hmc_diagnostics(fit.miss[[6]])
+rstan::check_hmc_diagnostics(fit.miss1[[1]])
 
 ##Traceplots
 traceplot(fit.miss[[6]], pars=c("phi", "b0","sdp", "b1"))
@@ -550,18 +540,19 @@ ppc_stat(y, yrep1[samp100, ])
 
 
 ##Exctract parameters
-fit_summary_pars_bayes <- vector("list",length(missing_n_week))
-for (i in 1:length(missing_n_week)){
-  fit_summary_pars_bayes[[i]]<-(summary(fit.miss[[i]], pars=c("sdp","phi", "b1", "b0"), probs=c(0.025,.5,.975))$summary)
+fit_summary_pars_bayes <- vector("list",1)#length(missing_n))
+
+for (i in 1:length(missing_n)){
+  fit_summary_pars_bayes[[i]]<-(summary(fit.miss1[[i]], pars=c("sdp","phi", "b1", "b0", "b2"), probs=c(0.025,.5,.975))$summary)
 }
 #check
-fit_summary_pars_bayes[[6]]
+fit_summary_pars_bayes[[1]]
 
 ##Unlist,cleanup, and add factors
 fit_summary_bayes<-as.data.frame(do.call(rbind.data.frame, fit_summary_pars_bayes)) #Unlist
-fit_summary_bayes$param<-rep(c("sdp","phi", "b1","b0"), times=length(missing_n_week) )#add parameter factor
-fit_summary_bayes$prop.missing<-rep(prop.miss, times=rep(4,times=length(missing_n_week))) #add prop of missing data
-row.names(fit_summary_bayes)<-1:(length(missing_n_week)*4) #remove row names
+fit_summary_bayes$param<-rep(c("sdp","phi", "b1","b0", "b2"), times=length(missing_n) )#add parameter factor
+fit_summary_bayes$prop.missing<-rep(prop.miss, times=rep(5,times=length(missing_n))) #add prop of missing data
+row.names(fit_summary_bayes)<-1:(length(missing_n)*5) #remove row names
 fit_summary_bayes$param<-as.factor(fit_summary_bayes$param) #make factor
 fit_summary_bayes$prop.missing<-as.factor(fit_summary_bayes$prop.missing) #make factor
 colnames(fit_summary_bayes)<-c("mean", "se-mean", "sd", "min", "med", "high","n_eff", "rhat", "param","prop.missing")
@@ -569,10 +560,10 @@ summary(fit_summary_bayes) #check it looks good
 head(fit_summary_bayes)
 
 ##Save lowest missing data as "known" for comparison with more missing data
-known.data<-fit_summary_bayes$mean[fit_summary_bayes$prop.missing==3]
+known.data<-fit_summary_bayes$mean[fit_summary_bayes$prop.missing==2]
 known<-as.data.frame(known.data)
 
-known.param<-c("sdp","phi", "b1","b0")
+known.param<-c("sdp","phi", "b1","b0", "b2")
 #known.missing<-c(5, 5, 5,5)
 known<-as.data.frame(cbind(known.data, known.param))
 known$known.data<-as.numeric(as.character(known$known.data))
@@ -590,13 +581,13 @@ ggplot(data=fit_summary_bayes, aes(x=mean, y=prop.missing ))+
   theme(legend.position="top")+
   ylab("Percent of Missing Data")+
   xlab("Parameter Estimate")+
-  scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
-  scale_x_continuous(limits=c(-12,1.8))+
+  scale_color_manual(values=c("blue", "green", "darkgray", "black", "orange"))+
+  scale_x_continuous(limits=c(-2,1))+
   theme(axis.title.x=element_text(size=18,colour = "black"))+
   theme(axis.title.y=element_text(size=18,colour = "black"))+
   theme(axis.text.y=element_text(size=18,colour = "black"))+
   theme(axis.text.x=element_text(size=18,colour = "black"))+
-  geom_vline(xintercept = known.data,color=c("black", "darkgray", "green", "blue"))
+  geom_vline(xintercept = known.data,color=c("orange", "black", "green", "blue", "darkgray"))
 
 
 ##Create object with estimated data
