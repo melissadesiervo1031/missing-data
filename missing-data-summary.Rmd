@@ -281,7 +281,7 @@ ggplot(data=y_reduced, aes(x=time, y=V1))+
 \
 \
 
-### Bayes estimated missing data-simulated missing days-high sdp and phi
+### Bayes estimated missing data-simulated missing days-high sdp (0.1) and phi (0.8)
 ``` {r , echo=FALSE, fig.cap=" ", fig.show="hold", out.width="50%"}
 fit.miss<- readRDS("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions/full_sim_day_bayes_sdp_1_phi_8_b0_1_b1_1.RDS")
 fit_summary<-summary(fit.miss[[2]], probs=c(0.025,.5,.975))$summary
@@ -464,13 +464,31 @@ ggplot(data=y_combined, aes(x=date, y=estimated))+
 \
 \
 
-### Bayes parameter-simulated missing days
+### Bayes parameter-simulated missing days-high sdp (0.1) and phi (0.8)
 ``` {r , echo=FALSE, fig.cap=" ", fig.show="hold", out.width="50%"}
-
+##Load model output
 fit_sim_summary_bayes <- readRDS("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions/summary_sim_day_bayes_sdp_1_phi_8_b0_1_b1_1.RDS")
 known.data.sim<- readRDS("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions/known_sim_day_bayes_sdp_1_phi_8_b0_1_b1_1.RDS")
 
-known.data.sim$known.data<-c(0.1, 0.8, 0.098, 0.102)
+##Fix known values 
+fit_sim_summary_bayes$known.param<-rep(c(0.1, 0.8, 0.1, 0.1), times=8)
+
+##Calculate denominator of rwci for easier calculation
+fit_sim_summary_bayes$rwci.den<-rep(fit_sim_summary_bayes$high[1:4]-fit_sim_summary_bayes$min[1:4], times=8)
+
+
+##Calculate bias (difference from known) and rwci (relative width of the credible interval)
+
+diff<-ddply(fit_sim_summary_bayes, c("prop.missing", "param"),summarize,
+             bias=mean-known.param, 
+             rwci= (high-min)/rwci.den
+             )
+
+fit_sim_summary_bayes$bias<-diff$bias
+fit_sim_summary_bayes$rwci<-diff$rwci
+
+
+##Plot the parameters
 ggplot(data=fit_sim_summary_bayes, aes(x=mean, y=prop.missing ))+
   geom_point(aes( color=param, group=param),size=3,position=position_dodge(0.5))+
   theme_classic()+
@@ -487,21 +505,54 @@ ggplot(data=fit_sim_summary_bayes, aes(x=mean, y=prop.missing ))+
   geom_vline(xintercept = known.data.sim$known.data,color=c("blue", "darkgray", "green", "black"))
 
 
-ggplot(data=fit_sim_summary_bayes, aes(x=mean, y=prop.missing ))+
-    #geom_point(aes( color=param, group=param),size=3,position=position_dodge(0.5))+
-    theme_classic()+
-    #geom_errorbar(aes(xmin=ci.min, xmax=ci.max,color=param, group=param), width=0.2,position=position_dodge(0.5))+
-    theme(legend.position="top")+
-    ylab("Percent of Missing Data")+
-    xlab("Parameter Estimate")+
-    scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
-    scale_x_continuous(limits=c(-.2,0.9))+
-    theme(axis.title.x=element_text(size=18,colour = "black"))+
-    theme(axis.title.y=element_text(size=18,colour = "black"))+
-    theme(axis.text.y=element_text(size=18,colour = "black"))+
-    theme(axis.text.x=element_text(size=18,colour = "black"))+
-  geom_blank()+
-   geom_vline(xintercept = known.data.sim$known.data,color=c("blue", "darkgray", "green", "black"))
+ggplot(data=fit_sim_summary_bayes, aes(x=bias, y=prop.missing ))+
+  geom_point(aes( color=param, group=param),size=3,position=position_dodge(0.5))+
+  theme_classic()+
+  theme(legend.position="right")+
+  ylab("Percent of Missing Data")+
+  xlab("Bias")+
+  scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
+  scale_x_continuous(limits=c(-0.1,0.1))+
+  theme(axis.title.x=element_text(size=18,colour = "black"))+
+  theme(axis.title.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.x=element_text(size=18,colour = "black"))+
+  geom_vline(xintercept = 0,color=c("black"))
+
+ggplot(data=fit_sim_summary_bayes, aes(x=log(rwci), y=prop.missing ))+
+  geom_point(aes( color=param, group=param),size=3,position=position_dodge(0.5))+
+  theme_classic()+
+  theme(legend.position="right")+
+  ylab("Percent of Missing Data")+
+  xlab("log(RWCI)")+
+  scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
+  #scale_x_continuous(limits=c(-0.1,0.1))+
+  theme(axis.title.x=element_text(size=18,colour = "black"))+
+  theme(axis.title.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.x=element_text(size=18,colour = "black"))+
+  geom_vline(xintercept = 0,color=c("black"))
+
+
+
+
+
+####blank graph for presentations
+#ggplot(data=fit_sim_summary_bayes, aes(x=mean, y=prop.missing ))+
+  #  geom_point(aes( color=param, group=param),size=3,position=position_dodge(0.5))+
+  #  theme_classic()+
+  #  geom_errorbar(aes(xmin=ci.min, xmax=ci.max,color=param, group=param), width=0.2,position=position_dodge(0.5))+
+  #  theme(legend.position="top")+
+  #  ylab("Percent of Missing Data")+
+  #  xlab("Parameter Estimate")+
+  #  scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
+  #  scale_x_continuous(limits=c(-.2,0.9))+
+  #  theme(axis.title.x=element_text(size=18,colour = "black"))+
+  #  theme(axis.title.y=element_text(size=18,colour = "black"))+
+  #  theme(axis.text.y=element_text(size=18,colour = "black"))+
+  #  theme(axis.text.x=element_text(size=18,colour = "black"))+
+  #geom_blank()+
+  # geom_vline(xintercept = known.data.sim$known.data,color=c("blue", "darkgray", #"green", "black"))
 
 ```
 \
@@ -584,19 +635,48 @@ for(i in 6){
 \
 ### Amelia parameter-simulated missing days sdp=0.1, phi=0.8
 ``` {r , echo=FALSE, fig.cap="", fig.show="hold", out.width="50%"}
-fit_sim_summary_amelia <- readRDS("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions/summary_sim_day_amelia_log_sdp_1_phi_8_b0_1_b1_1.RDS")
-known.data.sim<- readRDS("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions/known_sim_day_amelia_log_sdp_1_phi_8_b0_1_b1_1.RDS")
- 
+fit_sim_summary_amelia <- readRDS("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions/summary_sim_day_amelia_sdp_1_phi_8_b0_1_b1_1.RDS")
+
+known.data.sim<- readRDS("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions/known_sim_day_amelia_sdp_1_phi_8_b0_1_b1_1.RDS")
+
+
+##Create known parameters with some variation for graphing purposes
+known.data.sim$known.data<-c(0.1, 0.8, 0.098, 0.102)
+
+##Fix known values 
+fit_sim_summary_amelia$known.param<-c(rep(c(0.1, 0.8, 0.1, 0.1), times=1),rep(rep(c(0.1, 0.8, 0.1, 0.1), times=5), times=7))
+fit_sim_summary_amelia$imput<-as.factor(c(rep(0, times=4),rep(rep(1:5, each=4), times=7)))
+
+##Calculate denominator of rwci for easier calculation
+fit_sim_summary_amelia$rwci.den<-c(rep(fit_sim_summary_amelia$high[1:4]-fit_sim_summary_amelia$min[1:4], times=1),rep(rep(fit_sim_summary_amelia$high[1:4]-fit_sim_summary_amelia$min[1:4], times=5), times=7))
+
+
+
+
+##Calculate bias (difference from known) and rwci (relative width of the credible interval)
+
+diff<-ddply(fit_sim_summary_amelia, c("prop.missing", "param", "imput"),summarize,
+             bias=(avg-known.param), 
+             rwci= (ci.max-ci.min)/rwci.den
+             )
+fit_sim_summary_amelia$bias<-fit_sim_summary_amelia$avg-fit_sim_summary_amelia$known.param
+fit_sim_summary_amelia$bias<-diff$bias
+fit_sim_summary_amelia$rwci<-diff$rwci
+
+
+##Average across imputations (for now)
 summ<-ddply(fit_sim_summary_amelia, c("param", "prop.missing"), summarize,
        avg    = mean(mean),
        ci.min = mean(min),
-       ci.max = mean(high))
+       ci.max = mean(high),
+       rwci= mean(rwci), 
+       bias=mean(bias))
 
-known.data.sim$known.data<-c(0.1, 0.8, 0.098, 0.102)
 
 fit_summary<-left_join(fit_sim_summary_amelia, summ, by=c("param", "prop.missing"))
 
-ggplot(data=fit_summary, aes(x=avg, y=prop.missing ))+
+
+ggplot(data=summ, aes(x=avg, y=prop.missing ))+
     geom_point(aes( color=param, group=param),size=3,position=position_dodge(0.5))+
     theme_classic()+
     geom_errorbar(aes(xmin=ci.min, xmax=ci.max,color=param, group=param), width=0.2,position=position_dodge(0.5))+
@@ -610,6 +690,34 @@ ggplot(data=fit_summary, aes(x=avg, y=prop.missing ))+
     theme(axis.text.y=element_text(size=18,colour = "black"))+
     theme(axis.text.x=element_text(size=18,colour = "black"))+
    geom_vline(xintercept = known.data.sim$known.data,color=c("blue", "darkgray", "green", "black"))
+
+ggplot(data=summ, aes(x=bias, y=prop.missing ))+
+    geom_point(aes( color=param, group=param),size=3,position=position_dodge(0.5))+
+    theme_classic()+
+    theme(legend.position="top")+
+    ylab("Percent of Missing Data")+
+    xlab("Parameter Estimate")+
+    scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
+    #scale_x_continuous(limits=c(-.2,0.9))+
+    theme(axis.title.x=element_text(size=18,colour = "black"))+
+    theme(axis.title.y=element_text(size=18,colour = "black"))+
+    theme(axis.text.y=element_text(size=18,colour = "black"))+
+    theme(axis.text.x=element_text(size=18,colour = "black"))
+
+ggplot(data=summ, aes(x=log(rwci), y=prop.missing ))+
+    geom_point(aes( color=param, group=param),size=3,position=position_dodge(0.5))+
+    theme_classic()+
+    theme(legend.position="top")+
+    ylab("Percent of Missing Data")+
+    xlab("Parameter Estimate")+
+    scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
+    #scale_x_continuous(limits=c(-.2,0.9))+
+    theme(axis.title.x=element_text(size=18,colour = "black"))+
+    theme(axis.title.y=element_text(size=18,colour = "black"))+
+    theme(axis.text.y=element_text(size=18,colour = "black"))+
+    theme(axis.text.x=element_text(size=18,colour = "black"))
+
+
 ```
 \
 \
