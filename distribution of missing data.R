@@ -69,24 +69,95 @@ df$length_miss<-length_miss
 
 ## estimate negative binomial distribution parameters of missing data length integers
 length_miss_parm<-length_miss[complete.cases(length_miss)]
-length_miss_parm<-length_miss_parm[length_miss_parm<90]
+length_miss_parm_zero<-length_miss_parm[length_miss_parm<90]
+length_miss_parm<-length_miss_parm_zero[length_miss_parm_zero>0]
+
+##regular neg binomial
 func<- function(P){
-  -sum( dzinbinom (length_miss_parm, mu= P[1], size = P[2],pi=P[3], log= TRUE))
+  -sum( dnbinom (length_miss_parm, size= P[1], prob = P[2], p0=P[3]))
 }
 
-mle<-nlm(func,P<- c(7,0.5,0.2))
+mle<-nlm(func,P<- c(2.5,0.5,0.5))
+
+
+##zero truncated negative binomal
+func<- function(P){
+  -sum( dzmnbinom (length_miss_parm_zero, size= P[1], prob = P[2], p0=0.9), log=TRUE)
+}
+
+mle<-nlm(func,P<- c(2,0.5))
+
 
 
 ## plot histogram
-hist(length_miss_parm, breaks=seq(0,max(length_miss[complete.cases(length_miss)]),by=1), prob=TRUE, ylim=c(0,1.2), xlab="Length of missing data gap",
+hist(length_miss_parm_zero, breaks=seq(0,max(length_miss[complete.cases(length_miss)]),by=1), prob=TRUE, xlim=c(0,70),ylim=c(0,1), xlab="Length of missing data gap",
      #main="Negative binomial distribution with mu=8.6 and size=0.65")
      main="Histogram of missing data gap lengths from Shatto")
 
 ## plot distribution of negative binomial using estimated parameters
-x=0:max(length_miss[complete.cases(length_miss)])
-dist<-dzinbinom(x=x,size=mle$estimate[2],mu=mle$estimate[1], pi=mle$estimate[3])
+x=0:max(length_miss_parm)
+dist<-dzmnbinom(x=x,size=mle$estimate[1],prob=mle$estimate[2], p0=0.9)
 points(dist, col="red")
 plot(x, dist)
+
+
+N<-365 #length of data
+t<-1:N #time
+time<-seq(as.POSIXct("2020/1/1"),as.POSIXct("2020/12/30"), by="day") #for light
+
+##light
+# From Yard et al. (1995) Ecological Modelling.  Remember your trig?  
+# calculate light as umol photon m-2 s-1.
+# Arguments are:  
+# time = a date and time input (posixct object)
+# lat = latitude of field site
+# longobs = longitude of field site
+# longstd = standard longitude of the field site (NOTE: watch daylight savings time!!!). For PST, longstd is be 120 degrees. But during PDT it is 105 degrees. MST is 105 deg. MDT is 90. 
+
+
+# convert degrees to radians
+radi<-function(degrees){(degrees*pi/180)}
+
+# function to estimate light
+lightest<- function (time, lat, longobs, longstd) {
+  jday<-yday(time)
+  E<- 9.87*sin(radi((720*(jday-81))/365)) - 7.53*cos(radi((360*(jday-81))/365)) - 1.5*sin(radi((360*(jday-81))/365))
+  LST<-as.numeric(time-trunc(time))
+  ST<-LST+(3.989/1440)*(longstd-longobs)+E/1440
+  solardel<- 23.439*sin(radi(360*((283+jday)/365)))
+  hourangle<-(0.5-ST)*360
+  theta<- acos( sin(radi(solardel)) * sin(radi(lat)) + cos(radi(solardel)) * cos(radi(lat)) * cos(radi(hourangle)) )
+  suncos<-ifelse(cos(theta)<0, 0, cos(theta))
+  GI<- suncos*2326
+  GI	
+  
+}
+light<-lightest(time, 47.8762, -114.03, 105) #Flathead Bio Station just for fun
+light.l<-log(light)
+light.c<-(light-mean(light))/sd(light)
+
+
+
+##GPP based on time-series model with known paramters
+set.seed(553)
+x<-NA
+sdp <- 0.1
+phi <-0.8
+b0<-0.1
+b1<-0.1
+x[1]<-3.5
+# Set the seed, so we can reproduce the results
+set.seed(553)
+# For-loop that simulates the state through time, using i instead of t,
+for (t in 2:N){
+  x[t] = b0+phi*x[t-1]+light.l[t]*b1+rnorm(1, 0, sdp)
+}
+
+
+## create random missing data vector using zero-inflated distribution
+sim.prob<-rzmnbinom(x, size=mle$estimate[1],size=25,p0=0.8)
+hist(sim.prob, prob=TRUE,ylim=c(0,1) )
+
 
 ## plot sum of gaps by julian day (the day the gap ended)
 #No observable trend. Suggests there is no bias of missing data for a specific time of the year
