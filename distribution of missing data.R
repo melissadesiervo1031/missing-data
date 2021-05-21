@@ -45,7 +45,7 @@ length_miss<-NA
 x[1]<-N[1]
 length_miss[1]<-1
 
-#loop over data and return the length of gaps
+#loop over data and return the length of missing data gaps
 for (i in 2:length(df$GPP)){
   x[i]<-ifelse(N[i]==1,1+x[i-1], 0) #If data is missing add to yesterdays value by 1. If data observed then 0.
   length_miss[i]<-ifelse(x[i]==0,x[i-1], NA) #Save length of gap on the day data is observed (0) after a gap
@@ -100,63 +100,58 @@ dist<-dzmnbinom(x=x,size=mle$estimate[1],prob=mle$estimate[2], p0=0.9)
 points(dist, col="red")
 plot(x, dist)
 
-
-N<-365 #length of data
-t<-1:N #time
-time<-seq(as.POSIXct("2020/1/1"),as.POSIXct("2020/12/30"), by="day") #for light
-
-##light
-# From Yard et al. (1995) Ecological Modelling.  Remember your trig?  
-# calculate light as umol photon m-2 s-1.
-# Arguments are:  
-# time = a date and time input (posixct object)
-# lat = latitude of field site
-# longobs = longitude of field site
-# longstd = standard longitude of the field site (NOTE: watch daylight savings time!!!). For PST, longstd is be 120 degrees. But during PDT it is 105 degrees. MST is 105 deg. MDT is 90. 
-
-
-# convert degrees to radians
-radi<-function(degrees){(degrees*pi/180)}
-
-# function to estimate light
-lightest<- function (time, lat, longobs, longstd) {
-  jday<-yday(time)
-  E<- 9.87*sin(radi((720*(jday-81))/365)) - 7.53*cos(radi((360*(jday-81))/365)) - 1.5*sin(radi((360*(jday-81))/365))
-  LST<-as.numeric(time-trunc(time))
-  ST<-LST+(3.989/1440)*(longstd-longobs)+E/1440
-  solardel<- 23.439*sin(radi(360*((283+jday)/365)))
-  hourangle<-(0.5-ST)*360
-  theta<- acos( sin(radi(solardel)) * sin(radi(lat)) + cos(radi(solardel)) * cos(radi(lat)) * cos(radi(hourangle)) )
-  suncos<-ifelse(cos(theta)<0, 0, cos(theta))
-  GI<- suncos*2326
-  GI	
-  
-}
-light<-lightest(time, 47.8762, -114.03, 105) #Flathead Bio Station just for fun
-light.l<-log(light)
-light.c<-(light-mean(light))/sd(light)
-
-
-
-##GPP based on time-series model with known paramters
-set.seed(553)
-x<-NA
-sdp <- 0.1
-phi <-0.8
-b0<-0.1
-b1<-0.1
-x[1]<-3.5
-# Set the seed, so we can reproduce the results
-set.seed(553)
-# For-loop that simulates the state through time, using i instead of t,
-for (t in 2:N){
-  x[t] = b0+phi*x[t-1]+light.l[t]*b1+rnorm(1, 0, sdp)
-}
-
-
 ## create random missing data vector using zero-inflated distribution
 sim.prob<-rzmnbinom(x, size=mle$estimate[1],size=25,p0=0.8)
 hist(sim.prob, prob=TRUE,ylim=c(0,1) )
+
+
+## create random missing data vector using by randomly pulling from the data
+N<-1:365
+n<-365
+s<-sample(length_miss_parm_zero,300,replace=TRUE)
+index<-NA
+
+obs<-na.omit(length_obs)
+obs<-obs[which(obs>0)]
+miss<-na.omit(length_miss)
+miss<-miss[which(miss>0)]
+
+saveRDS(miss, file = "SDW_miss_length.RDS")
+saveRDS(obs, file = "SDW_obs_length.RDS")
+
+
+sample.miss<-sample(miss,200,replace=TRUE)
+sample.obs<-sample(obs,200,replace=TRUE)
+
+N<-1:365
+n<-365
+new<-sample.obs[1]
+
+
+for(i in 1:n){
+
+remove<-seq(from=new+1, to=new+sample.miss[i], by=1)
+N[remove]<-0
+new<-new+sample.miss[i]+sample.obs[i+1]
+if (new>=n){
+  break
+}
+}
+
+
+for (i in 1:N){
+  s[i]<-sample(length_miss_parm_zero,1,replace=TRUE)
+
+if (s[i]==0){
+  new_N[i]<-N[i]
+}else{
+  new_N[N[i]:(N[i]+s[i])]<-0
+}
+  if (length(new_n)>= N)  {
+    break
+}
+
+}
 
 
 ## plot sum of gaps by julian day (the day the gap ended)
