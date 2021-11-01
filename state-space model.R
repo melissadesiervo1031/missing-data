@@ -160,16 +160,16 @@ fit<-rstan::sampling(object=model, data = data,  iter = 3000, chains = 4)#, cont
 
 ##Print and extract
 fit_extract<-rstan::extract(fit)
-print(fit, pars=c( "sdo","phi",  "sdp", "b0" ))
+print(fit, pars=c( "sdo","phi", "b1", "sdp", "b0" ))
 
-pairs(fit, pars=c("sdo","phi",  "sdp","b0"))
+pairs(fit, pars=c("sdo","phi","b1", "sdp","b0"))
 
 ##HMC diagnostics
 rstan::check_hmc_diagnostics(fit)
 
 ##Traceplots
 
-traceplot(fit, pars=c("phi"))
+traceplot(fit, pars=c("sdo","phi", "b1", "sdp", "b0"))
 
 ##Plot density plots
 plot_sdo <- stan_dens(fit, pars="sdo") + geom_vline(xintercept =sdo)
