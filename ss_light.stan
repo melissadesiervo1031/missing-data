@@ -24,8 +24,8 @@
   /*----------------------- Model --------------------------*/
   model {
     // Prior distributions
-    sdo ~ normal(0, 1);
-    sdp ~ normal(0, 1);
+    sdo ~ normal(0, 0.1);
+    sdp ~ normal(0, 0.1);
     phi ~ beta(1,1);
     b0 ~ normal(0,5);
     b1 ~ normal(0,5);
@@ -35,10 +35,9 @@
   
     // Distributions for all other states
     for(t in 2:N){
-       z[t] ~ normal(b0+ z[t-1]*phi+b1*light, sdp);// process model with error
+       z[t] ~ normal(b0+z[t-1]*phi+light[t]*b1, sdp);// process model with error
     }
        y ~ normal(z, sdo); // observation model with fixed observation error
      }
   
-  
-    
+      
