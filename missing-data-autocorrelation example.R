@@ -18,18 +18,6 @@ N<-365 #length of data
 t<-1:N #time
 time<-seq(as.POSIXct("2020/1/1"),as.POSIXct("2020/12/30"), by="day") #for light
 
-##GPP based on time-series model with known paramters
-set.seed(553)
-x<-NA
-sdp <- 0.1
-phi<- 0.5
-x[1]<-0.1
-b1<-0.5
-
-
-
-
-
 ##light
 # From Yard et al. (1995) Ecological Modelling.  Remember your trig?  
 # calculate light as umol photon m-2 s-1.
@@ -57,12 +45,18 @@ lightest<- function (time, lat, longobs, longstd) {
   GI	
   
 }
+##Create light data
 light<-lightest(time, 47.8762, -114.03, 105) #Flathead Bio Station just for fun
-light.l<-log(light)
-light.c<-(light-mean(light))/sd(light)
+##Make relative to max
 light.rel<-light/max(light)
-mean(light.c)
-sd(light.c)
+
+##Simulate GPP based on time-series model with known parameters
+set.seed(553)
+x<-NA
+sdp <- 0.1 #Process error
+phi<- 0.5 #Autocorrelation
+x[1]<-0.1 #Starting value
+b1<-0.5 #Light coefficient
 
 
 
@@ -80,6 +74,7 @@ plot(1:N, x[1:N],
      xlim = c(0,N), ylim = c(min(x), max(x)),
      las = 1)
 
+###Create many datasets with artificially remoced data with different lengths of data gaps
 
 ##Loads lists of missing and observed data lengths from 10 yrs of data collected at Shatto Ditch
 obs<-readRDS("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions/SDW_obs_length.RDS")
@@ -214,7 +209,7 @@ for(i in 1:n.datasets){
 
 summary(y_miss)
 
-
+##STAN model
 
 sink("mcelreath_miss_ss.stan")
 
@@ -289,7 +284,7 @@ cat("
 sink()
 closeAllConnections()
 
-
+##Run STAN model looping through each dataset
 fit.miss <- vector("list",n.datasets)
 model<-"mcelreath_miss_ss.stan"
 model<-stan_model(model)
@@ -300,11 +295,14 @@ for(i in 1:10){
   y_index_mis = unlist(y_index_mis[[i]]),
   y_miss= unlist(y_miss[[i]]),
   z0=y_miss[[i]][1])
+  ##Run model
   fit.miss[[i]]<- rstan::sampling(object=model, data = data,  iter = 4000, chains = 4, control=list(max_treedepth = 15))
   print(i)
+  ##Report errors, if any
   rstan::check_hmc_diagnostics(fit.miss[[i]])
 }
 
+##Check traceplots individually
 traceplot(fit.miss[[1]], pars=c("phi","sdp","b0"))
 
 
@@ -327,15 +325,15 @@ colnames(fit_summary_bayes)<-c("mean", "se-mean", "sd", "min", "med", "high","n_
 summary(fit_summary_bayes) #check it looks good
 head(fit_summary_bayes)
 
+##Create known data
 fit_summary_bayes<-fit_summary_bayes[order(fit_summary_bayes$prop.missing),]
 known.data<-c(sdp,phi,0)
 known<-as.data.frame(known.data)
-
 known.param<-c("sdp","phi","b0")
-#known.missing<-c(5, 5, 5,5)
 known<-as.data.frame(cbind(known.data, known.param))
 known$known.data<-as.numeric(as.character(known$known.data))
 
+##Plot against missing data
 ggplot(data=fit_summary_bayes, aes(x=mean, y=prop.missing ))+
   geom_point(aes( color=param, group=param),size=3)+
   theme_classic()+
@@ -351,7 +349,7 @@ ggplot(data=fit_summary_bayes, aes(x=mean, y=prop.missing ))+
   geom_vline(xintercept = known.data,color=c("black", "green", "blue"))
 
 
-
+##Calculate bias and relative width of credible interval (RWCI)
 ##Calculate denominator of rwci for easier calculation
 fit_summary_bayes$rwci.den<-rep(fit_summary_bayes$high[1:3]-fit_summary_bayes$min[1:3], times=10)
 fit_summary_bayes$known.param<-rep(c(0.1, 0.5, 0), times=10)
