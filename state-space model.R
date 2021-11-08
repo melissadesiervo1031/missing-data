@@ -200,7 +200,7 @@ cat("
   model {
     // Prior distributions
     sdo ~ normal(0, 1);
-    sdp ~ normal(0, 5);
+    sdp ~ normal(0, 1);
     phi ~ beta(1,1);
     b0 ~ normal(0, 5);
     
