@@ -69,7 +69,8 @@ cat("
   
   parameters {
     real<lower=0> sdp; // Standard deviation of the process equation
-    real<lower = 0, upper=1 > phi; // Auto-regressive parameter
+    
+    //real<lower = 0, upper=1 > phi; // Auto-regressive parameter
       }
   
 
@@ -77,14 +78,14 @@ cat("
   model {
     // Prior distributions
     sdp ~ normal(0, 1);
-    phi ~ beta(1,1);
+    //phi ~ beta(1,1);
    
     // Distribution for the first state
     z[1] ~ normal(z0, sdp);
   
     // Distributions for all other states
     for(t in 2:N){
-       z[t] ~ normal(z[t-1]*phi, sdp);// process model with error
+       z[t] ~ normal(z[t-1], sdp);// process model with error
     }
   }
     
@@ -137,13 +138,13 @@ t<-numeric(N+1)
 set.seed(553)
 sdp <- 0.1
 sdo<-0.1
-phi<-0.2
+phi<-0.8
 
 ## Set the seed, so we can reproduce the results
 set.seed(553)
 ## For-loop that simulates the state through time, using i instead of t,
 for (i in 1:N){
-  z[i+1] =z[i]+rnorm(1, 0, sdp)
+  z[i+1] =z[i]*phi+rnorm(1, 0, sdp)
 }
 
 #Estimate observed data
@@ -152,7 +153,7 @@ sd.o <-rnorm(N, 0, sdo)
 y <-z[2:(N+1)]+ sd.o
 #y[501]<-NA
 ##Bind simulated data and time
-y_full_am<-as.data.frame(cbind(z,y,t))
+#y_full_am<-as.data.frame(cbind(z,y,t))
 
 
 ##Plot
@@ -199,7 +200,7 @@ cat("
   model {
     // Prior distributions
     sdo ~ normal(0, 1);
-    sdp ~ normal(0, 1);
+    sdp ~ normal(0, 5);
     phi ~ beta(1,1);
     b0 ~ normal(0, 5);
     
@@ -209,10 +210,8 @@ cat("
   
     // Distributions for all other states
     for(i in 2:N){
-       z[i] ~ normal(b0+z[i-1]*phi, sdp);// process model with error
-    }
+       z[i] ~ normal(z[i-1]*phi+b0, sdp);// process model with error
     
-    for(i in 1:N){
        y[i] ~ normal(z[i], sdo); // observation model with fixed observation error
     }
 
@@ -235,8 +234,9 @@ fit<-rstan::sampling(object=model, data = data,  iter = 4000, chains = 4)#, cont
 
 ##Print and extract
 fit_extract<-rstan::extract(fit)
-print(fit, pars=c( "sdo", "sdp"))
+print(fit, pars=c( "sdo", "sdp", "phi","b0"))
 
+##Check pairs plot
 pairs(fit, pars=c("sdo", "sdp"))
 
 ##HMC diagnostics
@@ -244,13 +244,14 @@ rstan::check_hmc_diagnostics(fit)
 
 ##Traceplots
 
-traceplot(fit, pars=c("sdo","sdp"))
+traceplot(fit, pars=c("sdo","sdp", "phi", "b0"))
 
 ##Plot density plots
 plot_sdo <- stan_dens(fit, pars="sdo") + geom_vline(xintercept =sdo)
 plot_sdp <- stan_dens(fit, pars="sdp") + geom_vline(xintercept = sdp)
-
-grid.arrange(plot_sdp,plot_sdo, nrow=2)
+plot_phi <- stan_dens(fit, pars="phi") + geom_vline(xintercept = phi)
+plot_b0 <- stan_dens(fit, pars="b0") + geom_vline(xintercept =0)
+grid.arrange(plot_sdp,plot_sdo, plot_phi, plot_b0, nrow=2)
 
 
 
