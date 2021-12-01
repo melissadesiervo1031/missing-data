@@ -18,7 +18,8 @@ library(Amelia)
 # Simulate data -----------------------------------------------------------
 
 N<-365 #length of data
-t<-1:N #time
+z<-numeric(N+1) 
+tt<-0:N
 time<-seq(as.POSIXct("2020/1/1"),as.POSIXct("2020/12/30"), by="day") #for light
 
 
@@ -50,48 +51,41 @@ lightest<- function (time, lat, longobs, longstd) {
   GI	
   
 }
-light<-lightest(time, 47.8762, -114.03, 105) #Flathead Bio Station just for fun
-light.l<-log(light)
-light.c<-(light-mean(light))/sd(light)
-mean(light.c)
-sd(light.c)
 
+#Estimate 'real' light data
+light<-lightest(time, 47.8762, -114.03, 105) #Flathead Bio Station just for fun
+
+#Condense light to be relative to max light
+light.rel<-light/max(light)
 
 ##GPP based on time-series model with known paramters
 set.seed(553)
-x<-NA
-sdp <- 0.01
+sdp <- 0.1
+sdo<-0.1
 phi <-0.8
-b0<-0.1
-b1<-0.1
-x[1]<-3.5
+b1<-0.6
 
+z[1]<-1
 ## Set the seed, so we can reproduce the results
-set.seed(553)
+set.seed(5)
 ## For-loop that simulates the state through time, using i instead of t,
-for (t in 2:N){
-  x[t] = b0+phi*x[t-1]+light.l[t]*b1+rnorm(1, 0, sdp)
+for (i in 1:365){
+  z[i+1] = z[i]*phi+light.rel[i]*b1+rnorm(1, 0, sdp)
 }
 
-#Estimate latent state
-#for (t in 2:N){
-#      x[t] = b0+phi*x[t-1]+rnorm(1, 0, sd.p)
-#}
-
-
 #Estimate observed data
-#set.seed(553)
-#sd.o<-0.2
-#sdo <-rnorm(N, 0, sd.o)
-#y <-x + sdo
-
-#sdo_sd<-mean(abs(sdo))
+set.seed(4)
+sd.o <-rnorm(N, 0, sdo)
+y <-z[2:(N+1)] + sd.o
+y[N+1]<-NA
 
 ##Bind simulated data and time
-y_full<-as.data.frame(cbind(x,time))
+y_full<-as.data.frame(cbind(z,y,tt))
+y_full$tt<-as.factor(y_full$tt)
 
-ggplot(data=y_full, aes(x=time, y=x))+
-  geom_point(color="black", size=3)+
+ggplot(data=y_full, aes(x=tt, y=z))+
+  geom_point(aes(color="state"), size=2)+
+  geom_point(aes(y=y, x=tt,color="observed"), size=2)+
   theme_classic()+
   theme(axis.title.x=element_text(size=18,colour = "black"))+
   theme(axis.title.y=element_text(size=18,colour = "black"))+
@@ -102,51 +96,9 @@ ggplot(data=y_full, aes(x=time, y=x))+
   xlab("Time (days)")+
   theme(axis.text.x=element_blank(),
         axis.ticks.x=element_blank())+
-  ggtitle("Full dataset")
-
-##Plot missing data (after doing below code)       
-t<-1:N
-y_miss_40<-as.data.frame(cbind(y_miss[[6]],t))
-
-ggplot(data=y_miss_40, aes(x=t, y=V1))+
-  geom_point(color="black", size=3)+
-  theme_classic()+
-  theme(axis.title.x=element_text(size=18,colour = "black"))+
-  theme(axis.title.y=element_text(size=18,colour = "black"))+
-  theme(axis.text.y=element_text(size=18,colour = "black"))+
-  theme(axis.text.x=element_text(size=18,colour = "black"))+
-  theme(legend.position="top")+
-  ylab("Data")+
-  xlab("Time (days)")+
-  theme(axis.text.x=element_blank(),
-        axis.ticks.x=element_blank())+
-  ggtitle("60% removed")
+  scale_color_manual(name=c("observed","state"), values = c("red","black"))
 
 
-
-##Plot observed and latent
-plot(1:N, x[1:N],
-     pch=3, cex = 0.8, col="blue", ty="o", lty = 3,
-     xlab = "t", ylab = expression(z[t]),
-     xlim = c(0,N), ylim = c(min(x), max(x)),
-     las = 1)
-points(1:N, y,
-       pch = 19, cex = 0.7, col="red", ty = "o")
-legend("top",
-       legend = c("Obs.", "Latent states"),
-       pch = c(3, 19),
-       col = c("blue", "red"),
-       lty = c(3, 1),
-       horiz=TRUE, bty="n", cex=0.9)
-
-#Center data
-#y<-(y-mean(y))/sd(y)
-#mean(y)
-#sd(y)
-
-#x<-(x-mean(x))/sd(x)
-#mean(x)
-#sd(x)
 
 
 
@@ -163,7 +115,7 @@ miss<-readRDS("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_p
 
 ##Replicate simulated data
 n.datasets<-41
-y_miss<-list(x)
+y_miss<-list(y[1:365])
 y_miss<-rep(y_miss[1], times=n.datasets)
 
 
@@ -293,24 +245,11 @@ summary(y_miss)
 # Model code for STAN -----------------------------------------------------
 
 
-sink("mcelreath_miss.stan")
+sink("mcelreath_miss_ss1.stan")
 
 cat("
  
 
-/*----------------------- Functions --------------------------*/  
-  functions{
-    vector merge_missing( int[] y_index_mis, vector y_miss, vector y_imp) {
-    int N = dims(y_miss)[1];
-    int N_miss = dims(y_imp)[1];
-    vector[N] merged;
-    merged = y_miss;
-    for (i in 1:N_miss)
-        merged[y_index_mis[i] ] =y_imp[i];
-    return merged;    
-    }
-  }
-  
 /*----------------------- Data --------------------------*/
   /* Data block: defines the objects that will be inputted as data */
   data {
@@ -318,47 +257,46 @@ cat("
     vector[N] y_miss; // Observations
     real z0; // Initial state value
     vector[N] light;
-    int y_nMiss; // number of missing values
-    int y_index_mis[y_nMiss]; // index or location of missing values within the dataset
+   vector[N] miss_vec; // index or location of missing values within the dataset
   }
   
 /*----------------------- Parameters --------------------------*/
   /* Parameter block: defines the variables that will be sampled */
   parameters {
-    vector<lower = 0>[y_nMiss] y_imp;// Missing data
     real<lower=0> sdp; // Standard deviation of the process equation
-    //real<lower=0> sdo; // Standard deviation of the observation equation
+    real<lower=0> sdo; // Standard deviation of the observation equation
     real b0;
     real b1;
     real<lower = 0, upper=1 > phi; // Auto-regressive parameter
-    //vector[N] z; // State time series
+    vector[N] z; // State time series
   }
   
 
   /*----------------------- Model --------------------------*/
   /* Model block: defines the model */
   model {
-    //merge imputed and observed data
-    vector[N] B_merge;
-    B_merge= merge_missing(y_index_mis, to_vector(y_miss), y_imp);
+    int count;
    
     // Prior distributions
-    //sdo ~ normal(0, 1);
+    sdo ~ normal(0.1, 0.01);
     sdp ~ normal(0, 1);
     phi ~ beta(1,1);
     b0 ~ normal(0,5);
     b1 ~ normal(0,5);
     
     // Distribution for the first state
-   B_merge[1] ~ normal(z0, sdp);
+   z[1] ~ normal(z0, sdp);
     
-    // Distributions for all other states
+     // Distributions for all other states
+    count = 0;
     for(t in 2:N){
-       B_merge[t] ~ normal(b0+ B_merge [t-1]*phi+light[t]*b1, sdp);
-    }
-   
+       z[t] ~ normal(b0+ z[t-1]*phi+light[t]*b1, sdp);
+    if(miss_vec[t]==0){
+      y_miss[t] ~ normal(z[t], sdo); // observation model with fixed observation error
   }
-  
+    }
+    
+  }
   
     "
     ,fill=TRUE)
@@ -371,19 +309,19 @@ closeAllConnections()
 
 
 fit.miss <- vector("list",n.datasets)
-model<-"mcelreath_miss.stan"
+model<-"mcelreath_miss_ss1.stan"
 model<-stan_model(model)
-for(i in 32:41){
+for(i in 1:10){
 ##Load data
   data <- list(   N = length(y_miss[[i]]),
                   y_nMiss = unlist(y_nMiss[[i]]),
-                  y_index_mis = unlist(y_index_mis[[i]]),
+                  miss_vec = unlist(miss_vec[[i]]),
                   y_miss= unlist(y_miss[[i]]),
-                  light=light.l,
+                  light=light.rel,
                   z0=y_miss[[i]][1])
-  
+
   ##Run Stan
-  fit.miss[[i]]<- rstan::sampling(object=model, data = data,  iter = 4000, chains = 4, control=list(max_treedepth = 15))
+  fit.miss[[i]]<- rstan::sampling(object=model, data = data,  iter = 3000, chains = 4, control=list(max_treedepth = 15))
   print(i)
   rstan::check_hmc_diagnostics(fit.miss[[i]])
   }
@@ -412,7 +350,7 @@ summary(fit_summary_bayes) #check it looks good
 head(fit_summary_bayes)
 
 fit_summary_bayes<-fit_summary_bayes[order(fit_summary_bayes$prop.missing),]
-known.data<-c(sdp,phi,b1,b0)
+known.data<-c(sdp,phi,b1,0)
 known<-as.data.frame(known.data)
 
 known.param<-c("sdp","phi", "b1","b0")
@@ -438,9 +376,9 @@ ggplot(data=fit_summary_bayes, aes(x=mean, y=prop.missing ))+
 
 # DA-Write or read RDS file --------------------------------------------------
 
-write_rds(fit_summary_bayes,"C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions/summary_sim_var_bayes_sdp_01_phi_8_b0_1_b1_1.RDS")
+write_rds(fit_summary_bayes,"C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions/summary_sim_var_bayes_sdp_1_phi_8_b0_0_b1_1.RDS")
 
-fit_summary_bayes <- readRDS("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions/summary_sim_var_bayes_sdp_1_phi_8_b0_1_b1_1.RDS")
+fit_summary_bayes <- readRDS("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions/summary_sim_var_bayes_sdp_1_phi_8_b0_0_b1_1.RDS")
 
 
 
@@ -449,7 +387,7 @@ fit_summary_bayes <- readRDS("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missi
 
 ##Calculate denominator of rwci for easier calculation
 fit_summary_bayes$rwci.den<-rep(fit_summary_bayes$high[1:4]-fit_summary_bayes$min[1:4], times=41)
-fit_summary_bayes$known.param<-rep(c(0.1, 0.8, 0.1, 0.1), times=41)
+fit_summary_bayes$known.param<-rep(c(0.1, 0.8, 0.1, 0), times=41)
 
 ##Calculate bias (difference from known) and rwci (relative width of the credible interval)
 
@@ -476,7 +414,7 @@ ggplot(data=fit_summary_bayes, aes(x=mean, y=prop.missing ))+
   theme(axis.title.y=element_text(size=18,colour = "black"))+
   theme(axis.text.y=element_text(size=18,colour = "black"))+
   theme(axis.text.x=element_text(size=18,colour = "black"))+
-  geom_vline(xintercept =known.param$known,color=c("black","darkgray", "blue", "green" ))
+  geom_vline(xintercept =known.param$known,color=c("black","darkgray", "green", "blue" ))
 
 ggplot(data=fit_summary_bayes, aes(x=log(rwci), y=prop.missing ))+
   geom_point(aes( color=param, group=param),size=3)+
@@ -492,29 +430,55 @@ ggplot(data=fit_summary_bayes, aes(x=log(rwci), y=prop.missing ))+
   theme(axis.text.x=element_text(size=18,colour = "black"))+
   geom_vline(xintercept = 0,color=c("black"))
 
+ggplot(data=fit_summary_bayes, aes(x=bias, y=prop.missing ))+
+  geom_point(aes( color=param, group=param),size=3)+
+  theme_classic()+
+  theme(legend.position="right")+
+  ylab("Percent of Missing Data")+
+  xlab("Bias")+
+  scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
+  #scale_x_continuous(limits=c(-.05,1.1))+
+  theme(axis.title.x=element_text(size=18,colour = "black"))+
+  theme(axis.title.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.x=element_text(size=18,colour = "black"))+
+  geom_vline(xintercept = 0,color=c("black"))
+
+
 ggplot(data=fit_summary_bayes, aes(x=bias, y=gap.missing ))+
   geom_point(aes( color=param, group=param),size=3)+
   theme_classic()+
   theme(legend.position="right")+
   xlab("Parameter value")+
-  ylab("Percent of Missing Data")+
+  ylab("Mean data gap length (days)")+
   scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
   #scale_x_continuous(limits=c(-1,1))+
   theme(axis.title.x=element_text(size=18,colour = "black"))+
   theme(axis.title.y=element_text(size=18,colour = "black"))+
   theme(axis.text.y=element_text(size=18,colour = "black"))+
   theme(axis.text.x=element_text(size=18,colour = "black"))+
-  geom_vline(xintercept =known.param$known,color=c("black","darkgray", "blue", "green" ))
+  geom_vline(xintercept = 0,color=c("black"))
 
-
-
+ggplot(data=fit_summary_bayes, aes(x=log(rwci), y=gap.missing ))+
+  geom_point(aes( color=param, group=param),size=3)+
+  theme_classic()+
+  theme(legend.position="right")+
+  ylab("Mean data gap length (days)")+
+  xlab("log Relative width of 95% credible interval log")+
+  scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
+  #scale_x_continuous(limits=c(-.05,1.1))+
+  theme(axis.title.x=element_text(size=18,colour = "black"))+
+  theme(axis.title.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.x=element_text(size=18,colour = "black"))+
+  geom_vline(xintercept = 0,color=c("black"))
 
 # DA-model check ----------------------------------------------------------
 
 
 ##Print and extract
-fit_extract<-rstan::extract(fit.miss[[6]])
-print(fit[[2]], pars=c( "sigma_proc","phi", "b1", "sigma_obs" ))
+fit_extract<-rstan::extract(fit.miss[[1]])
+print(fit.miss[[1]], pars=c( "sdp","phi", "b1", "sdo", "b0" ))
 
 pairs(fit, pars=c("sigma_proc","phi", "b1", "sigma_obs"))
 
@@ -523,14 +487,15 @@ rstan::check_hmc_diagnostics(fit.miss[[16]])
 
 ##Traceplots
 
-traceplot(fit.miss[[2]], pars=c("phi", "b0","sdp", "b1"))
+traceplot(fit.miss[[1]], pars=c("phi", "b0","sdp", "b1","sdo"))
 
 ##Posterior densities compared to known parameters
-plot_sdo <- stan_dens(fit.miss[[1]], pars="sigma_obs") + geom_vline(xintercept =sd.o)
-plot_sdp <- stan_dens(fit.miss[[1]], pars="sigma_proc") + geom_vline(xintercept = sd.p)
+plot_sdo <- stan_dens(fit.miss[[1]], pars="sdo") + geom_vline(xintercept =sdo)
+plot_sdp <- stan_dens(fit.miss[[1]], pars="sdp") + geom_vline(xintercept = sdp)
 plot_phi <- stan_dens(fit.miss[[1]], pars="phi") + geom_vline(xintercept = phi)
 plot_b1 <- stan_dens(fit.miss[[1]], pars="b1") + geom_vline(xintercept = b1)+xlab("Light beta")
-grid.arrange(plot_b1, plot_phi,plot_sdp,plot_sdo, nrow=2)
+plot_b0 <- stan_dens(fit.miss[[1]], pars="b0") + geom_vline(xintercept = 0)+xlab("Intercept")
+grid.arrange(plot_b1, plot_phi,plot_sdp,plot_b0, plot_sdo, nrow=2)
 
 ##Posterioir Predictive check and test statistic
 yrep1 <- fit_extract$y_rep
@@ -544,14 +509,14 @@ launch_shinystan(fit)
 ######Compare 'missing' data with simulated data
 ##Create object with estimated missing data
 
-fit_summary<-summary(fit.miss[[6]], probs=c(0.025,.5,.975))$summary
+fit_summary<-summary(fit.miss[[1]], probs=c(0.025,.5,.975))$summary
 
 my_data <- as_tibble(fit_summary)
-y_est_data<-my_data %>% slice(1:length(y_index_mis[[6]]))
+y_est_data<-my_data %>% slice(1:length(y_index_mis[[1]]))
 
 ##Create object with observed data
 date<-1:N
-y_obs_data<-as.data.frame(cbind(date[y_index_mis[[6]]],x[y_index_mis[[6]]]))
+y_obs_data<-as.data.frame(cbind(date[y_index_mis[[1]]],z[y_index_mis[[1]]]))
 colnames(y_obs_data)<-c("date","y")
 #y_obs_data$date<-as.Date(y_obs_data$date, origin = "1969-12-30")
 #x_data<-summary(fit_extract$x, probs=c(0.05,.5,.95))
@@ -567,15 +532,37 @@ colnames(y_combined)<-c("date", "observed", "estimated", "se_mean_est", "sd_est"
 
 head(y_combined)
 
+
+
+fit_summary<-summary(fit.miss[[1]], probs=c(0.05,.5,.95))$summary
+my_data <- as_tibble(fit_summary)
+y_est_data<-my_data[6:(length(my_data$mean)-1),]
+
+
+##Merge observed and estimated
+
+y_combined<-cbind(y_full$z[2:366],y_full$y[1:365],y_full$tt[1:365],y_est_data)
+
+##rename column names for clarity
+
+colnames(y_combined)<-c("obs.z", "obs.y", "time", "est.z", "se.z","sd.z", "low", "median","high", "n_eff", "rhat")
+
+##check that column names are correct
+
+head(y_combined)
+
+
+
+
 ##Plot observed and estimated direct comparison
-ggplot(data=y_combined, aes(x=observed, y=estimated))+
+ggplot(data=y_combined, aes(x=obs.z, y=est.z))+
   geom_point( size=3)+
   geom_abline(intercept=0, slope=1)+
   theme_classic()+
-  geom_errorbar(aes(ymin=low, ymax=high))+
+  #geom_errorbar(aes(ymin=low, ymax=high), width=0.5)+
   theme(legend.position="top")+
-  ylab("Estimated GPP")+
-  xlab("Observed GPP")+
+  ylab("Estimated state")+
+  xlab("Observed state")+
   theme(axis.title.x=element_text(size=18,colour = "black"))+
   theme(axis.title.y=element_text(size=18,colour = "black"))+
   theme(axis.text.y=element_text(size=18,colour = "black"))+
