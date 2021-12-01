@@ -155,9 +155,9 @@ for(j in 1:365){
 
 #Assign NAs to the missing data in each list
 for(i in 1:n.datasets){
-  z<-y_miss[[i]]
-  z[which(z==0)]<-NA
-  y_miss[[i]]<-z
+  g<-y_miss[[i]]
+  g[which(g==0)]<-NA
+  y_miss[[i]]<-g
 }
 
 #Cuts each down to size, as they will often end with missing data
@@ -209,8 +209,8 @@ mean.missing.gap
 mean.missing.gap[[1]]<-0
 hist(mean.missing.gap)
 #Calculate the percent of missing data
-miss.num<-sapply(y_miss, function(x) sum(length(which(is.na(x)))))
-prop.miss<-round(miss.num/length(x)*100)
+miss.num<-sapply(y_miss, function(x) sum(length(which(is.na(x)))))#
+prop.miss<-round(miss.num/N*100)
 prop.miss
 hist(prop.miss)
 
@@ -311,7 +311,7 @@ closeAllConnections()
 fit.miss <- vector("list",n.datasets)
 model<-"mcelreath_miss_ss1.stan"
 model<-stan_model(model)
-for(i in 1:10){
+for(i in 32){
 ##Load data
   data <- list(   N = length(y_miss[[i]]),
                   y_nMiss = unlist(y_nMiss[[i]]),
@@ -333,16 +333,16 @@ for(i in 1:10){
 ##Pull param estimates into list
 fit_summary_pars_bayes <- vector("list",41)
 for (i in 1:41){
-   fit_summary_pars_bayes[[i]]<-(summary(fit.miss[[i]], pars=c("sdp","phi", "b1", "b0"), probs=c(0.025,.5,.975))$summary)
+   fit_summary_pars_bayes[[i]]<-(summary(fit.miss[[i]], pars=c("sdp","sdo", "phi", "b1", "b0"), probs=c(0.025,.5,.975))$summary)
    }
 fit_summary_pars_bayes[[41]]
 
 ##Unlist,cleanup, and add factors
 fit_summary_bayes<-as.data.frame(do.call(rbind.data.frame, fit_summary_pars_bayes)) #Unlist
-fit_summary_bayes$param<-rep(c("sdp","phi", "b1","b0"), times=41 )#add parameter factor
-fit_summary_bayes$prop.missing<-rep(prop.miss[1:41], times=rep(4, times=41)) #add prop of missing data
-fit_summary_bayes$gap.missing<-rep(mean.missing.gap[1:41], times=rep(4, times=41)) #add prop of missing data
-row.names(fit_summary_bayes)<-1:(41*4) #remove row names
+fit_summary_bayes$param<-rep(c("sdp","sdo","phi", "b1","b0"), times=41 )#add parameter factor
+fit_summary_bayes$prop.missing<-rep(prop.miss[1:41], times=rep(5, times=41)) #add prop of missing data
+fit_summary_bayes$gap.missing<-rep(mean.missing.gap[1:41], times=rep(5, times=41)) #add prop of missing data
+row.names(fit_summary_bayes)<-1:(41*5) #remove row names
 fit_summary_bayes$param<-as.factor(fit_summary_bayes$param) #make factor
 #fit_summary_bayes$prop.missing<-as.factor(fit_summary_bayes$prop.missing) #make factor
 colnames(fit_summary_bayes)<-c("mean", "se-mean", "sd", "min", "med", "high","n_eff", "rhat", "param","prop.missing", "gap.missing")
@@ -350,10 +350,10 @@ summary(fit_summary_bayes) #check it looks good
 head(fit_summary_bayes)
 
 fit_summary_bayes<-fit_summary_bayes[order(fit_summary_bayes$prop.missing),]
-known.data<-c(sdp,phi,b1,0)
+known.data<-c(sdp,sdo,phi,b1,0)
 known<-as.data.frame(known.data)
 
-known.param<-c("sdp","phi", "b1","b0")
+known.param<-c("sdp","sdo","phi", "b1","b0")
 #known.missing<-c(5, 5, 5,5)
 known<-as.data.frame(cbind(known.data, known.param))
 known$known.data<-as.numeric(as.character(known$known.data))
@@ -364,19 +364,19 @@ ggplot(data=fit_summary_bayes, aes(x=mean, y=prop.missing ))+
   theme(legend.position="top")+
   ylab("Percent of Missing Data")+
   xlab("Parameter Estimate")+
-  scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
+  scale_color_manual(values=c("blue", "green", "darkgray", "black", "red"))+
   #scale_x_continuous(limits=c(0,1))+
   theme(axis.title.x=element_text(size=18,colour = "black"))+
   theme(axis.title.y=element_text(size=18,colour = "black"))+
   theme(axis.text.y=element_text(size=18,colour = "black"))+
   theme(axis.text.x=element_text(size=18,colour = "black"))+
-  geom_vline(xintercept = known.data,color=c("black", "darkgray", "green", "blue"))
+  geom_vline(xintercept = known.data,color=c("red", "black", "darkgray", "green","blue"))
 
 
 
 # DA-Write or read RDS file --------------------------------------------------
 
-write_rds(fit_summary_bayes,"C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions/summary_sim_var_bayes_sdp_1_phi_8_b0_0_b1_1.RDS")
+write_rds(fit_summary_bayes,"C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions/summary_sim_var_bayes_sdp_1_sdo_1_phi_8_b0_0_b1_6.RDS")
 
 fit_summary_bayes <- readRDS("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions/summary_sim_var_bayes_sdp_1_phi_8_b0_0_b1_1.RDS")
 
@@ -386,8 +386,8 @@ fit_summary_bayes <- readRDS("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missi
 
 
 ##Calculate denominator of rwci for easier calculation
-fit_summary_bayes$rwci.den<-rep(fit_summary_bayes$high[1:4]-fit_summary_bayes$min[1:4], times=41)
-fit_summary_bayes$known.param<-rep(c(0.1, 0.8, 0.1, 0), times=41)
+fit_summary_bayes$rwci.den<-rep(fit_summary_bayes$high[1:5]-fit_summary_bayes$min[1:5], times=41)
+fit_summary_bayes$known.param<-rep(c(0.1,0.1, 0.8, 0.6, 0), times=41)
 
 ##Calculate bias (difference from known) and rwci (relative width of the credible interval)
 
@@ -398,7 +398,7 @@ diff<-ddply(fit_summary_bayes, c("prop.missing", "param"),summarize,
 
 fit_summary_bayes$bias<-diff$bias
 fit_summary_bayes$rwci<-diff$rwci
-known.param<-as.data.frame(cbind(as.numeric(fit_summary_bayes$known.param[1:4]), as.character(fit_summary_bayes$param[1:4])))
+known.param<-as.data.frame(cbind(as.numeric(fit_summary_bayes$known.param[1:5]), as.character(fit_summary_bayes$param[1:5])))
 colnames(known.param)<-c("known","param")
 known.param$known<-as.numeric(known.param$known)
 
@@ -408,13 +408,13 @@ ggplot(data=fit_summary_bayes, aes(x=mean, y=prop.missing ))+
   theme(legend.position="right")+
   xlab("Parameter value")+
   ylab("Percent of Missing Data")+
-  scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
+  scale_color_manual(values=c("blue", "green", "darkgray", "black","red"))+
   #scale_x_continuous(limits=c(-1,1))+
   theme(axis.title.x=element_text(size=18,colour = "black"))+
   theme(axis.title.y=element_text(size=18,colour = "black"))+
   theme(axis.text.y=element_text(size=18,colour = "black"))+
   theme(axis.text.x=element_text(size=18,colour = "black"))+
-  geom_vline(xintercept =known.param$known,color=c("black","darkgray", "green", "blue" ))
+  geom_vline(xintercept =known.param$known,color=c("red", "black", "darkgray", "green","blue"))
 
 ggplot(data=fit_summary_bayes, aes(x=log(rwci), y=prop.missing ))+
   geom_point(aes( color=param, group=param),size=3)+
@@ -422,7 +422,7 @@ ggplot(data=fit_summary_bayes, aes(x=log(rwci), y=prop.missing ))+
   theme(legend.position="right")+
   ylab("Percent of Missing Data")+
   xlab("log Relative width of 95% credible interval log")+
-  scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
+  scale_color_manual(values=c("blue", "green", "darkgray", "black","red"))+
   #scale_x_continuous(limits=c(-.05,1.1))+
   theme(axis.title.x=element_text(size=18,colour = "black"))+
   theme(axis.title.y=element_text(size=18,colour = "black"))+
@@ -436,7 +436,7 @@ ggplot(data=fit_summary_bayes, aes(x=bias, y=prop.missing ))+
   theme(legend.position="right")+
   ylab("Percent of Missing Data")+
   xlab("Bias")+
-  scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
+  scale_color_manual(values=c("blue", "green", "darkgray", "black","red"))+
   #scale_x_continuous(limits=c(-.05,1.1))+
   theme(axis.title.x=element_text(size=18,colour = "black"))+
   theme(axis.title.y=element_text(size=18,colour = "black"))+
@@ -451,7 +451,7 @@ ggplot(data=fit_summary_bayes, aes(x=bias, y=gap.missing ))+
   theme(legend.position="right")+
   xlab("Parameter value")+
   ylab("Mean data gap length (days)")+
-  scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
+  scale_color_manual(values=c("blue", "green", "darkgray", "black","red"))+
   #scale_x_continuous(limits=c(-1,1))+
   theme(axis.title.x=element_text(size=18,colour = "black"))+
   theme(axis.title.y=element_text(size=18,colour = "black"))+
@@ -465,7 +465,7 @@ ggplot(data=fit_summary_bayes, aes(x=log(rwci), y=gap.missing ))+
   theme(legend.position="right")+
   ylab("Mean data gap length (days)")+
   xlab("log Relative width of 95% credible interval log")+
-  scale_color_manual(values=c("blue", "green", "darkgray", "black"))+
+  scale_color_manual(values=c("blue", "green", "darkgray", "black", "red"))+
   #scale_x_continuous(limits=c(-.05,1.1))+
   theme(axis.title.x=element_text(size=18,colour = "black"))+
   theme(axis.title.y=element_text(size=18,colour = "black"))+
@@ -474,8 +474,10 @@ ggplot(data=fit_summary_bayes, aes(x=log(rwci), y=gap.missing ))+
   geom_vline(xintercept = 0,color=c("black"))
 
 # DA-model check ----------------------------------------------------------
-
-
+for(i in 1:41){
+print(i)
+rstan::check_hmc_diagnostics(fit.miss[[i]])
+}
 ##Print and extract
 fit_extract<-rstan::extract(fit.miss[[1]])
 print(fit.miss[[1]], pars=c( "sdp","phi", "b1", "sdo", "b0" ))
@@ -487,14 +489,14 @@ rstan::check_hmc_diagnostics(fit.miss[[16]])
 
 ##Traceplots
 
-traceplot(fit.miss[[1]], pars=c("phi", "b0","sdp", "b1","sdo"))
+traceplot(fit.miss[[15]], pars=c("phi", "b0","sdp", "b1","sdo"))
 
 ##Posterior densities compared to known parameters
-plot_sdo <- stan_dens(fit.miss[[1]], pars="sdo") + geom_vline(xintercept =sdo)
-plot_sdp <- stan_dens(fit.miss[[1]], pars="sdp") + geom_vline(xintercept = sdp)
-plot_phi <- stan_dens(fit.miss[[1]], pars="phi") + geom_vline(xintercept = phi)
-plot_b1 <- stan_dens(fit.miss[[1]], pars="b1") + geom_vline(xintercept = b1)+xlab("Light beta")
-plot_b0 <- stan_dens(fit.miss[[1]], pars="b0") + geom_vline(xintercept = 0)+xlab("Intercept")
+plot_sdo <- stan_dens(fit.miss[[8]], pars="sdo") + geom_vline(xintercept =sdo)
+plot_sdp <- stan_dens(fit.miss[[8]], pars="sdp") + geom_vline(xintercept = sdp)
+plot_phi <- stan_dens(fit.miss[[8]], pars="phi") + geom_vline(xintercept = phi)
+plot_b1 <- stan_dens(fit.miss[[8]], pars="b1") + geom_vline(xintercept = b1)+xlab("Light beta")
+plot_b0 <- stan_dens(fit.miss[[8]], pars="b0") + geom_vline(xintercept = 0)+xlab("Intercept")
 grid.arrange(plot_b1, plot_phi,plot_sdp,plot_b0, plot_sdo, nrow=2)
 
 ##Posterioir Predictive check and test statistic
