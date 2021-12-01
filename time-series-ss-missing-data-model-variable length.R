@@ -18,7 +18,8 @@ library(Amelia)
 # Simulate data -----------------------------------------------------------
 
 N<-365 #length of data
-t<-1:N #time
+z<-numeric(N+1) 
+t<-numeric(N+1) 
 time<-seq(as.POSIXct("2020/1/1"),as.POSIXct("2020/12/30"), by="day") #for light
 
 
@@ -60,32 +61,34 @@ sd(light.c)
 
 ##GPP based on time-series model with known paramters
 set.seed(553)
-x<-NA
+z<-NA
 sdp <- 0.01
 sdo<-0.1
 phi <-0.8
 b0<-0.1
-b1<-1
-x[1]<-2
+b1<-0.5
+z[1]<-1
 
 ## Set the seed, so we can reproduce the results
 set.seed(553)
 ## For-loop that simulates the state through time, using i instead of t,
-for (t in 2:N){
-  x[t] = b0+phi*x[t-1]+light.rel[t]*b1+rnorm(1, 0, sdp)
+for (i in 1:N){
+  z[i+1] = phi*z[i]+light.rel[i]*b1+rnorm(1, 0, sdp)
 }
+
+
 
 #Estimate observed data
 set.seed(553)
 sd.o <-rnorm(N, 0, sdo)
-y <-x + sd.o
-
+y <-z[2:(N+1)]+ sd.o
 sdo_sd<-mean(abs(sdo))
 
 ##Bind simulated data and time
-y_full<-as.data.frame(cbind(x,y,time))
-
-ggplot(data=y_full, aes(x=time, y=x))+
+y_full<-as.data.frame(cbind(z[1:365],y,time))
+names(y_full)<-c("z", "y", "time")
+  
+ggplot(data=y_full, aes(x=time, y=z))+
   geom_point(color="black", size=3)+
   geom_point(aes(y=y, x=time),color="red", size=3)+
   theme_classic()+
@@ -159,7 +162,7 @@ miss<-readRDS("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_p
 
 ##Replicate simulated data
 n.datasets<-41
-y_miss<-list(x)
+y_miss<-list(y)
 y_miss<-rep(y_miss[1], times=n.datasets)
 
 
@@ -253,8 +256,8 @@ mean.missing.gap
 mean.missing.gap[[1]]<-0
 hist(mean.missing.gap)
 #Calculate the percent of missing data
-miss.num<-sapply(y_miss, function(x) sum(length(which(is.na(x)))))
-prop.miss<-round(miss.num/length(x)*100)
+miss.num<-sapply(y_miss, function(y) sum(length(which(is.na(y)))))
+prop.miss<-round(miss.num/length(y)*100)
 prop.miss
 hist(prop.miss)
 
@@ -287,81 +290,6 @@ summary(y_miss)
 
 
 # Model code for STAN -----------------------------------------------------
-sink("ss.stan")
-
-cat("
- 
-
-/*----------------------- Data --------------------------*/
-  /* Data block: defines the objects that will be inputted as data */
-  data {
-    int N; // Length of state and observation time series
-    vector[N] y_miss; // Observations
-    real z0; // Initial state value
-    vector[N] light;
-    }
-  
-/*----------------------- Parameters --------------------------*/
-  /* Parameter block: defines the variables that will be sampled */
-  parameters {
-    vector[N] z; //latent state variable
-    real<lower=0> sdp; // Standard deviation of the process equation
-    real<lower=0> sdo; // Standard deviation of the observation equation
-    real b0;
-    real b1;
-    real<lower = 0, upper=1 > phi; // Auto-regressive parameter
-      }
-  
-
-  /*----------------------- Model --------------------------*/
-  /* Model block: defines the model */
-  model {
-    // Prior distributions
-    sdo ~ normal(0, 1);
-    sdp ~ normal(0, 1);
-    phi ~ beta(1,1);
-    b0 ~ normal(0,5);
-    b1 ~ normal(0,5);
-    
-    // Distribution for the first state
-    z[1] ~ normal(z0, sdp);
-  
-    // Distributions for all other states
-    for(t in 2:N){
-       z[t] ~ normal(b0+ z[t-1]*phi+light[t]*b1, sdp);
-    }
-    for(t in 1:N){ 
-       y_miss[t] ~ normal(z[t], sdo); // observation model with fixed observation error
-    }
-  }
-  
-  
-    "
-    ,fill=TRUE)
-sink()
-closeAllConnections()
-
-model<-"ss.stan"
-model<-stan_model(model)
-
-data <- list(N = length(y),y_miss=y,light=light.rel,z0=y[1])
-fit<-rstan::sampling(object=model, data = data,  iter = 3000, chains = 4)#, control=list(max_treedepth = 15))
-##Print and extract
-fit_extract<-rstan::extract(fit)
-print(fit, pars=c( "sigma_proc","phi", "b1", "sigma_obs" ))
-
-pairs(fit, pars=c("sdo","phi", "b1", "sdp","b0"))
-
-##HMC diagnostics
-rstan::check_hmc_diagnostics(fit.miss[[16]])
-
-##Traceplots
-
-traceplot(fit, pars=c("phi", "b0","sdp", "b1","sdo"))
-
-
-
-
 
 sink("mcelreath_miss_ss.stan")
 
@@ -370,11 +298,11 @@ cat("
 
 /*----------------------- Functions --------------------------*/  
   functions{
-    vector merge_missing( int[] y_index_mis, vector y_miss, vector y_imp) {
-    int N = dims(y_miss)[1];
+    vector merge_missing( int[] y_index_mis, vector z, vector y_imp) {
+    int N = dims(z)[1];
     int N_miss = dims(y_imp)[1];
     vector[N] merged;
-    merged = y_miss;
+    merged = z;
     for (i in 1:N_miss)
         merged[y_index_mis[i] ] =y_imp[i];
     return merged;    
@@ -389,7 +317,8 @@ cat("
     real z0; // Initial state value
     vector[N] light;
     int y_nMiss; // number of missing values
-    int y_index_mis[y_nMiss]; // index or location of missing values within the dataset
+    int y_index_mis[y_nMiss];
+    vector[N] miss_vec// index or location of missing values within the dataset
   }
   
 /*----------------------- Parameters --------------------------*/
@@ -420,18 +349,76 @@ cat("
     b1 ~ normal(0,5);
     
     // Distribution for the first state
-  B_merge[1] ~ normal(z0, sdp);
+   B_merge[1] ~ normal(z0, sdp);
    y_miss[1]~ normal(B_merge[1],sdo);
    
     // Distributions for all other states
     for(t in 2:N){
        B_merge[t] ~ normal(b0+ B_merge[t-1]*phi+light[t]*b1, sdp);
-       y_miss[t] ~ normal(B_merge[t], sdo); // observation model with fixed observation error
-    
+    if(i%miss_vec==0){
+      count = count + 1;
+      target += normal_lpdf(y_miss[count]| B_merge[i], sdo); // observation model with fixed observation error
     }
-   
+  }
+    "
+    ,fill=TRUE)
+sink()
+closeAllConnections()
+
+sink("miss_ss.stan")
+
+cat("
+ 
+
+/*----------------------- Functions --------------------------*/  
+ 
+/*----------------------- Data --------------------------*/
+  /* Data block: defines the objects that will be inputted as data */
+  data {
+    int N; // Length of state and observation time series
+    vector[N] y_miss; // Observations
+    real z0; // Initial state value
+    vector[N] light;
+    vector[N] miss_vec; // index or location of missing values within the dataset
   }
   
+/*----------------------- Parameters --------------------------*/
+  /* Parameter block: defines the variables that will be sampled */
+  parameters {
+    real<lower=0> sdp; // Standard deviation of the process equation
+    real<lower=0> sdo; // Standard deviation of the observation equation
+    real b0;
+    real b1;
+    real<lower = 0, upper=1 > phi; // Auto-regressive parameter
+    vector[N] z; // State time series
+  }
+  
+
+  /*----------------------- Model --------------------------*/
+  /* Model block: defines the model */
+  model {
+  int count;
+    // Prior distributions
+    sdo ~ normal(0, 1);
+    sdp ~ normal(0, 1);
+    phi ~ beta(1,1);
+    b0 ~ normal(0,5);
+    b1 ~ normal(0,5);
+    
+    // Distribution for the first state
+   z[1] ~ normal(z0, sdp);
+   //y_miss[1]~ normal(z[1],sdo);
+   
+    // Distributions for all other states
+    count = 0;
+    for(t in 2:N){
+       z[t] ~ normal(b0+ z[t-1]*phi+light[t]*b1, sdp);
+    if(miss_vec[t]==0){
+      y_miss[t] ~ normal(z[t], sdo); // observation model with fixed observation error
+    }
+    }
+  
+  }
   
     "
     ,fill=TRUE)
@@ -439,53 +426,35 @@ sink()
 closeAllConnections()
 
 
-
 # DA-model (with loop) -----------------------
 
 
 fit.miss <- vector("list",n.datasets)
-model<-"mcelreath_miss_ss.stan"
+model<-"miss_ss.stan"
 model<-stan_model(model)
-for(i in 32:41){
+for(i in 1){
 ##Load data
-#  data <- list(   N = length(y_miss[[i]]),
+  data <- list(   N = length(y_miss[[i]]),
                   y_nMiss = unlist(y_nMiss[[i]]),
                   y_index_mis = unlist(y_index_mis[[i]]),
                   y_miss= unlist(y_miss[[i]]),
                   light=light.l,
-                  z0=y_miss[[i]][1])
-data <- list(N = length(x),y_nMiss =0, y_index_mis =y_index_mis[[1]],y_miss=y,light=light.rel,z0=y[1]  )
-fit<-rstan::sampling(object=model, data = data,  iter = 3000, chains = 4)#, control=list(max_treedepth = 15))
-##Print and extract
-fit_extract<-rstan::extract(fit)
-print(fit, pars=c( "sigma_proc","phi", "b1", "sigma_obs" ))
-
-pairs(fit, pars=c("sdo","phi", "b1", "sdp","b0"))
-
-##HMC diagnostics
-rstan::check_hmc_diagnostics(fit.miss[[16]])
-
-##Traceplots
-
-traceplot(fit, pars=c("phi", "b0","sdp", "b1","sdo"))
-
-
- ##Run Stan
-  fit.miss[[i]]<- rstan::sampling(object=model, data = data,  iter = 4000, chains = 4 control=list(max_treedepth = 15))
+                  z0=y_miss[[i]][1],
+                  miss_vec=miss_vec[[i]])
+  fit.miss[[i]]<-rstan::sampling(object=model, data = data,  iter = 3000, chains = 4, control=list(max_treedepth = 15))
   print(i)
   rstan::check_hmc_diagnostics(fit.miss[[i]])
- # }
-
+}
 
 # DA-pull and clean parameters ---------------------------------------------
 
-
+traceplot(fit.miss[[1]], pars=c("sdo","sdp", "phi", "b0", "b1"))
 ##Pull param estimates into list
 fit_summary_pars_bayes <- vector("list",41)
 for (i in 1:41){
    fit_summary_pars_bayes[[i]]<-(summary(fit.miss[[i]], pars=c("sdp","phi", "b1", "b0"), probs=c(0.025,.5,.975))$summary)
    }
-fit_summary_pars_bayes[[41]]
+fit_summary_pars_bayes[[1]]
 
 ##Unlist,cleanup, and add factors
 fit_summary_bayes<-as.data.frame(do.call(rbind.data.frame, fit_summary_pars_bayes)) #Unlist
@@ -614,10 +583,10 @@ rstan::check_hmc_diagnostics(fit.miss[[16]])
 traceplot(fit.miss[[2]], pars=c("phi", "b0","sdp", "b1"))
 
 ##Posterior densities compared to known parameters
-plot_sdo <- stan_dens(fit.miss[[1]], pars="sigma_obs") + geom_vline(xintercept =sd.o)
-plot_sdp <- stan_dens(fit.miss[[1]], pars="sigma_proc") + geom_vline(xintercept = sd.p)
-plot_phi <- stan_dens(fit.miss[[1]], pars="phi") + geom_vline(xintercept = phi)
-plot_b1 <- stan_dens(fit.miss[[1]], pars="b1") + geom_vline(xintercept = b1)+xlab("Light beta")
+plot_sdo <- stan_dens(fit.miss[[2]], pars="sdo") + geom_vline(xintercept =sdo)
+plot_sdp <- stan_dens(fit.miss[[2]], pars="sdp") + geom_vline(xintercept = sdp)
+plot_phi <- stan_dens(fit.miss[[2]], pars="phi") + geom_vline(xintercept = phi)
+plot_b1 <- stan_dens(fit.miss[[2]], pars="b1") + geom_vline(xintercept = b1)+xlab("Light beta")
 grid.arrange(plot_b1, plot_phi,plot_sdp,plot_sdo, nrow=2)
 
 ##Posterioir Predictive check and test statistic
@@ -629,34 +598,30 @@ ppc_stat(y, yrep1[samp100, ])
 ##Shineystan for everything else
 launch_shinystan(fit)
 
-######Compare 'missing' data with simulated data
 ##Create object with estimated missing data
 
-fit_summary<-summary(fit.miss[[6]], probs=c(0.025,.5,.975))$summary
-
+fit_summary<-summary(fit.miss[[1]], probs=c(0.05,.5,.95))$summary
 my_data <- as_tibble(fit_summary)
-y_est_data<-my_data %>% slice(1:length(y_index_mis[[6]]))
+y_est_data<-my_data[1:365,]
 
-##Create object with observed data
-date<-1:N
-y_obs_data<-as.data.frame(cbind(date[y_index_mis[[6]]],x[y_index_mis[[6]]]))
-colnames(y_obs_data)<-c("date","y")
-#y_obs_data$date<-as.Date(y_obs_data$date, origin = "1969-12-30")
-#x_data<-summary(fit_extract$x, probs=c(0.05,.5,.95))
+
 ##Merge observed and estimated
 
-y_combined<-cbind(y_obs_data,y_est_data)
+y_combined<-cbind(y_full$z[2:366],y_full$y[1:365],y_full$t[1:365],y_est_data)
 
 ##rename column names for clarity
 
-colnames(y_combined)<-c("date", "observed", "estimated", "se_mean_est", "sd_est", "low", "median","high", "n_eff", "rhat")
+colnames(y_combined)<-c("obs.z", "obs.y", "time", "est.z", "se.z","sd.z", "low", "median","high", "n_eff", "rhat")
+##rename column names for clarity
+
+#colnames(y_combined)<-c("date", "observed", "estimated", "se_mean_est", "sd_est", "low", "median","high", "n_eff", "rhat")
 
 ##check that column names are correct
 
-head(y_combined)
+#head(y_combined)
 
 ##Plot observed and estimated direct comparison
-ggplot(data=y_combined, aes(x=observed, y=estimated))+
+ggplot(data=y_combined, aes(x=obs.z, y=est.z))+
   geom_point( size=3)+
   geom_abline(intercept=0, slope=1)+
   theme_classic()+

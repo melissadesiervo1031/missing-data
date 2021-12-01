@@ -12,6 +12,8 @@ library(ggplot2)
 library(gridExtra)
 library(lubridate)
 library(data.table)
+library(R.utils)
+library(dlm)
 
 # PHI + SDP (process model)---------------------------------------------------------------------
 
@@ -24,8 +26,8 @@ time<-seq(as.POSIXct("2020/1/1"),as.POSIXct("2020/12/30"), by="day") #for light
 ##GPP based on time-series model with known parameters
 set.seed(550)
 z<-NA
-sdp <- 0.1
-sdo<-0.1
+sdp <- 0.01
+sdo<-0.01
 phi <-0.8
 z[1]<-0
 
@@ -53,7 +55,7 @@ ggplot(data=y_full, aes(x=time, y=z))+
   ggtitle("Full dataset")
 
 #STAN model
-sink("ss.stan")
+sink("ss1.stan")
 
 cat("
  
@@ -69,8 +71,8 @@ cat("
   
   parameters {
     real<lower=0> sdp; // Standard deviation of the process equation
-    
-    //real<lower = 0, upper=1 > phi; // Auto-regressive parameter
+    real b0;
+    real<lower = 0, upper=1 > phi; // Auto-regressive parameter
       }
   
 
@@ -78,14 +80,15 @@ cat("
   model {
     // Prior distributions
     sdp ~ normal(0, 1);
-    //phi ~ beta(1,1);
-   
+    phi ~ beta(1,1);
+    b0 ~ normal(0,5);
+    
     // Distribution for the first state
     z[1] ~ normal(z0, sdp);
   
     // Distributions for all other states
     for(t in 2:N){
-       z[t] ~ normal(z[t-1], sdp);// process model with error
+       z[t] ~ normal(b0+phi*z[t-1], sdp);// process model with error
     }
   }
     
@@ -96,7 +99,7 @@ sink()
 closeAllConnections()
 
 #Prep model
-model<-"ss.stan"
+model<-"ss1.stan"
 model<-stan_model(model)
 
 #Create data object
@@ -105,6 +108,8 @@ data <- list(N = length(z),z=z, z0=z[1])
 #Run Stan
 fit<-rstan::sampling(object=model, data = data,  iter = 3000, chains = 4)#, control=list(max_treedepth = 15))
 
+
+saveRDS(fit, file = "process.RDS") 
 
 ##Print and extract
 fit_extract<-rstan::extract(fit)
@@ -117,12 +122,13 @@ rstan::check_hmc_diagnostics(fit)
 
 ##Traceplots
 
-traceplot(fit, pars=c("phi", "sdp"))
+traceplot(fit, pars=c("phi", "sdp", "b0"))
 
 ##Density plots
 plot_sdp <- stan_dens(fit, pars="sdp") + geom_vline(xintercept = sdp)
 plot_phi <- stan_dens(fit, pars="phi") + geom_vline(xintercept = phi)
-grid.arrange(plot_phi,plot_sdp, nrow=2)
+plot_b0 <-stan_dens(fit, pars="b0") + geom_vline(xintercept = 0)
+grid.arrange(plot_phi,plot_sdp, plot_b0, nrow=2)
 
 
 #SDP + SDO AM apporach  (state-space model)-------------------------------------------------
@@ -130,37 +136,48 @@ grid.arrange(plot_phi,plot_sdp, nrow=2)
 
 #Simulate data
 
-N<-500#length of data
+N<-1000#length of data
 z<-numeric(N+1) 
 t<-numeric(N+1) 
-
+t<-0:500
 ##GPP based on time-series model with known parameters
-set.seed(553)
+set.seed(550)
 sdp <- 0.1
-sdo<-0.1
+sdo<-0.01
+
 phi<-0.8
 
 ## Set the seed, so we can reproduce the results
-set.seed(553)
-## For-loop that simulates the state through time, using i instead of t,
+set.seed(550)
+sd.p<-rnorm(N, 0, sdp)
+mean(sd.p)
+sd(sd.p)
+## For-loop that simulates the state through time
 for (i in 1:N){
-  z[i+1] =z[i]*phi+rnorm(1, 0, sdp)
+  z[i+1] =z[i]*phi+sd.p[i]
 }
 
 #Estimate observed data
 set.seed(553)
 sd.o <-rnorm(N, 0, sdo)
+mean(sd.o)
+sd(sd.o)
 y <-z[2:(N+1)]+ sd.o
-#y[501]<-NA
+
+
+
+#y<-insert(y, 1, NA)
+#sd.o<-insert(sd.o, 1, NA)
+#sd.p<-insert(sd.p, 1, NA)
 ##Bind simulated data and time
-#y_full_am<-as.data.frame(cbind(z,y,t))
+y_full_am<-as.data.frame(cbind(t,z,y, sd.o, sd.p))
 
 
 ##Plot
 plot(1:length(y), y,
      pch=3, cex = 0.8, col="blue", ty="o", lty = 3,
      xlab = "t", ylab = expression(y[t]),
-     xlim = c(0,N), ylim = c(min(y), max(y+max(y)/5)),
+     xlim = c(0,N), #ylim = c(min(y), max(y+max(y)/5)),
      las = 1)
 points(0:N, z,
        pch = 19, cex = 0.7, col="red", ty = "o")
@@ -172,7 +189,7 @@ legend("top",
        horiz=TRUE, bty="n", cex=0.9)
 
 #Stan model
-sink("ss_am.stan")
+sink("ss_2.stan")
 
 cat("
  
@@ -181,15 +198,18 @@ cat("
   data {
     int N; // Length of state and observation time series
     vector[N] y; // Observations
-    real z0; //intital state value
+    real z0; //intital mean of prior state value
+    
+
     }
   
 /*----------------------- Parameters --------------------------*/
   
   parameters {
+    
     vector[N] z; //latent state variable
-    real<lower=0> sdp; // Standard deviation of the process equation
-    real<lower=0> sdo; // Standard deviation of the observation equation
+    real<lower =0> sdp; // Standard deviation of the process equation
+    real<lower =0> sdo; // Standard deviation of the process equation
     real<lower = 0, upper=1 > phi; // Auto-regressive parameter
     real b0; 
     
@@ -199,22 +219,174 @@ cat("
   /*----------------------- Model --------------------------*/
   model {
     // Prior distributions
-    sdo ~ normal(0, 1);
-    sdp ~ normal(0, 1);
     phi ~ beta(1,1);
     b0 ~ normal(0, 5);
+    sdp ~normal(0,1);
+    sdo ~normal(0.01,0.001);
     
-    
-    // Distribution for the first state
-    z[1] ~ normal(z0,sdp);
+    // Observation error model       
+ 
+   for(i in 1:N){
+   y[i] ~ normal(z[i], sdo); // observation model with fixed observation error
+   }
   
-    // Distributions for all other states
+    
+    // Distribution for the zero and first state
+    
+    z[1] ~ normal(z0,sdp);
+   
+    // Distributions for states
     for(i in 2:N){
        z[i] ~ normal(z[i-1]*phi+b0, sdp);// process model with error
-    
-       y[i] ~ normal(z[i], sdo); // observation model with fixed observation error
-    }
+        }
+   
+ 
+ }
+"
+    ,fill=TRUE)
+sink()
+closeAllConnections()
 
+
+#Prep model
+model<-"ss_2.stan"
+model<-stan_model(model)
+
+#Create data object
+data <- list(N = length(y),y=y, z0=y[1])
+
+#Run Stan
+fit.2<-rstan::sampling(object=model, data = data,  iter = 3000, chains = 4)#, control=list(max_treedepth = 15))
+
+fit_extract<-rstan::extract(fit)
+print(fit.2, pars=c( "sdo", "sdp", "phi","b0"))
+
+##Check pairs plot
+pairs(fit, pars=c("sdo", "sdp", "phi", "b0"))
+
+##HMC diagnostics
+rstan::check_hmc_diagnostics(fit)
+
+##Traceplots
+
+traceplot(fit.2, pars=c("sdo","sdp", "phi", "b0"))
+
+##Plot density plots
+plot_sdo <- stan_dens(fit.2, pars="sdo") + geom_vline(xintercept =sdo)
+plot_sdp <- stan_dens(fit.2, pars="sdp") + geom_vline(xintercept = sdp)
+plot_phi <- stan_dens(fit.2, pars="phi") + geom_vline(xintercept = phi)
+plot_b0 <- stan_dens(fit.2, pars="b0") + geom_vline(xintercept =0)
+grid.arrange(plot_sdp, plot_sdo, plot_phi, plot_b0, nrow=2)
+
+saveRDS(fit.2, file = "ss_AM_fixedsdo.RDS") 
+
+#SDP + SDO-Hawari (state-space model)-------------------------------------------------
+
+
+#Simulate data
+
+N<-500#length of data
+z<-numeric(N+1) 
+t<-numeric(N+1) 
+t<-0:500
+##GPP based on time-series model with known parameters
+set.seed(553)
+sdp <- 0.01
+sdo<-0.001
+phi<-.8
+
+## Set the seed, so we can reproduce the results
+set.seed(550)
+sd.p<-rnorm(N, 0, sdp)
+## For-loop that simulates the state through time
+for (i in 1:N){
+  z[i+1] =z[i]*phi+sd.p[i]
+}
+
+#Estimate observed data
+set.seed(500)
+sd.o <-rnorm(N, 0, sdo)
+y <-z[2:(N+1)]+ sd.o
+
+
+
+#y<-insert(y, 1, NA)
+#sd.o<-insert(sd.o, 1, NA)
+#sd.p<-insert(sd.p, 1, NA)
+##Bind simulated data and time
+y_full_am<-as.data.frame(cbind(t,z,y, sd.o, sd.p))
+
+
+##Plot
+plot(1:length(y), y,
+     pch=3, cex = 0.8, col="blue", ty="o", lty = 3,
+     xlab = "t", ylab = expression(y1[t]),
+     xlim = c(0,N), #ylim = c(min(y), max(y+max(y)/5)),
+     las = 1)
+points(0:N, z,
+       pch = 19, cex = 0.7, col="red", ty = "o")
+legend("top",
+       legend = c("Obs.", "True states"),
+       pch = c(3, 19),
+       col = c("blue", "red"),
+       lty = c(3, 1),
+       horiz=TRUE, bty="n", cex=0.9)
+
+#Stan model
+sink("ss_3.stan")
+
+cat("
+ 
+
+/*----------------------- Data --------------------------*/
+  data {
+    int<lower=1> N; // Length of state and observation time series
+    vector[N] y; // Observations
+    real m0; //intital mean of prior state value
+    cov_matrix[1] sdp0; //variance of prior distribution
+    real n0; //intital mean of prior state value
+    cov_matrix[1] sdo0; //variance of prior distribution
+    }
+  
+/*----------------------- Parameters --------------------------*/
+  
+  parameters {
+    real z0; //state [0];
+    real y0; //state [0];
+    vector[N] z; //latent state variable
+    cov_matrix[1] sdp; // Standard deviation of the process equation
+    cov_matrix[1] sdo; // Standard deviation of the process equation
+    real<lower = 0, upper=1 > phi; // Auto-regressive parameter
+    real b0; 
+    
+    }
+  
+
+  /*----------------------- Model --------------------------*/
+  model {
+    // Prior distributions
+    phi ~ beta(1,1);
+    b0 ~ normal(0, 5);
+   
+    
+     // Observation error model       
+    y0 ~ normal(n0,sdo0[1,1]);
+    y[1] ~ normal(y0,sdo[1,1]);
+    
+    for(i in 2:N){
+    y[i] ~ normal(z[i], sdo[1,1]); // observation model with fixed observation error
+    }
+    
+    // Distribution for the zero and first state
+    z0 ~ normal(m0,sdp0[1,1]);
+    z[1] ~ normal(z0,sdp[1,1]);
+   
+    // Distributions for states
+    for(i in 2:N){
+       z[i] ~ normal(z[i-1]*phi+b0, sdp[1,1]);// process model with error
+        }
+   
+ 
  }
 "
     ,fill=TRUE)
@@ -222,22 +394,24 @@ sink()
 closeAllConnections()
 
 #Prep model
-model<-"ss_am.stan"
+model<-"ss_3.stan"
 model<-stan_model(model)
 
 #Create data object
-data <- list(N=N, y=y, z0=y[1])
+data <- list(N=N, y=y, m0=0.01, sdp0=matrix(0.1, nrow=1, ncol=1),n0=0, sdo0=matrix(1, nrow=1, ncol=1))
+
 
 #Run Stan
-fit<-rstan::sampling(object=model, data = data,  iter = 4000, chains = 4)#, control=list(max_treedepth = 15))
+fit<-rstan::sampling(object=model, data = data,  iter = 3000, chains = 4)#, control=list(max_treedepth = 15))
 
+#saveRDS(fit, file = "ss_AM.RDS") 
 
 ##Print and extract
 fit_extract<-rstan::extract(fit)
 print(fit, pars=c( "sdo", "sdp", "phi","b0"))
 
 ##Check pairs plot
-pairs(fit, pars=c("sdo", "sdp"))
+pairs(fit, pars=c("sdo", "sdp", "phi", "b0"))
 
 ##HMC diagnostics
 rstan::check_hmc_diagnostics(fit)
@@ -260,16 +434,17 @@ grid.arrange(plot_sdp,plot_sdo, plot_phi, plot_b0, nrow=2)
 
 fit_summary<-summary(fit, probs=c(0.05,.5,.95))$summary
 my_data <- as_tibble(fit_summary)
-y_est_data<-my_data[1:500,]
+y_est_data<-my_data[2:501,]
 
+plot(y_est_data$mean~x)
 
 ##Merge observed and estimated
 
-y_combined<-cbind(y_full[2:501,],y_est_data)
+y_combined<-cbind(y_full_am$t[2:501],y_full_am$z[2:501],y_full_am$y[1:500],y_est_data)
 
 ##rename column names for clarity
 
-colnames(y_combined)<-c("obs.z", "obs.y", "time", "est.z", "sd.z", "low", "median","high", "n_eff", "rhat")
+colnames(y_combined)<-c("time","obs.z", "obs.y","est.z", "sd.z", "low", "median","high", "n_eff", "rhat")
 
 ##check that column names are correct
 
@@ -303,26 +478,27 @@ t<-1:500 #time
 
 
 ##GPP based on time-series model with known parameters
-set.seed(553)
+set.seed(550)
 z<-NA
-sdp <- 0.1
-sdo<-0.1
+sdp <- 0.01
+sdo<-0.01
 z[1]<-0
 
 ## Set the seed, so we can reproduce the results
-set.seed(553)
-## For-loop that simulates the state through time, using i instead of t,
+set.seed(550)
+sd.p<-rnorm(N, 0, sdp)
+## For-loop that simulates the state through time
 for (i in 2:N){
-  z[i] =z[i-1]+rnorm(1, 0, sdp)
+  z[i] =z[i-1]+sd.p[i]
 }
 
 #Estimate observed data
-set.seed(553)
+set.seed(550)
 sd.o <-rnorm(N, 0, sdo)
-y <-z + sd.o
+y <-z+ sd.o
 
 ##Bind simulated data and time
-y_full<-as.data.frame(cbind(z,y,t))
+y_full<-as.data.frame(cbind(t,z,y,sd.o,sd.p))
 
 ggplot(data=y_full, aes(x=t, y=z))+
   geom_point(color="black", size=3)+
@@ -342,7 +518,7 @@ ggplot(data=y_full, aes(x=t, y=z))+
 plot(z,y)
 
 #Stan model
-sink("ss_mt.stan")
+sink("ss_1.stan")
 
 cat("
  
@@ -351,7 +527,8 @@ cat("
   data {
     int N; // Length of state and observation time series
     vector[N] y; // Observations
-    real z0; //intital state value
+    real z0; // Mean of prior distribution
+    cov_matrix[1] cz0; // Variance of prior distribution
     }
   
 /*----------------------- Parameters --------------------------*/
@@ -360,7 +537,8 @@ cat("
     vector[N] z; //latent state variable
     real<lower=0> sdp; // Standard deviation of the process equation
     real<lower=0> sdo; // Standard deviation of the observation equation
-    //real<lower = 0, upper=1 > phi; // Auto-regressive parameter
+    real<lower = 0, upper=1 > phi; // Auto-regressive parameter
+    real b0; 
       }
   
 
@@ -369,14 +547,15 @@ cat("
     // Prior distributions
     sdo ~ normal(0, 1);
     sdp ~ normal(0, 1);
-    //phi ~ beta(1,1);
+    phi ~ beta(1,1);
+    b0  ~ normal(0,5);
     
     // Distribution for the first state
     z[1] ~ normal(z0,sdp);
   
     // Distributions for all other states
     for(i in 2:N){
-       z[i] ~ normal(z[i-1], sdp);// process model with error
+       z[i] ~ normal(z[i-1]*phi+b0, sdp);// process model with error
     }
     
     for(i in 1:N){
@@ -390,19 +569,19 @@ sink()
 closeAllConnections()
 
 #Prep model
-model<-"ss_mt.stan"
+model<-"ss_1.stan"
 model<-stan_model(model)
 
 #Create data object
-data <- list(N = length(y),y=y, z0=y[1])
+data <- list(N = length(y),y=y, z0=z[1])
 
 #Run Stan
-fit<-rstan::sampling(object=model, data = data,  iter = 3000, chains = 4)#, control=list(max_treedepth = 15))
+fit.2<-rstan::sampling(object=model, data = data,  iter = 3000, chains = 4)#, control=list(max_treedepth = 15))
 
-
+saveRDS(fit.2, file = "state_space_3.RDS") 
 ##Print and extract
 fit_extract<-rstan::extract(fit)
-print(fit, pars=c( "sdo","sdp"))
+print(fit, pars=c( "sdo","sdp", "phi", "b0"))
 
 pairs(fit, pars=c("sdo","sdp"))
 
@@ -411,12 +590,14 @@ rstan::check_hmc_diagnostics(fit)
 
 ##Traceplots
 
-traceplot(fit, pars=c("sdo", "sdp"))
+traceplot(fit.2, pars=c("sdo", "sdp"))
 
 ##Plot density plots
 plot_sdo <- stan_dens(fit, pars="sdo") + geom_vline(xintercept =sdo)
 plot_sdp <- stan_dens(fit, pars="sdp") + geom_vline(xintercept = sdp)
-grid.arrange(plot_sdp,plot_sdo, nrow=2)
+plot_phi <- stan_dens(fit, pars="phi") + geom_vline(xintercept = phi)
+plot_b0 <- stan_dens(fit, pars="b0") + geom_vline(xintercept =0)
+grid.arrange(plot_sdp,plot_sdo,plot_phi, plot_b0,nrow=2)
 
 
 # FULL MODEL --------------------------------------------------------------
@@ -472,18 +653,18 @@ light.rel<-light/max(light)
 sdp <- 0.1
 sdo<-0.1
 phi <-0.8
-b1<-0.8
-b0<-0.5
+b1<-0.6
+
 z[1]<-1
 ## Set the seed, so we can reproduce the results
-set.seed(553)
+set.seed(5)
 ## For-loop that simulates the state through time, using i instead of t,
 for (i in 1:365){
   z[i+1] = z[i]*phi+light.rel[i]*b1+rnorm(1, 0, sdp)
 }
 
 #Estimate observed data
-set.seed(553)
+set.seed(4)
 sd.o <-rnorm(N, 0, sdo)
 y <-z[2:(N+1)] + sd.o
 y[N+1]<-NA
@@ -493,8 +674,8 @@ y_full<-as.data.frame(cbind(z,y,tt))
 y_full$tt<-as.factor(y_full$tt)
 
 ggplot(data=y_full, aes(x=tt, y=z))+
-  geom_point(color="black", size=3)+
-  geom_point(aes(y=y, x=tt),color="red", size=3)+
+  geom_point(aes(color="state"), size=2)+
+  geom_point(aes(y=y, x=tt,color="observed"), size=2)+
   theme_classic()+
   theme(axis.title.x=element_text(size=18,colour = "black"))+
   theme(axis.title.y=element_text(size=18,colour = "black"))+
@@ -505,7 +686,8 @@ ggplot(data=y_full, aes(x=tt, y=z))+
   xlab("Time (days)")+
   theme(axis.text.x=element_blank(),
         axis.ticks.x=element_blank())+
-  ggtitle("Full dataset")
+  scale_color_manual(name=c("observed","state"), values = c("red","black"))
+  
 
 
 
@@ -537,8 +719,9 @@ cat("
 
   /*----------------------- Model --------------------------*/
   model {
+  
     // Prior distributions
-    sdo ~ normal(0, 1);
+    sdo ~ normal(0.1, 0.01);
     sdp ~ normal(0, 1);
     phi ~ beta(1,1);
     b0 ~ normal(0,5);
@@ -548,10 +731,12 @@ cat("
     z[1] ~ normal(z0, sdp);
   
     // Distributions for all other states
+    // Distributions for all other states
+    count = 0;
     for(t in 2:N){
-       z[t] ~ normal(b0+z[t-1]*phi+light[t]*b1, sdp);// process model with error
-    }
-       y ~ normal(z, sdo); // observation model with fixed observation error
+       z[t] ~ normal(b0+ z[t-1]*phi+light[t]*b1, sdp);
+    if(miss_vec[t]==0){
+      y_miss[t] ~ normal(z[t], sdo); // observation model with fixed observation error
      }
   
       "
@@ -567,7 +752,7 @@ model<-stan_model(model)
 data <- list(N = length(y[1:365]),y=y[1:365], z0=y[1], light=light.rel)
 
 #Run Stan
-fit<-rstan::sampling(object=model, data = data,  iter = 4000, chains = 4)#, control=list(max_treedepth = 15))
+fit<-rstan::sampling(object=model, data = data,  iter = 3000, chains = 4)#, control=list(max_treedepth = 15))
 
 
 ##Print and extract

@@ -18,7 +18,7 @@ library(ggplot2)
 library(countreg)
 library(abind)
 # SDW time series ---------------------------------------------------------
-
+setwd("~/GitHub/missing-data/data")
 
 #Load Data
 ts.SDW<-read.csv("SDW.ts_with light.csv")
@@ -70,7 +70,7 @@ df$length_miss<-length_miss
 ## estimate negative binomial distribution parameters of missing data length integers
 length_miss_parm<-length_miss[complete.cases(length_miss)]
 length_miss_parm_zero<-length_miss_parm[length_miss_parm<90]
-length_miss_parm<-length_miss_parm_zero[length_miss_parm_zero>0]
+length_miss_parm.sdw<-length_miss_parm_zero[length_miss_parm_zero>0]
 
 ##regular neg binomial
 func<- function(P){
@@ -90,9 +90,9 @@ mle<-nlm(func,P<- c(2,0.5))
 
 
 ## plot histogram
-hist(length_miss_parm_zero, breaks=seq(0,max(length_miss[complete.cases(length_miss)]),by=1), prob=TRUE, xlim=c(0,70),ylim=c(0,1), xlab="Length of missing data gap",
+hist(miss, breaks=seq(1,max(miss[complete.cases(miss)]),by=1), prob=TRUE, xlim=c(0,70),ylim=c(0,.5), xlab="Length of missing data interval",
      #main="Negative binomial distribution with mu=8.6 and size=0.65")
-     main="Histogram of missing data gap lengths from Shatto")
+     main="SDW Missing data")
 
 ## plot distribution of negative binomial using estimated parameters
 x=0:max(length_miss_parm)
@@ -220,7 +220,7 @@ length_miss_attempted<-sum(length_miss_parm[length_miss_parm<90])/sum(length_mis
 
 
 ## plot histogram
-hist(length_miss_parm, breaks=seq(0,max(length_miss_parm+1),by=1), prob=TRUE, ylim=c(0,0.4), xlab="Length of missing data gap",
+hist(length_miss_parm, breaks=seq(0,max(length_miss_parm+1),by=1), prob=TRUE, ylim=c(0,0.6), xlab="Length of missing data gap",
      #main="Negative binomial distribution with mu=8.6 and size=0.65")
      main="Histogram of missing data gap lengths from Shatto")
 
@@ -236,6 +236,68 @@ df %>%
   group_by(jd) %>% 
   summarise(total = sum(length_miss,na.rm=TRUE)) %>% 
   with(plot(jd, total, ylab="Total missing data by Julian Day", xlab="Julian day"))
+
+
+
+
+# Rio Grande time series --------------------------------------------------
+
+setwd("~/GitHub/missing-data/data")
+
+rio <- readRDS("~/GitHub/missing-data/data/RioGrande_missingGPP_2007-2019.rds")
+N<-ifelse(is.na(rio$missingness),1,0)
+
+## Calculate length of data gaps
+#prepare vectors for loop
+x<-NA
+length_miss<-NA
+x[1]<-N[1]
+length_miss[1]<-NA
+
+#loop over data and return the length of gaps
+for (i in 2:length(rio$missingness)){
+  x[i]<-ifelse(N[i]==1,1+x[i-1], 0) #If data is missing add to yesterdays value by 1. If data observed then 0.
+  length_miss[i]<-ifelse(x[i]==0,x[i-1], NA) #Save length of gap on the day data is observed (0) after a gap
+  length_miss[i]<-ifelse(length_miss[i]==0,NA,length_miss[i]) #Replace days with observed data with NA
+}
+
+## Calculate length of observed data before gap. Same as above but for lengths of observed data
+z<-NA
+z[1]<-N[1]
+length_obs<-NA
+for (i in 2:length(rio$missingness)){
+  z[i]<-ifelse(N[i]==0,1+z[i-1], 0)
+  length_obs[i]<-ifelse(z[i]==0,z[i-1], NA)
+  length_obs[i]<-ifelse(length_obs[i]==0,NA,length_obs[i] )
+}
+
+
+## save to full dataset and check that everything is correct
+rio$length_obs<-length_obs
+rio$length_miss<-length_miss
+
+length_miss_parm.rio1<-rio$length_miss[length_miss<400]
+length_miss_parm.rio<-length_miss_parm.rio1[complete.cases(length_miss_parm.rio1)]
+
+hist(length_miss_parm.rio, breaks=seq(0,max(length_miss_parm+1),by=1), prob=TRUE,  xlim=c(0,150),xlab="Length of missing data gap",
+     #main="Negative binomial distribution with mu=8.6 and size=0.65")
+     main="Histogram of missing data gap lengths from Shatto")
+
+rio<-data.frame(length_miss_parm.rio)
+sdw<-data.frame(length_miss_parm.sdw)
+ggplot(sdw, aes(x=length_miss_parm.sdw))+
+  geom_density(size = 1.5, aes(color="SDW"),key_glyph = "timeseries")+
+  theme_classic()+
+  theme(legend.title=element_blank(), legend.position="top")+
+  theme(axis.title.x=element_text(size=18,colour = "black"))+
+  theme(axis.title.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.x=element_text(size=18,colour = "black"))+
+  xlab("Missing data gap length (days)")+
+  geom_density(rio,mapping=aes(x=length_miss_parm.rio,color = "Rio"),size = 1.5)+
+  scale_color_manual(name=c("SDW","Rio"), values = c("black","blue"))+
+  guides(colour = guide_legend(override.aes=list(linetype=c(1,1))))+
+  xlim(c(-5,90))
 
 # Appling et al. data ------------------------------------------------------
 
