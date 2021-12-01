@@ -4,6 +4,8 @@ library(rstan)
 options(mc.cores = parallel::detectCores())
 rstan_options(auto_write = TRUE)
 library(gridExtra)
+library(dplyr)
+library(tidyr)
 
 # Read in data -----------------------------------------------------------------
 
@@ -39,12 +41,14 @@ no_cty <- c("Douglas", "Bayfield", "Ashland", "Iron", "Vilas", "Forest",
 
 deerdat <- dat[dat$County%in%no_cty,-1]
 #snow <- read.csv("https://raw.githubusercontent.com/melissadesiervo1031/timeseries/main/SnowDepth.csv")
-#mei <- read.csv("https://raw.githubusercontent.com/melissadesiervo1031/timeseries/main/WinterMEI.csv")[1,-1]
+mei <- read.csv("https://raw.githubusercontent.com/melissadesiervo1031/timeseries/main/WinterMEI.csv")[1,-1]
+mei<-(t(unname(mei)))
+mei<-data.frame(mei)
 pdo <- read.csv("https://raw.githubusercontent.com/melissadesiervo1031/timeseries/main/WinterPDO.csv")[1,-1]
 pdo<-(t(unname(pdo)))
 pdo<-data.frame(pdo)
 snowdepth <- read.csv("SnowDepth.csv", header=T, check.names=FALSE) ## average snow depth from December- March. Data were the average ofall available weather stations for each of 71 counties (rows) in Wisconsin across 36 years(columns, 1981-2016). Some missing values (NA), resulting in some counties beingdropped from final analyses. Data from https://www.ncdc.noaa.gov/.
-mei <- read.csv("WinterMEI.csv", header=T, check.names=FALSE) ##Average Multivariate El Niño/Southern Oscillation Index (MEI) valuefrom December-March across 36 years (columns, 1981-2016). Values of the matrix arerepeated across rows to match the spatial dimensions of the DeerAbundance data matrix.Data from https://www.esrl.noaa.gov/psd/enso/mei
+
 snow <- snowdepth[snowdepth$County%in%no_cty,-1] # only covar that differs by county
 
 
@@ -69,7 +73,7 @@ cat("
       int K; //Number of predictors
       vector[N] y; // Deer population observations
       vector[N] snow; // snow data
-      vector[N] pdo; // PDO data
+      vector[N] mei; // PDO data
       real y0; // Initial data prior
     }
   
@@ -96,7 +100,7 @@ cat("
       
       // Distributions for all other data
       for(t in 2:N){
-        y[t] ~ normal(beta[1]+phi*y[t-1]+ beta[2]*snow+ beta[3]*pdo, sdp);// process model with error
+        y[t] ~ normal(beta[1]+phi*y[t-1]+ beta[2]*snow+ beta[3]*mei, sdp);// process model with error
       }
     }
    
@@ -111,10 +115,10 @@ model<-stan_model(model)
 
 #Create data object
 data <- list(N = length(deer_long$totalpop),y=log(deer_long$totalpop), y0=log(deer_long$totalpop[1]),
-             snow=snow_long$avgsnow, pdo=pdo$pdo, K=3)
+             snow=log(snow_long$avgsnow), mei=log(mei$X1+2), K=3)
 
 #Run Stan
-fit<-rstan::sampling(object=model, data = data,  iter = 2000, chains = 4)
+fit<-rstan::sampling(object=model, data = data,  iter = 4000, chains = 4,control=list(max_treedepth = 15))
 
 print(fit)
 traceplot(fit, pars=c("sdp", "phi", "beta"))
