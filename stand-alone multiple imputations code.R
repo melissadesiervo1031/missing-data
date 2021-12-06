@@ -61,6 +61,7 @@ light<-lightest(time, 47.8762, -114.03, 105) #location is Flathead Bio Station j
 light.rel<-light/max(light) #make relative light
 
 
+
 #Simulate GPP based on time-series model with known parameters
 #set parameters
 z<-NA
@@ -352,7 +353,7 @@ summary(data.amelia)
     
     // Distribution for the first state
    z[1] ~ normal(z0, sdp);
-   //y_miss[1]~ normal(z[1],sdo);
+   
    
     // Distributions for all other states
     count = 0;
