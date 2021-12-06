@@ -11,7 +11,7 @@ library(gridExtra)
 library(lubridate)
 library(data.table)
 library(Amelia)
-
+library(plyr)
 
 
 # set wd ------------------------------------------------------------------
@@ -413,6 +413,10 @@ summary(data.amelia)
   
   }
   
+  # MI-write or read RDS files ----------------------------------------------
+  
+  #saveRDS(fit.stan.miss.amelia, file = "test.RDS")
+  fit.stan.miss.amelia<-readRDS("test.RDS")
   
   # MI-pull and clean paramters ---------------------------------------------
   
