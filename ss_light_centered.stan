@@ -1,6 +1,4 @@
 
- 
-
 /*----------------------- Data --------------------------*/
   data {
     int N; // Length of state and observation time series
@@ -43,7 +41,7 @@
    
     // Distributions for states
     for(i in 2:N){
-       z[i] ~ normal(b0+ z[i-1]*phi+light[i]*b1, sdp);// process model with error
+       z[i] ~ normal(b0*(1-phi)+ z[i-1]*phi+light[i]*b1, sdp);// process model with error
         }
    
  
