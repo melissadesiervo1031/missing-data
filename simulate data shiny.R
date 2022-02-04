@@ -28,7 +28,7 @@ library(Amelia)
 library(tidyverse)
 library(shiny)
 
-# Simulate data -----------------------------------------------------------
+# Simulate light data -----------------------------------------------------------
 
 N<-365 #length of data
 z<-numeric(N+1) 
@@ -67,52 +67,9 @@ light<-lightest(time, 47.8762, -114.03, 105) #Flathead Bio Station just for fun
 light.l<-log(light)
 light.c<-(light-mean(light))/sd(light)
 light.rel<-light/max(light)
-mean(light.c)
-sd(light.c)
 
 
-##GPP based on time-series model with known paramters
-set.seed(553)
-z<-NA
-sdp <- 0.1
-sdo<-0.1
-#phi <-0.8
-b0<-0
-b1<-0.6
-z[1]<-1
-phi<-seq(from=0, to=1, by=0.1)
-sdp<-
-
-dat<-rep(list(NA), times=11)
-
-for (j in 1:11){
-## Set the seed, so we can reproduce the results
-set.seed(5)
-## For-loop that simulates the state through time, using i instead of t,
-for (i in 1:365){
-  z[i+1] = phi[j]*z[i]+light.rel[i]*b1+rnorm(1, 0, sdp)
-}
-  dat[[j]]<-z
-}
-
-dat_summary<-as.data.frame(do.call(rbind.data.frame, dat))
-
-dat_summary[,1]<-phi#add parameter factor
-
-day<-seq(from=1, to=365)
-names(dat_summary)<-c("phi",day)
-data<-pivot_longer(dat_summary, cols=phi, values_to="phi")
-
-data<-gather(data, key="day")
-data$phi<-rep(phi, times =367)
-data<-data[1:4015,]
-data$phi<-as.factor(data$phi)
-data$day<-as.numeric(data$day)
-data$value<-round(as.numeric(data$value), digits=3 )
-
-
-
-z<-1
+# Set range and interval of each variable
 sdp<- seq(from=0.001, to=.1, length.out=10)
 sdo<-seq(from=0.001, to=.1, length.out=10)
 phi<-seq(from=0, to=1, length.out=10)
@@ -175,11 +132,12 @@ ui <- fluidPage( # allows the user to scroll through the page
   )
   ),
   )
-  
+
+## TS function
 TS<-function(phi, sdp, b0, b1){
   set.seed(4)
   ts<-NA
-  ts[1]<-(b0+b1)/(1-phi)
+  ts[1]<-(b0+b1)/(1-phi) #Expected value ts[1] varies with variable shoice
   for (i in 1:364){
     ts[i+1] <- b0+phi*ts[i]+light.rel[i]*b1+rnorm(1, 0, sdp)
   }
