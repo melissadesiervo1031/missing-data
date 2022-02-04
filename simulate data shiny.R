@@ -12,23 +12,15 @@
 
 # Load packages -----------------------------------------------------------
 
-library(rstan)
-options(mc.cores = parallel::detectCores())
-rstan_options(auto_write = TRUE)
-library(plyr)
-library(shinystan)
-library(faux)
-library(bayesplot)
 library(tidyverse)
 library(ggplot2)
 library(gridExtra)
 library(lubridate)
 library(data.table)
-library(Amelia)
 library(tidyverse)
 library(shiny)
 
-# Simulate light data -----------------------------------------------------------
+# Simulate data -----------------------------------------------------------
 
 N<-365 #length of data
 z<-numeric(N+1) 
@@ -70,11 +62,11 @@ light.rel<-light/max(light)
 
 
 # Set range and interval of each variable
-sdp<- seq(from=0.001, to=.1, length.out=10)
-sdo<-seq(from=0.001, to=.1, length.out=10)
-phi<-seq(from=0, to=1, length.out=10)
-b0<-seq(from=0, to=3, length.out=10)
-b1<-seq(from=0, to=1, length.out=10)
+sdp<- seq(from=0.001, to=0.5, length.out=20)
+sdo<-seq(from=0.001, to=0.5, length.out=20)
+phi<-seq(from=0, to=1, length.out=20)
+b0<-seq(from=0, to=3, length.out=20)
+b1<-seq(from=0, to=3, length.out=20)
 data<-data.frame(sdp, sdo, phi, b0, b1)
 
 
@@ -90,7 +82,7 @@ data<-data.frame(sdp, sdo, phi, b0, b1)
 
 ui <- fluidPage( # allows the user to scroll through the page
   
-  titlePanel("Penguin Shiny App"), # title
+  titlePanel("Simulating GPP Time Series Shiny App"), # title
   
   sidebarLayout( # creates a sidebar
     
@@ -98,27 +90,27 @@ ui <- fluidPage( # allows the user to scroll through the page
       
       # widget #1 - phi slider menu
       sliderInput("phi", "Phi:",
-                   min=0, max=1, value=0.8, step=0.1,
+                   min=min(phi), max=max(phi), value=0.8, step=0.1,
                   animate=animationOptions(100)),
              
     # widget #2 - sdp slider menu
     sliderInput("sdp", "Sigma_proc:",
-                min=0.001, max=.1, value=0.01, step=0.005,
+                min=min(sdp), max=max(sdp), value=0.01, step=0.005,
                 animate=animationOptions(100)),
     
     # widget #3 - sdo slider menu menu
-  #  sliderInput("sdo", "Decimal:",
-   #             min=0.001, max=.1, value=0.01, step=0.005,
-    #            animate=animationOptions(100)),
+  sliderInput("sdo", "Sigma_Obs:",
+              min=min(sdo), max=max(sdo), value=0.01, step=0.005,
+              animate=animationOptions(100)),
    
      # widget #4 - b0 slider menu
     sliderInput("b0", "Intercept:",
-                min=0, max=3, value=0, step=0.5,
+                min=min(b0), max=max(b0), value=0, step=0.5,
                 animate=animationOptions(100)),
   
       # widget #5 - b1 slider menu
     sliderInput("b1", "Light Beta:",
-                min=0, max=1, value=.5, step=0.1,
+                min=min(b1), max=max(b1), value=.5, step=0.1,
                 animate=animationOptions(100)),
     
   ),
@@ -127,25 +119,28 @@ ui <- fluidPage( # allows the user to scroll through the page
     
     # Output: Table summarizing the values entered ----
     tableOutput("values"),
-    plotOutput(outputId = "time_series_plot"),
-    p("Penguin Plot:")
+    plotOutput(outputId = "time_series_plot")
+  
   )
   ),
   )
 
 ## TS function
-TS<-function(phi, sdp, b0, b1){
+TS<-function(phi, sdp, b0, b1, sdo){
   set.seed(4)
   ts<-NA
-  ts[1]<-(b0+b1)/(1-phi) #Expected value ts[1] varies with variable shoice
-  for (i in 1:364){
+  ts[1]<- ((b0*phi)+(b1*light.rel[1]))/(1-phi) #Expected value ts[1] varies with variable shoice
+  for (i in 1:N){
     ts[i+1] <- b0+phi*ts[i]+light.rel[i]*b1+rnorm(1, 0, sdp)
   }
-  day<-seq(from=1, to=365, by=1)
-  dat<-data.frame(ts, day)
+ 
+ts.obs<-ts[2:(N+1)]+rnorm(N, 0, sdo)
+  day<-seq(from=1, to=N, by=1)
+  dat<-data.frame(ts[2:366], ts.obs, day)
   return(list("dat"=dat))
 }
 
+#TS(0.8,0.01,1,0.5,0.01) #for testing the function works
 
 #### Server ####
 
@@ -161,31 +156,36 @@ server <- function(input, output){
  # create a new dataset based on the user's selection above
   # this `reactive()` tells shiny to monitor the user's choices
    time_series<- reactive({ # this `reactive()` tells shiny to monitor the user's choices
-    sim<-TS(input$phi,input$sdp, input$b0, input$b1)
+    sim<-TS(input$phi,input$sdp, input$b0, input$b1, input$sdo)
     sim$dat
     })
   
    
   # create a plot
   output$time_series_plot <- renderPlot({
-    ts<-req(time_series())    
-    xvar<-ts[,2]
-    yvar<-ts[,1]
-    fin<-data.frame(xvar, yvar)
+    result<-req(time_series())    
+    xvar<-result[,3]
+    zvar<-result[,1]
+    yvar<-result[,2]
+    fin<-data.frame(xvar, yvar, zvar)
     
-    ggplot(fin, aes(x = xvar, y=yvar)) + # the dataset is presented here as
+    ggplot(fin, aes(x = xvar, y=zvar, color="State")) + # the dataset is presented here as
       # `data()` instead of `data` to indicate that it's a reactive and malleable dataset
       # so shiny also monitors and changes it based on the user's choices
       geom_point() +
+      geom_point(aes(x=xvar, y=yvar, colour = "Observed"))+
       theme_classic()+
-      theme(axis.title.x=element_text(size=18,colour = "black"))+
-      theme(axis.title.y=element_text(size=18,colour = "black"))+
-      theme(axis.text.y=element_text(size=18,colour = "black"))+
-      theme(axis.text.x=element_text(size=18,colour = "black"))+
+      theme(axis.title.x=element_text(size=22,colour = "black"))+
+      theme(axis.title.y=element_text(size=22,colour = "black"))+
+      theme(axis.text.y=element_text(size=22,colour = "black"))+
+      theme(axis.text.x=element_text(size=22,colour = "black"))+
       theme(legend.position="top")+
       ylab("Data")+
       xlab("Time (days)")+
-            theme(legend.position = "none")
+            theme(legend.position = "top")+
+      scale_color_manual(name=c("Observed","State"), values = c("red","black"))+
+      theme(legend.text=element_text(size=16), legend.title= element_blank())
+     
   })
   
 }
