@@ -19,6 +19,7 @@ library(lubridate)
 library(data.table)
 library(tidyverse)
 library(shiny)
+library(Amelia)
 
 # Simulate data -----------------------------------------------------------
 
@@ -61,13 +62,20 @@ light.c<-(light-mean(light))/sd(light)
 light.rel<-light/max(light)
 
 
+#Load fake Q
+setwd("~/GitHub/missing-data")
+discharge<-read_csv("fake_turb.csv")
+q.rel<-discharge$turb/max(discharge$turb)
+
+
 # Set range and interval of each variable
 sdp<- seq(from=0.001, to=0.5, length.out=20)
 sdo<-seq(from=0.001, to=0.5, length.out=20)
 phi<-seq(from=0, to=1, length.out=20)
 b0<-seq(from=0, to=3, length.out=20)
 b1<-seq(from=0, to=3, length.out=20)
-data<-data.frame(sdp, sdo, phi, b0, b1)
+b2<-seq(from=-2, to=1, length.out=20)
+data<-data.frame(sdp, sdo, phi, b0, b1,b2)
 
 
 #### User interface ####
@@ -112,7 +120,11 @@ ui <- fluidPage( # allows the user to scroll through the page
     sliderInput("b1", "Light Beta:",
                 min=min(b1), max=max(b1), value=.5, step=0.1,
                 animate=animationOptions(100)),
-    
+  
+   # widget #6 - b2 slider menu
+  sliderInput("b2", "Q Beta:",
+              min=min(b2), max=max(b2), value=.5, step=0.1,
+              animate=animationOptions(100)),
   ),
     
   mainPanel(
@@ -126,12 +138,12 @@ ui <- fluidPage( # allows the user to scroll through the page
   )
 
 ## TS function
-TS<-function(phi, sdp, b0, b1, sdo){
+TS<-function(phi, sdp, b0, b1,b2, sdo){
   set.seed(4)
   ts<-NA
-  ts[1]<- ((b0*phi)+(b1*light.rel[1]))/(1-phi) #Expected value ts[1] varies with variable shoice
+  ts[1]<- (b0*(1-phi)+(b1*light.rel[1])+(b2*q.rel[1]))/(1-phi) #Expected value ts[1] varies with variable shoice
   for (i in 1:N){
-    ts[i+1] <- b0+phi*ts[i]+light.rel[i]*b1+rnorm(1, 0, sdp)
+    ts[i+1] <-b0 * (1 - phi) + z[i] * phi + light.rel[i] * b1 + q.rel[i]*b2 +rnorm(1, 0, sdp)
   }
  
 ts.obs<-ts[2:(N+1)]+rnorm(N, 0, sdo)
@@ -140,7 +152,7 @@ ts.obs<-ts[2:(N+1)]+rnorm(N, 0, sdo)
   return(list("dat"=dat))
 }
 
-#TS(0.8,0.01,1,0.5,0.01) #for testing the function works
+TS(0.8,0.01,1,0.5,0.1, 0.01) #for testing the function works
 
 #### Server ####
 
@@ -156,7 +168,7 @@ server <- function(input, output){
  # create a new dataset based on the user's selection above
   # this `reactive()` tells shiny to monitor the user's choices
    time_series<- reactive({ # this `reactive()` tells shiny to monitor the user's choices
-    sim<-TS(input$phi,input$sdp, input$b0, input$b1, input$sdo)
+    sim<-TS(input$phi,input$sdp, input$b0, input$b1, input$b2,input$sdo)
     sim$dat
     })
   
@@ -186,6 +198,7 @@ server <- function(input, output){
       scale_color_manual(name=c("Observed","State"), values = c("red","black"))+
       theme(legend.text=element_text(size=16), legend.title= element_blank())
      
+    
   })
   
 }
