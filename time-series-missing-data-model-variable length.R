@@ -379,7 +379,7 @@ ggplot(data=fit_summary_bayes, aes(x=mean, y=prop.missing ))+
 write_rds(fit_summary_bayes,"C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions/summary_sim_var_bayes_sdp_1_sdo_1_phi_8_b0_0_b1_6.RDS")
 
 fit_summary_bayes <- readRDS("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions/summary_sim_var_bayes_sdp_1_phi_8_b0_0_b1_1.RDS")
-
+fit_summary_bayes <- readRDS("C:/Users/matt/IDrive-Sync/Postdoc/Estimating missing data/daily_predictions/summary_sim_var_bayes_sdp_1_sdo_1_phi_8_b0_0_b1_6.RDS")
 
 
 # DA-calculate RWCI and bias ----------------------------------------------
@@ -402,7 +402,7 @@ known.param<-as.data.frame(cbind(as.numeric(fit_summary_bayes$known.param[1:5]),
 colnames(known.param)<-c("known","param")
 known.param$known<-as.numeric(known.param$known)
 
-ggplot(data=fit_summary_bayes, aes(x=mean, y=prop.missing ))+
+ggplot(data=fit_summary_bayes, aes(x=mean, y=gap.missing ))+
   geom_point(aes( color=param, group=param),size=3)+
   theme_classic()+
   theme(legend.position="right")+
@@ -416,7 +416,7 @@ ggplot(data=fit_summary_bayes, aes(x=mean, y=prop.missing ))+
   theme(axis.text.x=element_text(size=18,colour = "black"))+
   geom_vline(xintercept =known.param$known,color=c("red", "black", "darkgray", "green","blue"))
 
-ggplot(data=fit_summary_bayes, aes(x=log(rwci), y=prop.missing ))+
+ggplot(data=fit_summary_bayes, aes(x=log(rwci), y=gap.missing ))+
   geom_point(aes( color=param, group=param),size=3)+
   theme_classic()+
   theme(legend.position="right")+
