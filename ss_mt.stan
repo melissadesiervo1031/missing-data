@@ -14,7 +14,8 @@
     vector[N] z; //latent state variable
     real<lower=0> sdp; // Standard deviation of the process equation
     real<lower=0> sdo; // Standard deviation of the observation equation
-    //real<lower = 0, upper=1 > phi; // Auto-regressive parameter
+    real<lower = 0, upper=1 > phi; // Auto-regressive parameter
+    real b0; 
       }
   
 
@@ -23,14 +24,15 @@
     // Prior distributions
     sdo ~ normal(0, 1);
     sdp ~ normal(0, 1);
-    //phi ~ beta(1,1);
+    phi ~ beta(1,1);
+    b0  ~ normal(0,5);
     
     // Distribution for the first state
     z[1] ~ normal(z0,sdp);
   
     // Distributions for all other states
     for(i in 2:N){
-       z[i] ~ normal(z[i-1], sdp);// process model with error
+       z[i] ~ normal(z[i-1]*phi+b0, sdp);// process model with error
     }
     
     for(i in 1:N){
