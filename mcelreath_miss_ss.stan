@@ -3,11 +3,11 @@
 
 /*----------------------- Functions --------------------------*/  
   functions{
-    vector merge_missing( int[] y_index_mis, vector y_miss, vector y_imp) {
-    int N = dims(y_miss)[1];
+    vector merge_missing( int[] y_index_mis, vector z, vector y_imp) {
+    int N = dims(z)[1];
     int N_miss = dims(y_imp)[1];
     vector[N] merged;
-    merged = y_miss;
+    merged = z;
     for (i in 1:N_miss)
         merged[y_index_mis[i] ] =y_imp[i];
     return merged;    
@@ -53,15 +53,14 @@
     b1 ~ normal(0,5);
     
     // Distribution for the first state
-  B_merge[1] ~ normal(z0, sdp);
+   B_merge[1] ~ normal(z0, sdp);
    y_miss[1]~ normal(B_merge[1],sdo);
    
     // Distributions for all other states
     for(t in 2:N){
        B_merge[t] ~ normal(b0+ B_merge[t-1]*phi+light[t]*b1, sdp);
-       y_miss[t] ~ normal(B_merge[t], sdo); // observation model with fixed observation error
-    
     }
+       y_miss ~ normal(B_merge, sdo); // observation model with fixed observation error
    
   }
   
