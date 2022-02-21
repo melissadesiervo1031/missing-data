@@ -52,45 +52,54 @@ lightest<- function (time, lat, longobs, longstd) {
   
 }
 light<-lightest(time, 47.8762, -114.03, 105) #Flathead Bio Station just for fun
-light.l<-log(light)
-light.c<-(light-mean(light))/sd(light)
 light.rel<-light/max(light)
-mean(light.c)
-sd(light.c)
 
 
-##GPP based on time-series model with known paramters
-set.seed(553)
-z<-NA
-sdp <- 0.01
-sdo<-0.1
+#Load fake Q
+setwd("~/GitHub/missing-data")
+discharge<-read_csv("fake_turb.csv")
+q.rel<-discharge$turb/max(discharge$turb)
+
+
+##GPP based on time-series model with known parameters
+sdp <- 0.1
+sdo<-0.01
 phi <-0.8
-b0<-0.1
-b1<-0.5
-z[1]<-1
+b1<-0.6
+b2<--0.8
+b0<-2
 
+# center at expected value:
+EV<- (b0*(1-phi)+(b1*light.rel[1])+(b2*q.rel[1]))/(1-phi) #Expected value ts[1] varies with variable shoice
+z[1]<-EV
 ## Set the seed, so we can reproduce the results
-set.seed(553)
+# set.seed(5)
 ## For-loop that simulates the state through time, using i instead of t,
-for (i in 1:N){
-  z[i+1] = phi*z[i]+light.rel[i]*b1+rnorm(1, 0, sdp)
+# In this process equation, I have centered the data to help remove the equifinality
+# between b0 and phi. See: 
+# https://stats.stackexchange.com/questions/348430/what-is-the-reason-for-not-including-an-intercept-term-in-ar-and-arma-models
+# with no intercept: y_t = phi * y_t-1 + b1*light_t + w_t
+# center y by subtracting the expected intercept (b0):
+#                   y_t - b0 = phi*(y_t-1 - b0) + b1 * light_t + w_t
+# rearrange:        y_t = b0 + phi * y_t-1 - phi*b0 + b1*light_t + w_t
+#                   y_t = b0*(1 - phi) + phi * y_t-1 + b1*light_t + w_t
+# now with the centered data, the intercept is defined in terms of phi 
+for (i in 1:365){
+  z[i+1] = b0 * (1 - phi) + z[i] * phi + light.rel[i] * b1 + q.rel[i]*b2 +rnorm(1, 0, sdp)
 }
 
-
-
-#Estimate observed data
-set.seed(553)
+# Estimate observed data
+# set.seed(4)
 sd.o <-rnorm(N, 0, sdo)
-y <-z[2:(N+1)]+ sd.o
-sdo_sd<-mean(abs(sdo))
+y <-z[2:(N+1)] + sd.o
+y[N+1]<-NA
 
 ##Bind simulated data and time
-y_full<-as.data.frame(cbind(z[1:365],y,time))
-names(y_full)<-c("z", "y", "time")
-  
-ggplot(data=y_full, aes(x=time, y=z))+
-  geom_point(color="black", size=3)+
-  geom_point(aes(y=y, x=time),color="red", size=3)+
+y_full<-as.data.frame(cbind(z,y,seq(0:N+1)))
+
+ggplot(data=y_full, aes(x=V3, y=z))+
+  geom_point(aes(color="state"), size=2)+
+  geom_point(aes(y=y, x=V3,color="observed"), size=2)+
   theme_classic()+
   theme(axis.title.x=element_text(size=18,colour = "black"))+
   theme(axis.title.y=element_text(size=18,colour = "black"))+
@@ -101,52 +110,7 @@ ggplot(data=y_full, aes(x=time, y=z))+
   xlab("Time (days)")+
   theme(axis.text.x=element_blank(),
         axis.ticks.x=element_blank())+
-  ggtitle("Full dataset")
-
-##Plot missing data (after doing below code)       
-t<-1:N
-y_miss_40<-as.data.frame(cbind(y_miss[[6]],t))
-
-ggplot(data=y_miss_40, aes(x=t, y=V1))+
-  geom_point(color="black", size=3)+
-  theme_classic()+
-  theme(axis.title.x=element_text(size=18,colour = "black"))+
-  theme(axis.title.y=element_text(size=18,colour = "black"))+
-  theme(axis.text.y=element_text(size=18,colour = "black"))+
-  theme(axis.text.x=element_text(size=18,colour = "black"))+
-  theme(legend.position="top")+
-  ylab("Data")+
-  xlab("Time (days)")+
-  theme(axis.text.x=element_blank(),
-        axis.ticks.x=element_blank())+
-  ggtitle("60% removed")
-
-
-
-##Plot observed and latent
-plot(1:N, x[1:N],
-     pch=3, cex = 0.8, col="blue", ty="o", lty = 3,
-     xlab = "t", ylab = expression(z[t]),
-     xlim = c(0,N), ylim = c(min(x), max(x)),
-     las = 1)
-points(1:N, y,
-       pch = 19, cex = 0.7, col="red", ty = "o")
-legend("top",
-       legend = c("Obs.", "Latent states"),
-       pch = c(3, 19),
-       col = c("blue", "red"),
-       lty = c(3, 1),
-       horiz=TRUE, bty="n", cex=0.9)
-
-#Center data
-y<-(y-mean(y))/sd(y)
-mean(y)
-sd(y)
-
-#x<-(x-mean(x))/sd(x)
-#mean(x)
-#sd(x)
-
+  scale_color_manual(name=c("observed","state"), values = c("red","black"))
 
 
 # Force some missing data-BY DAY ------------------------------------------
@@ -291,154 +255,96 @@ summary(y_miss)
 
 # Model code for STAN -----------------------------------------------------
 
-sink("mcelreath_miss_ss.stan")
+
+#Stan model
+
+#see https://michaeldewittjr.com/resources/stan_nowcast.html#
+
+sink("ss_light_centered_miss.stan")
 
 cat("
- 
 
-/*----------------------- Functions --------------------------*/  
-  functions{
-    vector merge_missing( int[] y_index_mis, vector z, vector y_imp) {
-    int N = dims(z)[1];
-    int N_miss = dims(y_imp)[1];
-    vector[N] merged;
-    merged = z;
-    for (i in 1:N_miss)
-        merged[y_index_mis[i] ] =y_imp[i];
-    return merged;    
-    }
-  }
   
 /*----------------------- Data --------------------------*/
-  /* Data block: defines the objects that will be inputted as data */
   data {
     int N; // Length of state and observation time series
-    vector[N] y_miss; // Observations
-    real z0; // Initial state value
+    vector[N] y; // Observations
     vector[N] light;
+    vector[N] q;
+    real z0;
     int y_nMiss; // number of missing values
     int y_index_mis[y_nMiss];
-    vector[N] miss_vec// index or location of missing values within the dataset
-  }
-  
-/*----------------------- Parameters --------------------------*/
-  /* Parameter block: defines the variables that will be sampled */
-  parameters {
-    vector<lower = 0>[y_nMiss] y_imp;// Missing data
-    real<lower=0> sdp; // Standard deviation of the process equation
-    real<lower=0> sdo; // Standard deviation of the observation equation
-    real b0;
-    real b1;
-    real<lower = 0, upper=1 > phi; // Auto-regressive parameter
-    vector[N] z; // State time series
-  }
-  
-
-  /*----------------------- Model --------------------------*/
-  /* Model block: defines the model */
-  model {
-    //merge imputed and observed data
-    vector[N] B_merge;
-    B_merge= merge_missing(y_index_mis, to_vector(z), y_imp);
-   
-    // Prior distributions
-    sdo ~ normal(0, 1);
-    sdp ~ normal(0, 1);
-    phi ~ beta(1,1);
-    b0 ~ normal(0,5);
-    b1 ~ normal(0,5);
-    
-    // Distribution for the first state
-   B_merge[1] ~ normal(z0, sdp);
-   y_miss[1]~ normal(B_merge[1],sdo);
-   
-    // Distributions for all other states
-    for(t in 2:N){
-       B_merge[t] ~ normal(b0+ B_merge[t-1]*phi+light[t]*b1, sdp);
-    if(i%miss_vec==0){
-      count = count + 1;
-      target += normal_lpdf(y_miss[count]| B_merge[i], sdo); // observation model with fixed observation error
+    vector[N] miss_vec; //index or location of missing values within the dataset
     }
-  }
-    "
-    ,fill=TRUE)
-sink()
-closeAllConnections()
-
-sink("miss_ss.stan")
-
-cat("
- 
-
-/*----------------------- Functions --------------------------*/  
- 
-/*----------------------- Data --------------------------*/
-  /* Data block: defines the objects that will be inputted as data */
-  data {
-    int N; // Length of state and observation time series
-    vector[N] y_miss; // Observations
-    real z0; // Initial state value
-    vector[N] light;
-    vector[N] miss_vec; // index or location of missing values within the dataset
-  }
   
+ 
 /*----------------------- Parameters --------------------------*/
-  /* Parameter block: defines the variables that will be sampled */
+  
   parameters {
+    vector[N] z; //latent state variable
     real<lower=0> sdp; // Standard deviation of the process equation
     real<lower=0> sdo; // Standard deviation of the observation equation
-    real b0;
-    real b1;
+    real b0; // intercept
+    real b1; // light coefficient 
+    real b2; //Q coefficient
     real<lower = 0, upper=1 > phi; // Auto-regressive parameter
-    vector[N] z; // State time series
-  }
-  
-
+      }
+ 
+ 
   /*----------------------- Model --------------------------*/
-  /* Model block: defines the model */
   model {
-  int count;
+   
+  //merge imputed and observed data
     // Prior distributions
-    sdo ~ normal(0, 1);
+    sdo ~ normal(0.01, 0.001);
     sdp ~ normal(0, 1);
     phi ~ beta(1,1);
     b0 ~ normal(0,5);
     b1 ~ normal(0,5);
+    b2 ~ normal(0,5);
     
-    // Distribution for the first state
-   z[1] ~ normal(z0, sdp);
-   //y_miss[1]~ normal(z[1],sdo);
+    
+   // Distribution for the zero and first state
+    
+   // Distribution for the first state
+  z[1] ~ normal(z0, sdp);
+   y[1]~ normal(z[1],sdo);
    
-    // Distributions for all other states
-    count = 0;
+    // Process model
+   
     for(t in 2:N){
-       z[t] ~ normal(b0+ z[t-1]*phi+light[t]*b1, sdp);
+      z[t] ~ normal(b0*(1-phi)+ z[t-1]*phi+light[t]*b1+ q[t]*b2, sdp);
     if(miss_vec[t]==0){
-      y_miss[t] ~ normal(z[t], sdo); // observation model with fixed observation error
+        target += normal_lpdf(y[t]| z[t], sdo); // observation model with fixed observation error
     }
     }
-  
-  }
-  
-    "
+    
+ }
+   
+      "
+    
     ,fill=TRUE)
 sink()
-closeAllConnections()
+#closeAllConnections()
+
+
+
 
 
 # DA-model (with loop) -----------------------
 
 
 fit.miss <- vector("list",n.datasets)
-model<-"miss_ss.stan"
+model<-"ss_light_centered_miss.stan"
 model<-stan_model(model)
-for(i in 1){
+for(i in 2){
 ##Load data
   data <- list(   N = length(y_miss[[i]]),
                   y_nMiss = unlist(y_nMiss[[i]]),
                   y_index_mis = unlist(y_index_mis[[i]]),
-                  y_miss= unlist(y_miss[[i]]),
-                  light=light.l,
+                  y= unlist(y_miss[[i]]),
+                  light=light.rel,
+                  q=q.rel[1:365],
                   z0=y_miss[[i]][1],
                   miss_vec=miss_vec[[i]])
   fit.miss[[i]]<-rstan::sampling(object=model, data = data,  iter = 3000, chains = 4, control=list(max_treedepth = 15))
@@ -446,9 +352,10 @@ for(i in 1){
   rstan::check_hmc_diagnostics(fit.miss[[i]])
 }
 
+
 # DA-pull and clean parameters ---------------------------------------------
 
-traceplot(fit.miss[[1]], pars=c("sdo","sdp", "phi", "b0", "b1"))
+traceplot(fit.miss[[1]], pars=c("sdo","sdp", "phi", "b0", "b1","b2"))
 ##Pull param estimates into list
 fit_summary_pars_bayes <- vector("list",41)
 for (i in 1:41){
@@ -570,8 +477,8 @@ ggplot(data=fit_summary_bayes, aes(x=bias, y=gap.missing ))+
 
 
 ##Print and extract
-fit_extract<-rstan::extract(fit.miss[[6]])
-print(fit[[2]], pars=c( "sigma_proc","phi", "b1", "sigma_obs" ))
+fit_extract<-rstan::extract(fit.miss[[2]])
+print(fit.miss[[2]], pars=c( "sdp","phi", "b1", "sdo","b0"))
 
 pairs(fit, pars=c("sigma_proc","phi", "b1", "sigma_obs"))
 
@@ -580,14 +487,16 @@ rstan::check_hmc_diagnostics(fit.miss[[16]])
 
 ##Traceplots
 
-traceplot(fit.miss[[2]], pars=c("phi", "b0","sdp", "b1"))
+traceplot(fit.miss[[1]], pars=c("phi", "b0","sdp", "b1"))
 
 ##Posterior densities compared to known parameters
 plot_sdo <- stan_dens(fit.miss[[2]], pars="sdo") + geom_vline(xintercept =sdo)
 plot_sdp <- stan_dens(fit.miss[[2]], pars="sdp") + geom_vline(xintercept = sdp)
 plot_phi <- stan_dens(fit.miss[[2]], pars="phi") + geom_vline(xintercept = phi)
+plot_b2 <- stan_dens(fit.miss[[2]], pars="b2") + geom_vline(xintercept = b2)+xlab("Q beta")
 plot_b1 <- stan_dens(fit.miss[[2]], pars="b1") + geom_vline(xintercept = b1)+xlab("Light beta")
-grid.arrange(plot_b1, plot_phi,plot_sdp,plot_sdo, nrow=2)
+plot_b0 <- stan_dens(fit.miss[[2]], pars="b0") + geom_vline(xintercept = b0)+xlab("intercept")
+grid.arrange(plot_b1, plot_b2,plot_phi,plot_sdp,plot_sdo, plot_b0, nrow=2)
 
 ##Posterioir Predictive check and test statistic
 yrep1 <- fit_extract$y_rep
@@ -600,14 +509,14 @@ launch_shinystan(fit)
 
 ##Create object with estimated missing data
 
-fit_summary<-summary(fit.miss[[1]], probs=c(0.05,.5,.95))$summary
+fit_summary<-summary(fit.miss[[2]], probs=c(0.05,.5,.95))$summary
 my_data <- as_tibble(fit_summary)
 y_est_data<-my_data[1:365,]
 
 
 ##Merge observed and estimated
 
-y_combined<-cbind(y_full$z[2:366],y_full$y[1:365],y_full$t[1:365],y_est_data)
+y_combined<-cbind(y_full$z[2:366],y_full$y[1:365],y_full$V3[1:365],y_est_data)
 
 ##rename column names for clarity
 
@@ -635,10 +544,10 @@ ggplot(data=y_combined, aes(x=obs.z, y=est.z))+
   theme(axis.text.x=element_text(size=18,colour = "black"))
 
 
-raw_data<-as.data.frame(cbind(x,date))
+raw_data<-as.data.frame(cbind(z,time))
 
 ggplot(data=y_combined, aes(x=date, y=estimated))+
-  geom_point(data=raw_data, aes(x=date, y=x, color="gray"), size=3)+
+  geom_point(data=raw_data, aes(x=date, y=z, color="gray"), size=3)+
   geom_errorbar(data=y_combined,aes(x=date,ymin=low, ymax=high))+ 
   geom_point(aes(color="red"), size=3)+
   theme_classic()+
@@ -665,12 +574,12 @@ ts<-as.Date(time,format="%m/%d/%Y")
 # MI-create datasets ------------------------------------------------------
 
 
-data.amelia<- vector("list",length(missing_n_week))
-for(i in 2:length(missing_n_week)){
+data.amelia<- vector("list",41)
+for(i in 2:41){
 y_miss1<-na_if(y_miss[[i]], -100)
-y_miss1[1]<-x[1]
-w<-as.data.frame(cbind(y_miss1,light,ts))
-z2<-amelia(w, m = 5, p2s=1, ts="ts", lags="y_miss1")
+y_miss1[1]<-z[1]
+w<-as.data.frame(cbind(y_miss1,light,time))
+z2<-amelia(w, m = 5, p2s=1, ts="time", lags="y_miss1")
 summary(z2)
 data.amelia[[i]]<-z2
 }
@@ -683,25 +592,25 @@ for(i in 2:6){
   z3<-data.amelia[[i]]$imputations$imp3$y_miss1
   z4<-data.amelia[[i]]$imputations$imp4$y_miss1
   z5<-data.amelia[[i]]$imputations$imp5$y_miss1
-  q1<-z1[y_missing_integers[[i]]]
-  q2<-z2[y_missing_integers[[i]]]
-  q3<-z3[y_missing_integers[[i]]]
-  q4<-z4[y_missing_integers[[i]]]
-  q5<-z5[y_missing_integers[[i]]]
-  q.ts<-ts[y_missing_integers[[i]]]
+  q1<-z1[y_index_mis[[i]]]
+  q2<-z2[y_index_mis[[i]]]
+  q3<-z3[y_index_mis[[i]]]
+  q4<-z4[y_index_mis[[i]]]
+  q5<-z5[y_index_mis[[i]]]
+  q.ts<-time[y_index_mis[[i]]]
   q<-cbind(q1,q2,q3,q4,q5)
   q.mean<- apply(q[,-1], 1, mean)
   q.min<-apply(q[,-1], 1, min)
   q.max<-apply(q[,-1], 1, max)
   q.sd<- apply(q[,-1], 1, sd)
-  x_obs_data<-as.data.frame(cbind(x,ts))
+  x_obs_data<-as.data.frame(cbind(z,time))
   x_imp_data<-as_tibble(cbind(q.mean,q.sd,q.ts, q.min,q.max))
-  x_imp_data<-as.data.frame(x_imp_data %>% slice(1:length(y_missing_integers[[i]])))
-  x_obs<-x[y_missing_integers[[i]]]
+  x_imp_data<-as.data.frame(x_imp_data %>% slice(1:length(y_index_mis[[i]])))
+  x_obs<-z[y_index_mis[[i]]]
   x_combined<-as.data.frame(cbind(x_imp_data$q.mean,x_imp_data$q.sd,x_obs,x_imp_data$q.min,x_imp_data$q.max))
   g<-ggplot(data=x_imp_data, aes(x=q.ts, y=q.mean))+
     geom_errorbar(data=x_imp_data,aes(x=q.ts,ymin=q.min, ymax=q.max))+
-    geom_point(data=x_obs_data, aes(x=ts, y=x, color="gray"), size=3)+
+    geom_point(data=x_obs_data, aes(x=time, y=z, color="gray"), size=3)+
     geom_point(aes(color="red"), size=3)+
     theme_classic()+
     theme(axis.title.x=element_text(size=18,colour = "black"))+
@@ -859,4 +768,178 @@ plot(data.stan.amelia[[6]][[2]],data.stan.amelia[[6]][[3]])
   saveRDS(fit.stan.miss.amelia, file = "full_sim_week_amelia_sdp_01_phi_8_b0_1_b1_1.RDS")
   saveRDS(fit_summary, file = "summary_sim_week_amelia_sdp_01_phi_8_b0_1_b1_1.RDS")
   saveRDS(known, file = "known_sim_week_amelia_sdp_01_phi_8_b0_1_b1_1.RDS")
+  
+  
+  
+  ####OLD
+  
+  sink("mcelreath_miss_ss.stan")
+  
+  cat("
+ 
+
+/*----------------------- Functions --------------------------*/  
+  functions{
+    vector merge_missing( int[] y_index_mis, vector z, vector y_imp) {
+    int N = dims(z)[1];
+    int N_miss = dims(y_imp)[1];
+    vector[N] merged;
+    merged = z;
+    for (i in 1:N_miss)
+        merged[y_index_mis[i] ] =y_imp[i];
+    return merged;    
+    }
+  }
+  
+/*----------------------- Data --------------------------*/
+  /* Data block: defines the objects that will be inputted as data */
+  data {
+    int N; // Length of state and observation time series
+    vector[N] y_miss; // Observations
+    real z0; // Initial state value
+    vector[N] light;
+    int y_nMiss; // number of missing values
+    int y_index_mis[y_nMiss];
+    vector[N] miss_vec// index or location of missing values within the dataset
+  }
+  
+/*----------------------- Parameters --------------------------*/
+  /* Parameter block: defines the variables that will be sampled */
+  parameters {
+    vector<lower = 0>[y_nMiss] y_imp;// Missing data
+    real<lower=0> sdp; // Standard deviation of the process equation
+    real<lower=0> sdo; // Standard deviation of the observation equation
+    real b0;
+    real b1;
+    real<lower = 0, upper=1 > phi; // Auto-regressive parameter
+    vector[N] z; // State time series
+  }
+  
+
+  /*----------------------- Model --------------------------*/
+  /* Model block: defines the model */
+  model {
+    //merge imputed and observed data
+    vector[N] B_merge;
+    B_merge= merge_missing(y_index_mis, to_vector(z), y_imp);
+   
+    // Prior distributions
+    sdo ~ normal(0, 1);
+    sdp ~ normal(0, 1);
+    phi ~ beta(1,1);
+    b0 ~ normal(0,5);
+    b1 ~ normal(0,5);
+    
+    // Distribution for the first state
+   B_merge[1] ~ normal(z0, sdp);
+   y_miss[1]~ normal(B_merge[1],sdo);
+   
+    // Distributions for all other states
+    for(t in 2:N){
+       B_merge[t] ~ normal(b0+ B_merge[t-1]*phi+light[t]*b1, sdp);
+    if(i%miss_vec==0){
+      count = count + 1;
+      target += normal_lpdf(y_miss[count]| B_merge[i], sdo); // observation model with fixed observation error
+    }
+  }
+    "
+      ,fill=TRUE)
+  sink()
+  closeAllConnections()
+  
+  sink("miss_ss.stan")
+  
+  cat("
+ 
+
+/*----------------------- Functions --------------------------*/  
+ 
+/*----------------------- Data --------------------------*/
+  /* Data block: defines the objects that will be inputted as data */
+  data {
+    int N; // Length of state and observation time series
+    vector[N] y_miss; // Observations
+    real z0; // Initial state value
+    vector[N] light;
+    vector[N] miss_vec; // index or location of missing values within the dataset
+  }
+  
+/*----------------------- Parameters --------------------------*/
+  /* Parameter block: defines the variables that will be sampled */
+  parameters {
+    real<lower=0> sdp; // Standard deviation of the process equation
+    real<lower=0> sdo; // Standard deviation of the observation equation
+    real b0;
+    real b1;
+    real<lower = 0, upper=1 > phi; // Auto-regressive parameter
+    vector[N] z; // State time series
+  }
+  
+
+  /*----------------------- Model --------------------------*/
+  /* Model block: defines the model */
+  model {
+  int count;
+    // Prior distributions
+    sdo ~ normal(0.1, 0.01);
+    sdp ~ normal(0, 1);
+    phi ~ beta(1,1);
+    b0 ~ normal(0,5);
+    b1 ~ normal(0,5);
+    
+    // Distribution for the first state
+   z[1] ~ normal(z0, sdp);
+   //y_miss[1]~ normal(z[1],sdo);
+   
+    // Distributions for all other states
+    count = 0;
+    for(t in 2:N){
+       z[t] ~ normal(b0+ z[t-1]*phi+light[t]*b1, sdp);
+    if(miss_vec[t]==0){
+      y_miss[t] ~ normal(z[t], sdo); // observation model with fixed observation error
+    }
+    }
+  
+  }
+  
+    "
+      ,fill=TRUE)
+  sink()
+  closeAllConnections()
+  
+  
+  
+  MI<-function(m, y, light, ts){
+    w<-as.data.frame(cbind(y,light,ts))
+    data.amelia<-amelia(w, m = m, p2s=1, ts="ts", lags="y")
+  }
+  
+  MI(5, y_full$x, light,y_full$time )
+  
+  
+  #Assign NAs to the missing data in each list
+  for(i in 1:m){
+    z1<-data.amelia[[i]]$imputations$imp1$y_miss1
+    z2<-data.amelia[[i]]$imputations$imp2$y_miss1
+    z3<-data.amelia[[i]]$imputations$imp3$y_miss1
+    z4<-data.amelia[[i]]$imputations$imp4$y_miss1
+    z5<-data.amelia[[i]]$imputations$imp5$y_miss1
+    q1<-z1[y_missing_integers[[i]]]
+    q2<-z2[y_missing_integers[[i]]]
+    q3<-z3[y_missing_integers[[i]]]
+    q4<-z4[y_missing_integers[[i]]]
+    q5<-z5[y_missing_integers[[i]]]
+    q.ts<-ts[y_missing_integers[[i]]]
+    q<-cbind(q1,q2,q3,q4,q5)
+    q.mean<- apply(q[,-1], 1, mean)
+    q.min<-apply(q[,-1], 1, min)
+    q.max<-apply(q[,-1], 1, max)
+    q.sd<- apply(q[,-1], 1, sd)
+    x_obs_data<-as.data.frame(cbind(x,ts))
+    x_imp_data<-as_tibble(cbind(q.mean,q.sd,q.ts, q.min,q.max))
+    x_imp_data<-as.data.frame(x_imp_data %>% slice(1:length(y_missing_integers[[i]])))
+    x_obs<-x[y_missing_integers[[i]]]
+    x_combined<-as.data.frame(cbind(x_imp_data$q.mean,x_imp_data$q.sd,x_obs,x_imp_data$q.min,x_imp_data$q.max))
+  }
+  
   
