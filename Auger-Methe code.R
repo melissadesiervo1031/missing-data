@@ -1,7 +1,7 @@
 # Create a vector that will keep track of the states
 # It's of length T + 1 (+1 for t=0)
 # T is not a good name in R, because of T/F, so we use TT
-TT <- 731
+TT <- 700
 t<-1:TT
 z <- numeric(TT)
 # Standard deviation of the process variation
