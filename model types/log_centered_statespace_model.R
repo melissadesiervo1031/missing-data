@@ -53,17 +53,17 @@ b0 <- 1      # intercept
 b1 <- 0.6   # light coefficient
 phi <- 0.4   # ar1 coefficient
 sigma_proc <- 0.1 # ~10% error
-sigma_obs <- 0.05
+sigma_obs <- 0.01
 
 # Expected value based on parameters:  ~10.4
-EV <- exp((b0 + b1 * light.rel[1])/(1-phi))
+EV <- exp((b0*(1-phi) + b1 * light.rel[1])/(1-phi))
 logP <- numeric(N)  # GPP state variable
 logP[1] <- log(EV)
 
 # Observed GPP, on a log scale
 logP_obs = rnorm(1, logP[1], sigma_obs)
 for (i in 2:365){
-  logP[i] <- b0 + b1 * light.rel[i] + phi * logP[i-1] + rnorm(1, 0, sigma_proc)
+  logP[i] <- b0*(1-phi) + b1 * light.rel[i] + phi * logP[i-1] + rnorm(1, 0, sigma_proc)
   logP_obs[i] = rnorm(1, logP[i], sigma_obs)
 }
 
@@ -77,7 +77,7 @@ y_full <- as.data.frame(cbind(z = logP, y = logP_obs, tt))
 y_full$tt <- as.factor(y_full$tt)
 
 #Stan model
-sink("ss_light_log.stan")
+sink("ss_light_log_cent.stan")
 
 cat("
 
@@ -108,25 +108,26 @@ cat("
     b0 ~ normal(0, 5);
     b1 ~ normal(0, 5);
     sdp ~ normal(0,1);
-    sdo ~ normal(0.05,0.01);
+    sdo ~ normal(0.01,0.001);
 
     // Distribution for the zero and first state
     logP[1] ~ normal(logP_0,sdp);
 
     // Distributions for states
     for(i in 2:N){
-       logP[i] ~ normal(b0+ logP[i-1]*phi + light[i]*b1, sdp);// process model with error
+       logP[i] ~ normal(b0*(1-phi) + logP[i-1]*phi + light[i]*b1, sdp);// process model with error
         }
 
     // Observation error model
     logP_obs ~ normal(logP, sdo);
-  }" ,fill=TRUE)
+
+      }" ,fill=TRUE)
 
 sink()
 closeAllConnections()
 
 #Prep model
-model<-"ss_light_log.stan"
+model<-"ss_light_log_cent.stan"
 model<-stan_model(model)
 
 #Create data object
@@ -134,7 +135,7 @@ data <- list(N = length(logP_obs), logP_obs = logP_obs,
              logP_0 = logP_obs[1], light=light.rel)
 
 #Run Stan
-fit <- rstan::sampling(object=model, data = data,  iter = 1000, chains = 4)
+fit <- rstan::sampling(object=model, data = data,  iter = 2000, chains = 4)
 
 ##Print and extract
 fit_extract <- rstan::extract(fit)
