@@ -24,10 +24,11 @@ library(data.table)
 library(Amelia)
 library(MASS)
 library(performance)
+library(here)
 
 ##upload the data##
 
-titpop <- read.csv("C:/data/Wytham_tits.csv", header=T, check.names=FALSE)
+titpop<- read.csv(here("data/Wytham_tits.csv"), header=T, check.names=FALSE)
 
 
 
@@ -102,7 +103,7 @@ check_overdispersion(poissontit)
 
 
 ####
-setwd("C:Population_great tit")
+setwd("~/Time series/")
 tit_dat<- list(y=titpop$Broods, N=length(titpop$Broods))
 
 tit_fit<- stan(file="ricker3_.stan", data= tit_dat, iter = 1000, chains = 4)
