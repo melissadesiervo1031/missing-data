@@ -103,10 +103,9 @@ check_overdispersion(poissontit)
 
 
 ####
-setwd("~/Time series/")
 tit_dat<- list(y=titpop$Broods, N=length(titpop$Broods))
 
-tit_fit<- stan(file="ricker3_.stan", data= tit_dat, iter = 1000, chains = 4)
+tit_fit<- stan(file="Time series/ricker3_.stan", data= tit_dat, iter = 1000, chains = 4)
 
 print(tit_fit)
 
