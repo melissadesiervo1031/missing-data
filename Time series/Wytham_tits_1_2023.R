@@ -80,10 +80,16 @@ ddplotpercap<-ggplot(titpop2, aes(x=Broods, y=percapgrowth)) +
 
 Rickermodel2 <-nls(poptplus1~Broods*exp(r*(1-(Broods/K))),start=list(r=0.1, K = 200), data=titpop)
 
-## r = 0.3083 , K = 308##
+Rickermodel3 <-nls(poptplus1~Broods*exp(r-alpha*Broods),start=list(r=0.1, alpha= 1/200), data=titpop)
 
-##test whether a poisson or a neg binomial distribution is better with data###
 
+fitlinear<-lm(log(poptplus1[1:48])~log(Broods[1:48])-alpha(Broods[1:48]), data=titpop) ## not right...##
+
+
+
+## r = 0.3083 , K = 308## (alpha = 0.000997)
+
+##test whether a poisson or a neg binomial distribution is better ###
 
 poissontit<-glm(poptplus1~Broods, family="poisson", data=titpop)
 
@@ -127,17 +133,18 @@ library(tscount)
 
 head(titpop)
 
-##### Simulating population dataset using RICKER model ####
 
-Ricker<-function (Broods, r, K) 
-{
-  (Broods*exp(r*(1-(Nt/K))))
-}
+
 
 ##not working..come back to this###
 #mdl <- tsglm(titpop[,2], model =Rickermodel2 , distr = "poisson")
 
 #summary(mdl)
+
+m1<-tsglm(titpop[1:58,3], model=list(past_obs=1), xreg=as.matrix(titpop[1:58,2]))
+
+
+m1<-tsglm(titpop[1:58,3], model=list(past_obs=1), xreg=as.matrix(titpop[1:58,2]),link = "log", distr = "poisson")
 
 
 
@@ -188,6 +195,18 @@ pomp(titpoppomp,rprocess=discrete_time(step.fun=stochStep,delta.t=1),
 
 
 
+##### Simulating population dataset using RICKER model ####
+
+Ricker<-function (Broods, r, K) 
+{
+  (Broods*exp(r*(1-(Nt/K))))
+}
+
+
+Ricker2<-function (Broods, r, alpha) 
+{
+  (Broods*exp(r-alpha*Broods))
+}
 
 ########play around with missing data#############
 
@@ -207,6 +226,5 @@ missingdf11<-missingdf1 %>% mutate(popplus1=Lag(titpop$Broods, -1))
 
 Rickermodel22 <-nls(popplus1~Broods*exp(r*(1-(Broods/(1/a)))),start=list(r=0.1, a= 1/200), data=missingdf11)
 
-### try with STAN###
-missing_dat<- list(y=missingdf1$Broods, N=length(missingdf1$Broods))
-missing_fit<- stan(file="ricker_.stan", data= missing_dat, iter = 1000, chains = 4)
+
+
