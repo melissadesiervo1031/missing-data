@@ -25,6 +25,7 @@ library(Amelia)
 library(MASS)
 library(performance)
 library(here)
+library(tseries)
 
 ##upload the data##
 
@@ -118,6 +119,74 @@ diff_titpred<- titpred-titpop$pop[-length(titpop$pop)]
 diff_titpop <- titpop$pop[-1]-titpop$pop[-length(titpop$pop)]
 
 plot(diff_titpop,diff_titpred)
+
+
+##TS COUNT package###
+
+library(tscount)
+
+head(titpop)
+
+##### Simulating population dataset using RICKER model ####
+
+Ricker<-function (Broods, r, K) 
+{
+  (Broods*exp(r*(1-(Nt/K))))
+}
+
+##not working..come back to this###
+#mdl <- tsglm(titpop[,2], model =Rickermodel2 , distr = "poisson")
+
+#summary(mdl)
+
+
+
+####### ARMA PACKAGE ###
+
+acf(titpopts)
+
+ARtitpop <- arima(titpopts, order = c(1,0,0))
+
+ts.plot(titpopts)
+AR_fit <- titpopts - residuals(ARtitpop)
+points(AR_fit, type = "l", col = 2, lty = 2)
+
+#### solve for estimates with ARIMA ###
+
+##helpful links https://ionides.github.io/531w16/final_project/Project19/final.html ##
+#https://towardsdatascience.com/state-space-model-and-kalman-filter-for-time-series-prediction-basic-structural-dynamic-linear-2421d7b49fa6#
+#https://lbelzile.github.io/timeseRies/state-space-models-and-the-kalman-filter.html
+
+#Org_Result_1 = arima(titpop$Broods)
+
+#plot(Org_Result_1$x,type="l", main = "Original Data and Fitted Result")
+#lines(fitted(Org_Result_1),col="red")
+
+
+## POMP MODEL###
+
+##https://kingaa.github.io/sbied/intro/ricker.html###
+
+library(pomp)
+
+head(titpop)
+
+titpoppomp <- pomp(titpop[,1:2],times="Year",t0=1960)
+
+plot(titpoppomp)
+
+stochStep <- Csnippet("
+  e = rnorm(0,sigma);
+  N = r*N*exp(-c*N+e);
+")
+
+pomp(titpoppomp,rprocess=discrete_time(step.fun=stochStep,delta.t=1),
+     paramnames=c("r","c","sigma"),statenames=c("N","e")) -> parus
+
+
+
+
+
 
 
 ########play around with missing data#############
