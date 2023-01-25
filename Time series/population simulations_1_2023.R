@@ -40,6 +40,8 @@ Ricker<-function (Nt, r, K)
 
 
 
+
+
 ###Simulating a population dataset using Ricker model and demographic stochasticity generating from Poisson ##
 
 simRicker_demoerror <- function(r, K, data,time) {
