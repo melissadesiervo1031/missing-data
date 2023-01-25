@@ -27,10 +27,9 @@ library(performance)
 library(here)
 library(tseries)
 
-##upload the data##
+##upload the great tit population data##
 
 titpop<- read.csv(here("data/Wytham_tits.csv"), header=T, check.names=FALSE)
-
 
 
 ##make dataset a time series object###
@@ -82,11 +81,6 @@ Rickermodel2 <-nls(poptplus1~Broods*exp(r*(1-(Broods/K))),start=list(r=0.1, K = 
 
 Rickermodel3 <-nls(poptplus1~Broods*exp(r-alpha*Broods),start=list(r=0.1, alpha= 1/200), data=titpop)
 
-
-fitlinear<-lm(log(poptplus1[1:48])~log(Broods[1:48])-alpha(Broods[1:48]), data=titpop) ## not right...##
-
-
-
 ## r = 0.3083 , K = 308## (alpha = 0.000997)
 
 ##test whether a poisson or a neg binomial distribution is better ###
@@ -99,6 +93,25 @@ check_overdispersion(poissontit)
 
 ##negative binomial is better###
 
+
+#### calculate estimates with maximum likilihood approach (fitting_ricker_model.R)
+
+#years##
+
+y=titpop$Broods
+
+years=max(titpop$Year)-min(titpop$Year)+1
+
+# provide X matrix
+X <- cbind(
+  rep(1, years),
+  y
+)
+
+
+fitLL <- optim(par = c(1, 0), fn = ricker_Pois_neg_ll, y = y, X = X, method = "BFGS", hessian = T)
+
+##not exactly matching with NLS, ## r =  0.491790068 , alpha = 0.001561374 (K = 315)
 
 
 ###estimates with STAN###
@@ -114,10 +127,9 @@ tit_dat<- list(y=titpop$Broods, N=length(titpop$Broods))
 
 tit_fit<- stan(file="Time series/ricker3_.stan", data= tit_dat, iter = 1000, chains = 4)
 
-print(tit_fit)
+print(tit_fit,digits=5)
 
-###r = 0.27, K = 303.97##
-
+#### r =  0.34482 , alpha = 0.003224 (K = 107 (way off....))
 
 #how did we do?
 titpred<- titpop$pop[-length(titpop$pop)]*exp(0.79*(1-(titpop$pop[-length(titpop$pop)]/211)))
@@ -127,36 +139,9 @@ diff_titpop <- titpop$pop[-1]-titpop$pop[-length(titpop$pop)]
 plot(diff_titpop,diff_titpred)
 
 
-##TS COUNT package###
 
-library(tscount)
+#### Figure out why I get different estimates when I Solve each different way...###
 
-head(titpop)
-
-
-
-
-##not working..come back to this###
-#mdl <- tsglm(titpop[,2], model =Rickermodel2 , distr = "poisson")
-
-#summary(mdl)
-
-m1<-tsglm(titpop[1:58,3], model=list(past_obs=1), xreg=as.matrix(titpop[1:58,2]))
-
-
-m1<-tsglm(titpop[1:58,3], model=list(past_obs=1), xreg=as.matrix(titpop[1:58,2]),link = "log", distr = "poisson")
-
-
-
-####### ARMA PACKAGE ###
-
-acf(titpopts)
-
-ARtitpop <- arima(titpopts, order = c(1,0,0))
-
-ts.plot(titpopts)
-AR_fit <- titpopts - residuals(ARtitpop)
-points(AR_fit, type = "l", col = 2, lty = 2)
 
 #### solve for estimates with ARIMA ###
 
@@ -164,49 +149,9 @@ points(AR_fit, type = "l", col = 2, lty = 2)
 #https://towardsdatascience.com/state-space-model-and-kalman-filter-for-time-series-prediction-basic-structural-dynamic-linear-2421d7b49fa6#
 #https://lbelzile.github.io/timeseRies/state-space-models-and-the-kalman-filter.html
 
-#Org_Result_1 = arima(titpop$Broods)
-
-#plot(Org_Result_1$x,type="l", main = "Original Data and Fitted Result")
-#lines(fitted(Org_Result_1),col="red")
-
-
-## POMP MODEL###
-
-##https://kingaa.github.io/sbied/intro/ricker.html###
-
-library(pomp)
-
-head(titpop)
-
-titpoppomp <- pomp(titpop[,1:2],times="Year",t0=1960)
-
-plot(titpoppomp)
-
-stochStep <- Csnippet("
-  e = rnorm(0,sigma);
-  N = r*N*exp(-c*N+e);
-")
-
-pomp(titpoppomp,rprocess=discrete_time(step.fun=stochStep,delta.t=1),
-     paramnames=c("r","c","sigma"),statenames=c("N","e")) -> parus
 
 
 
-
-
-
-##### Simulating population dataset using RICKER model ####
-
-Ricker<-function (Broods, r, K) 
-{
-  (Broods*exp(r*(1-(Nt/K))))
-}
-
-
-Ricker2<-function (Broods, r, alpha) 
-{
-  (Broods*exp(r-alpha*Broods))
-}
 
 ########play around with missing data#############
 

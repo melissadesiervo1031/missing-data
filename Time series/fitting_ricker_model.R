@@ -1,3 +1,5 @@
+###code written by Dusty Jan 2023 ###
+
 
 # negative log-liklihood of Ricker model with Poisson error
 ricker_Pois_neg_ll <- function(theta, y, X){
@@ -41,7 +43,10 @@ X <- cbind(
 
 
 # Find MLEs
-fit <- optim(par = c(1, 0), fn = neg_ll, y = y, X = X, method = "BFGS", hessian = T)
+fit <- optim(par = c(1, 0), fn = ricker_Pois_neg_ll, y = y, X = X, method = "BFGS", hessian = T)
+
+## in fit, $par = parameter estimates for r and alpha ###
+##then SE of the hessian for the standard error around esimates####
 
 # standard errors of the two parameters can be found using the square root of the diagonal
 # of the inverse of the Hessian matrix
