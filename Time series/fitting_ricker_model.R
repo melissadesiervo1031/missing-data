@@ -18,8 +18,8 @@ ricker_Pois_neg_ll <- function(theta, y, X){
 }
 
 # check the function by simulating a Ricker model
-r <- log(1.5)
-alpha <- 0.01
+r <- 0.348
+alpha <- 0.001
 
 steps <- 100
 
