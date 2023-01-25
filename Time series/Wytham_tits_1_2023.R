@@ -93,6 +93,31 @@ check_overdispersion(poissontit)
 
 ##negative binomial is better###
 
+###estimates with STAN###
+
+###https://mc-stan.org/users/documentation/case-studies/lotka-volterra-predator-prey.html#mechanistic-model-the-lotka-volterra-equations###
+##https://www.weirdfishes.blog/blog/fitting-bayesian-models-with-stan-and-r/
+
+# Model code for STAN -----------------------------------------------------
+
+
+####
+tit_dat<- list(y=titpop$Broods, N=length(titpop$Broods))
+
+tit_fit<- stan(file="Time series/ricker3_.stan", data= tit_dat, iter = 1000, chains = 4)
+
+print(tit_fit,digits=5)
+
+#### r =  0.34482 , alpha =0.00112 (K = 307.9))
+
+#how did we do?
+titpred<- titpop$pop[-length(titpop$pop)]*exp(0.79*(1-(titpop$pop[-length(titpop$pop)]/211)))
+diff_titpred<- titpred-titpop$pop[-length(titpop$pop)]
+diff_titpop <- titpop$pop[-1]-titpop$pop[-length(titpop$pop)]
+
+plot(diff_titpop,diff_titpred)
+
+#### Matches the NLS estimates###
 
 #### calculate estimates with maximum likilihood approach (fitting_ricker_model.R)
 
@@ -109,38 +134,11 @@ X <- cbind(
 )
 
 
-fitLL <- optim(par = c(1, 0), fn = ricker_Pois_neg_ll, y = y, X = X, method = "BFGS", hessian = T)
+fitLL <- optim(par = c(1, 0), fn = ricker_Pois_neg_ll, y = y, X = X, hessian = T)
 
-##not exactly matching with NLS, ## r =  0.491790068 , alpha = 0.001561374 (K = 315)
-
-
-###estimates with STAN###
-
-###https://mc-stan.org/users/documentation/case-studies/lotka-volterra-predator-prey.html#mechanistic-model-the-lotka-volterra-equations###
-##https://www.weirdfishes.blog/blog/fitting-bayesian-models-with-stan-and-r/
-
-# Model code for STAN -----------------------------------------------------
+##not exactly matching with NLS OR STAN, ## r =  0.491790068 , alpha = 0.001561374 (K = 315)
 
 
-####
-tit_dat<- list(y=titpop$Broods, N=length(titpop$Broods))
-
-tit_fit<- stan(file="Time series/ricker3_.stan", data= tit_dat, iter = 1000, chains = 4)
-
-print(tit_fit,digits=5)
-
-#### r =  0.34482 , alpha = 0.003224 (K = 107 (way off....))
-
-#how did we do?
-titpred<- titpop$pop[-length(titpop$pop)]*exp(0.79*(1-(titpop$pop[-length(titpop$pop)]/211)))
-diff_titpred<- titpred-titpop$pop[-length(titpop$pop)]
-diff_titpop <- titpop$pop[-1]-titpop$pop[-length(titpop$pop)]
-
-plot(diff_titpop,diff_titpred)
-
-
-
-#### Figure out why I get different estimates when I Solve each different way...###
 
 
 #### solve for estimates with ARIMA ###
@@ -148,8 +146,6 @@ plot(diff_titpop,diff_titpred)
 ##helpful links https://ionides.github.io/531w16/final_project/Project19/final.html ##
 #https://towardsdatascience.com/state-space-model-and-kalman-filter-for-time-series-prediction-basic-structural-dynamic-linear-2421d7b49fa6#
 #https://lbelzile.github.io/timeseRies/state-space-models-and-the-kalman-filter.html
-
-
 
 
 
