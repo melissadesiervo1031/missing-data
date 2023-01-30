@@ -155,6 +155,49 @@ titpopdf1<-as.data.frame(titpop$Broods)
 colnames(titpopdf1) <- c('Broods')
 
 
+###create vector of % of missing data ###
+
+n_missing<-seq(from = 0, to = 70, by = 5)
+
+
+## duplicate tit pop dataset in a list to use forloop to create missing ###
+
+listmissingtitdf <- replicate(length(n_missing),titpopdf1, simplify = FALSE)
+
+
+###duplicate tit pop into rows of a dataframe with missing values###
+
+missingtitdf<-data.frame(replicate(length(n_missing),titpopdf1))
+
+#for loop to make TITPOP dataset with varying levels of missingness###
+
+
+##not quite right###
+for (i in 1:length(listmissingtitdf)) {
+  
+  listmissingtitdf[[i]]<-sample(c(TRUE, NA), prob = c(0.95, 0.05), size = length(titpopdf1$Broods), replace = TRUE)
+  
+}
+
+
+##not quite right###
+for (i in 1:length(listmissingtitdf)) {
+  
+  listmissingtitdf[[i]]<-sample(c(TRUE, NA), prob = c(0.95, 0.05), size = length(titpopdf1$Broods), replace = TRUE)
+  
+}
+
+##removes 20% of data from each column###
+missingdftry<-missingtitdf  %>% mutate_all(~ifelse(sample(c(TRUE, FALSE), size = length(.), replace = TRUE, prob = c(0.8, 0.2)),
+                            as.character(.), NA))
+
+
+for (i in 1:length(listmissingtitdf)) {
+  
+ yesno[[i]]<-sample(c(1, NA), prob = c(0.95, 0.05), size = length(titpopdf1$Broods), replace = TRUE)
+ listmissingtitdf[[i]]<-listmissingtitdf[[i]]*yesno[[i]]
+   
+}
 
 
 ###take away 5% of estimates##
