@@ -149,83 +149,102 @@ fitLL <- optim(par = c(1, 0), fn = ricker_Pois_neg_ll, y = y, X = X, hessian = T
 
 
 
-########play around with missing data#############
+########play around with missing data with the Wytham woods dataset#############
 
 titpopdf1<-as.data.frame(titpop$Broods)
 colnames(titpopdf1) <- c('Broods')
 
+###vector missing probabilities###
 
-###create vector of % of missing data ###
+missingProbs <- seq(0,1, by = .05)
 
-n_missing<-seq(from = 0, to = 70, by = 5)
+# make an empty list to hold the output
 
+missingData_list <- replicate(length(missingProbs),rep(NA, times = nrow(titpopdf1)) , simplify = FALSE)
 
-## duplicate tit pop dataset in a list to use forloop to create missing ###
+## forloop that creates lists of data with increasing missingness###
 
-listmissingtitdf <- replicate(length(n_missing),titpopdf1, simplify = FALSE)
-
-
-###duplicate tit pop into rows of a dataframe with missing values###
-
-missingtitdf<-data.frame(replicate(length(n_missing),titpopdf1))
-
-#for loop to make TITPOP dataset with varying levels of missingness###
-
-
-##not quite right###
-for (i in 1:length(listmissingtitdf)) {
-  
-  listmissingtitdf[[i]]<-sample(c(TRUE, NA), prob = c(0.95, 0.05), size = length(titpopdf1$Broods), replace = TRUE)
-  
+for (i in 1:length(missingProbs)) {
+  missingdf_i <- as.data.frame(lapply(titpopdf1,
+                                      function(cc) cc[ sample(c(TRUE, NA),
+                                                              prob = c(1-missingProbs[i],
+                                                                       missingProbs[i]),
+                                                              size = length(cc),
+                                                              replace = TRUE) ]))
+  missingdf_i$popplus1 <- Lag(missingdf_i$Broods, -1)
+  missingData_list[[i]] <- missingdf_i
+  names(missingData_list)[i] <- paste0(missingProbs[i],"_Missing")
 }
 
+##
 
-##not quite right###
-for (i in 1:length(listmissingtitdf)) {
-  
-  listmissingtitdf[[i]]<-sample(c(TRUE, NA), prob = c(0.95, 0.05), size = length(titpopdf1$Broods), replace = TRUE)
-  
+
+## forloop that creates lists of data with increasing missingness and then solves for parameters with NLS###
+
+
+missingProbs <- seq(0,1, by = .05)
+
+# make an empty list to hold the output
+
+missingData_list <- replicate(length(missingProbs),rep(NA, times = nrow(titpopdf1)) , simplify = FALSE)
+modelOutput_list <- replicate(length(missingProbs), rep(NULL), simplify = FALSE)
+for (i in 1:length(missingProbs)) {
+  ## sequentially remove larger proportions of the data
+  missingdf_i <- as.data.frame(lapply(titpopdf1,
+                                      function(cc) cc[sample(c(TRUE, NA),
+                                                             prob = c(1-missingProbs[i],
+                                                                      missingProbs[i]),
+                                                             size = length(cc),
+                                                             replace = TRUE) ]))
+  missingdf_i$popplus1 <- Lag(missingdf_i$Broods, -1)
+  ## save the missing data in a list
+  missingData_list[[i]] <- missingdf_i
+  names(missingData_list)[i] <- paste0(missingProbs[i],"_Missing")
+  ## fit an NLS model to this "i" level of missing data
+  Rickermissing_i <-nls(popplus1~Broods*exp(r-alpha*Broods),start=list(r=0.1, alpha= 1/200), data=missingData_list[[i]])
+  modelOutput_list[[i]] <- summary(Rickermissing_i)$coefficients
+  names(modelOutput_list)[i] <- paste0(missingProbs[i],"_Missing")
 }
+
+####
+
+
+
+
+#############hack method that works#######
 
 ##removes 20% of data from each column###
 missingdftry<-missingtitdf  %>% mutate_all(~ifelse(sample(c(TRUE, FALSE), size = length(.), replace = TRUE, prob = c(0.8, 0.2)),
                             as.character(.), NA))
 
 
-for (i in 1:length(listmissingtitdf)) {
-  
- yesno[[i]]<-sample(c(1, NA), prob = c(0.95, 0.05), size = length(titpopdf1$Broods), replace = TRUE)
- listmissingtitdf[[i]]<-listmissingtitdf[[i]]*yesno[[i]]
-   
-}
 
-
-###take away 5% of estimates##
+###take away 5% of data##
 
 missingdf5<-as.data.frame(lapply(titpopdf1, function(cc) cc[ sample(c(TRUE, NA), prob = c(0.95, 0.05), size = length(cc), replace = TRUE) ]))
 missingdf55<-missingdf5 %>% mutate(popplus1=Lag(missingdf5$Broods, -1))
 
 
-###take away 20% of estimates##
+###take away 20% of data##
 
 missingdf20<-as.data.frame(lapply(titpopdf1, function(cc) cc[ sample(c(TRUE, NA), prob = c(0.80, 0.20), size = length(cc), replace = TRUE) ]))
 missingdf20<-missingdf20 %>% mutate(popplus1=Lag(missingdf20$Broods, -1))
 
 
-###take away 40% of estimates##
+###take away 40% of data##
 
 missingdf40<-as.data.frame(lapply(titpopdf1, function(cc) cc[ sample(c(TRUE, NA), prob = c(0.60, 0.40), size = length(cc), replace = TRUE) ]))
 missingdf40<-missingdf40 %>% mutate(popplus1=Lag(missingdf40$Broods, -1))
 
 
-###take away 70% of estimates##
+###take away 70% of data##
 
 missingdf70<-as.data.frame(lapply(titpopdf1, function(cc) cc[ sample(c(TRUE, NA), prob = c(0.30, 0.70), size = length(cc), replace = TRUE) ]))
 missingdf70<-missingdf70%>% mutate(popplus1=Lag(missingdf70$Broods, -1))
 
 
 
-###take away 90% of estimates##
+###take away 90% of data##
 
 missingdf90<-as.data.frame(lapply(titpopdf1, function(cc) cc[ sample(c(TRUE, NA), prob = c(0.10, 0.90), size = length(cc), replace = TRUE) ]))
 missingdf90<-missingdf90%>% mutate(popplus1=Lag(missingdf90$Broods, -1))
@@ -287,9 +306,16 @@ Rickermissing70estdf<-Rickermissing70est %>% mutate(missing=70) %>% tibble::rown
 
 Rickermissingalldf<-rbind(Rickermissingfullestdf, Rickermissing5estdf, Rickermissing20estdf, Rickermissing40estdf, Rickermissing70estdf)
 
+rdf<-subset(Rickermissingalldf, param=="r")
+alphadf<-subset(Rickermissingalldf, param=="alpha")
+
+rbiasdf<-rdf %>% mutate(bias=abs(Estimate-0.3083276657))
+alphabiasdf<-alphadf %>% mutate(bias=abs(Estimate-0.0009997187))
+
+biasdf<-rbind(rbiasdf, alphabiasdf)
 
 
-###plot Std error of estimates over missing-ness##
+###plot estimate and Std error of estimates over missing-ness##
 
 ggplot(data=Rickermissingalldf, aes(x=missing, y=Estimate))+
   facet_wrap(~param, scales="free")+
@@ -299,4 +325,14 @@ ggplot(data=Rickermissingalldf, aes(x=missing, y=Estimate))+
   xlab("Percent of Missing Data")+
   ylab("Parameter Estimate")
   
+
+###plot bias of estimates over missing-ness##
+
+ggplot(data=biasdf, aes(x=missing, y=bias))+
+  facet_wrap(~param, scales="free")+
+  geom_point(size=3)+
+  theme_classic()+
+  xlab("Percent of Missing Data")+
+  ylab("Bias")
+
 
