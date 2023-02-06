@@ -208,119 +208,41 @@ for (i in 1:length(missingProbs)) {
 
 ####
 
+Rickermissingdf<-plyr::ldply(modelOutput_list, data.frame)
 
+paramnames<-c("r", "alpha")
 
+paramnames1<-rep(paramnames,length(unique(Rickermissingdf$.id)))
 
-#############hack method that works#######
+Rickermissingdf2<-cbind(param=paramnames1,Rickermissingdf)
 
-##removes 20% of data from each column###
-missingdftry<-missingtitdf  %>% mutate_all(~ifelse(sample(c(TRUE, FALSE), size = length(.), replace = TRUE, prob = c(0.8, 0.2)),
-                            as.character(.), NA))
+Rickermissingdf3<-separate(data = Rickermissingdf2, col = .id, into = c("propmissing", "right"), sep = "_")
 
+###estimated param w/ no missing data###
 
+realr<-summary(Rickermodel3)$coefficients[[1]]
+realalpha<-summary(Rickermodel3)$coefficients[[2]]
 
-###take away 5% of data##
+hline_dat = data.frame(param=c("r", "alpha"),
+                                 value=c(realr, realalpha))
 
-missingdf5<-as.data.frame(lapply(titpopdf1, function(cc) cc[ sample(c(TRUE, NA), prob = c(0.95, 0.05), size = length(cc), replace = TRUE) ]))
-missingdf55<-missingdf5 %>% mutate(popplus1=Lag(missingdf5$Broods, -1))
+###bias@@@
+rdf<-subset(Rickermissingdf3, param=="r")
+alphadf<-subset(Rickermissingdf3, param=="alpha")
 
-
-###take away 20% of data##
-
-missingdf20<-as.data.frame(lapply(titpopdf1, function(cc) cc[ sample(c(TRUE, NA), prob = c(0.80, 0.20), size = length(cc), replace = TRUE) ]))
-missingdf20<-missingdf20 %>% mutate(popplus1=Lag(missingdf20$Broods, -1))
-
-
-###take away 40% of data##
-
-missingdf40<-as.data.frame(lapply(titpopdf1, function(cc) cc[ sample(c(TRUE, NA), prob = c(0.60, 0.40), size = length(cc), replace = TRUE) ]))
-missingdf40<-missingdf40 %>% mutate(popplus1=Lag(missingdf40$Broods, -1))
-
-
-###take away 70% of data##
-
-missingdf70<-as.data.frame(lapply(titpopdf1, function(cc) cc[ sample(c(TRUE, NA), prob = c(0.30, 0.70), size = length(cc), replace = TRUE) ]))
-missingdf70<-missingdf70%>% mutate(popplus1=Lag(missingdf70$Broods, -1))
-
-
-
-###take away 90% of data##
-
-missingdf90<-as.data.frame(lapply(titpopdf1, function(cc) cc[ sample(c(TRUE, NA), prob = c(0.10, 0.90), size = length(cc), replace = TRUE) ]))
-missingdf90<-missingdf90%>% mutate(popplus1=Lag(missingdf90$Broods, -1))
-
-
-
-
-#####
-## NLS can handle missing data (it removes them) but it will accumulate bias##
-
-###""TRUE""" estimates from no missing data### 
-
-Rickermodelfull <-nls(poptplus1~Broods*exp(r-alpha*Broods),start=list(r=0.1, alpha= 1/200), data=titpop)
-
-## r = 0.3083 , K = 308## (alpha = 0.000997)
-
-Rickermissing5 <-nls(popplus1~Broods*exp(r-alpha*Broods),start=list(r=0.1, alpha= 1/200), data=missingdf55)
-#na.action(Rickermodel3) ## tells us what rows were omitted ###
-
-Rickermissing20 <-nls(popplus1~Broods*exp(r-alpha*Broods),start=list(r=0.1, alpha= 1/200), data=missingdf20)
-
-Rickermissing40 <-nls(popplus1~Broods*exp(r-alpha*Broods),start=list(r=0.1, alpha= 1/200), data=missingdf40)
-
-Rickermissing70 <-nls(popplus1~Broods*exp(r-alpha*Broods),start=list(r=0.1, alpha= 1/200), data=missingdf70)
-
-
-##doesn't work###
-
-Rickermissing90 <-nls(popplus1~Broods*exp(r-alpha*Broods),start=list(r=0.1, alpha= 1/200), data=missingdf90)
-
-### pull out estimates ###
-
-Rickermodelfullest<-as.data.frame(summary(Rickermodelfull )$coefficients) 
-
-Rickermissingfullestdf<-Rickermodelfullest %>% mutate(missing=0) %>% tibble::rownames_to_column("param")
-
-
-Rickermissing5est<-as.data.frame(summary(Rickermissing5)$coefficients) 
-
-Rickermissing5estdf<-Rickermissing5est %>% mutate(missing=5) %>% tibble::rownames_to_column("param")
-
-
-Rickermissing20est<-as.data.frame(summary(Rickermissing20)$coefficients) 
-
-Rickermissing20estdf<-Rickermissing20est %>% mutate(missing=20) %>% tibble::rownames_to_column("param")
-
-
-Rickermissing40est<-as.data.frame(summary(Rickermissing40)$coefficients) 
-
-Rickermissing40estdf<-Rickermissing40est %>% mutate(missing=40) %>% tibble::rownames_to_column("param")
-
-
-Rickermissing70est<-as.data.frame(summary(Rickermissing70)$coefficients) 
-
-Rickermissing70estdf<-Rickermissing70est %>% mutate(missing=70) %>% tibble::rownames_to_column("param")
-
-
-##merge the dataframe w/ estimates from models with 0 - 40 % missing data ##
-
-Rickermissingalldf<-rbind(Rickermissingfullestdf, Rickermissing5estdf, Rickermissing20estdf, Rickermissing40estdf, Rickermissing70estdf)
-
-rdf<-subset(Rickermissingalldf, param=="r")
-alphadf<-subset(Rickermissingalldf, param=="alpha")
-
-rbiasdf<-rdf %>% mutate(bias=abs(Estimate-0.3083276657))
-alphabiasdf<-alphadf %>% mutate(bias=abs(Estimate-0.0009997187))
+rbiasdf<-rdf %>% mutate(bias=abs(Estimate-realr))
+alphabiasdf<-alphadf %>% mutate(bias=abs(Estimate-realalpha))
 
 biasdf<-rbind(rbiasdf, alphabiasdf)
 
 
 ###plot estimate and Std error of estimates over missing-ness##
 
-ggplot(data=Rickermissingalldf, aes(x=missing, y=Estimate))+
+ggplot(data=Rickermissingdf3, aes(x=as.numeric(propmissing), y=Estimate))+
   facet_wrap(~param, scales="free")+
-  geom_errorbar(aes(ymin=Estimate-`Std. Error`, ymax=Estimate+`Std. Error`), width=.2)+
+  geom_errorbar(aes(ymin=Estimate-`Std..Error`, ymax=Estimate+`Std..Error`), width=.02)+
   geom_point(size=3)+
+  geom_hline(data=hline_dat, aes(yintercept=value), colour="salmon")+
   theme_classic()+
   xlab("Percent of Missing Data")+
   ylab("Parameter Estimate")
@@ -328,7 +250,7 @@ ggplot(data=Rickermissingalldf, aes(x=missing, y=Estimate))+
 
 ###plot bias of estimates over missing-ness##
 
-ggplot(data=biasdf, aes(x=missing, y=bias))+
+ggplot(data=biasdf, aes(x=as.numeric(propmissing), y=bias))+
   facet_wrap(~param, scales="free")+
   geom_point(size=3)+
   theme_classic()+
