@@ -64,7 +64,7 @@ pr <- filter(dat, site_name == id)
 
 # calculate observation error based on 95% CIs
 
-sigma_obs <- median(pr$GPP.upper - pr$GPP.lower)/3.92
+sigma_obs <- (pr$GPP.upper - pr$GPP.lower)/3.92
 pr <- pr %>%
   select(date, GPP, light, Q) %>%
   mutate(across(-date, ~zoo::na.approx(.)))%>%
@@ -75,10 +75,8 @@ pr %>% mutate(site_name = 'Pine River') %>% plot_gpp()
 
 #Prep models ####
 # model file: "model types/fixed_oi_light_centered.stan"
-model <- "model types/fixed_oi_light_centered.stan"
-model_l <- stan_model(model)
-model <- "model types/fixed_oi_light_Q_centered.stan"
-model_lq <- stan_model(model)
+model_l <- stan_model("model types/Stan/AR1_light_centered.stan")
+model_lq <- stan_model("model types/Stan/AR1_light_Q_centered.stan")
 
 #Create data object
 data <- list(N = nrow(pr), P_obs = pr$GPP,
@@ -90,7 +88,8 @@ fit_l <- rstan::sampling(object=model_l, data = data,
 
 #Create data object
 data <- list(N = nrow(pr), P_obs = pr$GPP,
-             sdo = sigma_obs, light = pr$light.rel, Q = pr$Q)
+             sdo = sigma_obs, light = pr$light.rel, Q = pr$Q,
+             miss_vec = rep(1, nrow(pr)))
 
 #Run Stan
 fit_lq <- rstan::sampling(object=model_lq, data = data,  
@@ -102,7 +101,7 @@ stan_dens(fit_l, pars=c("phi", "sdp", "beta"))
 
 traceplot(fit_lq, pars=c("phi", "sdp", "beta"))
 pairs(fit_lq, pars=c("phi", "sdp","beta","lp__"))
-stan_dens(fit_lq, pars=c("phi", "sdp", "beta"))
+plot(fit_lq, pars=c("phi", "sdp", "beta"))
 
 
 # look at posterior predictions:
