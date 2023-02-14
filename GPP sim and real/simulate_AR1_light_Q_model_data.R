@@ -38,7 +38,7 @@ for(i in 2:n){
 
 P_obs <- rnorm(n, mu, sigma_obs)
 
-model_lq <- stan_model("model types/Stan/AR1_light_Q_centered.stan")
+model_lq <- stan_model("GPP sim and real/Stan_code/AR1_light_Q_centered.stan")
 
 #Create data object
 data <- list(N = n, P_obs = P_obs,
