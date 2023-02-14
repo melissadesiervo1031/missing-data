@@ -3,18 +3,23 @@
 
 ##packages##
 
-library(plyr)
 library(dplyr)
 library(ggplot2)
 library(tidyverse)
 library(here)
 library(tseries)
 library(tis)
+library(rstan)
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+library(plyr)
+library(shinystan)
 
 ##upload the great tit population data##
 
-titpop<- read.csv(here("data/Wytham_tits.csv"), header=T, check.names=FALSE)
+titpop <- read_csv('data/Wytham_tits.csv')
 
+titpop<-as.data.frame(titpop)
 
 ##make dataset a time series object###
 
@@ -27,7 +32,7 @@ titpopts<-ts(titpop$Broods, start=1960, end=2018, frequency=1)
 
 ##add variable t+1##
 
-titpop$poptplus1 <- Lag(titpop$Broods, k=1)
+titpop$poptplus1 <- c(titpop$Broods[-1], NA)
 
 ##add variable lambda t+1/t ##
 
@@ -64,3 +69,36 @@ ddplotpercap<-ggplot(titpop2, aes(x=Broods, y=percapgrowth)) +
 
 Rickermodel3 <-nls(poptplus1~Broods*exp(r-alpha*Broods),start=list(r=0.1, alpha= 1/200), data=titpop)
 
+summary(Rickermodel3)
+
+##r = 0.308, alpha = 0.0009 ##
+
+### Run STAN model for estimating coefficients# Ricker model w/ Poisson error ###
+
+tit_dat<- list(y=titpop$Broods, N=length(titpop$Broods))
+
+tit_fit<- stan(file="Population sim and real/ricker3_.stan", data= tit_dat, iter = 4000, chains = 4)
+
+print(tit_fit,digits=5)
+
+##r = 0.3474, alpha = 0.00112 ##
+
+# examine model outputs
+traceplot(tit_fit, pars=c("rmax", "alpha"))
+pairs(tit_fit, pars=c("rmax", "alpha","lp__"))
+stan_dens(tit_fit, pars=c("rmax", "alpha"))
+
+fit_extract <- rstan::extract(tit_fit)
+
+
+# look at posterior predictions:
+get_pp <- function(fit){
+  fit_extract <- rstan::extract(tit_fit)
+  pp <- t(apply(fit_extract$pop_rep, 2, 
+                function(x) quantile(x, probs = c(0.025, 0.5, 0.975), names = F))) %>%
+    data.frame() 
+  names(pp) <- c('pop_rep.lower', 'pop_rep', 'pop_rep.upper')
+  
+  return(pp)
+  
+}
