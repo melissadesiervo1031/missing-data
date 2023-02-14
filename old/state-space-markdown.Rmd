@@ -1,0 +1,466 @@
+---
+title: "State-space model"
+author: "Matt T. Trentman"
+date: "11/23/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r, echo=FALSE}
+knitr::opts_chunk$set(error = TRUE)
+```
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE, message = FALSE)
+library(rstan)
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+library(dplyr)
+library(shinystan)
+library(faux)
+library(bayesplot)
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+library(lubridate)
+library(data.table)
+library(Amelia)
+library(tidyr)
+library(MASS)
+library(plyr)
+library(ggplot2)
+library(summarytools)
+library(knitr)
+library(abind)
+
+options(scipen=999)
+
+```
+# Goal
+Create a simple state-space model that recovers known parameters from simulated GPP 'data'.
+My ideal model is an auto-regressive process model with an intercept ($\beta_0$), AR(1) term ($\phi$), light covariate ($\beta_1$), and process error ($\sigma_{sdp}$) that are used to predict the state ($GPP_{state,\ t}$) at time $t$.
+The observation model includes the estimated state and observation error $(\sigma_{obs})$
+$$
+\begin{aligned}
+GPP_{state,\ t}=\beta_0+\phi\times GPP_{state,\ t-1}+\beta_1\times X_{light}+\sigma_{sdp}\\
+GPP_{obs}=GPP_{state}+\sigma_{obs}
+\end{aligned}
+$$
+
+
+# The Problem
+When I simulate data using the above equations, I cannot recover the known parameters. There seems to be an issue with $\sigma_{obs}$ and $\sigma_{sdp}$ in particular. 
+\newpage
+
+# What I have done so far
+## Process-only model
+On Bob's suggestion, I backtracked to a simpler model to see where things go wrong. 
+I started with a simple process error only model with autocorrelation where:
+\
+$\beta_0$=0\
+$\sigma_{sdp}$= 0.01\
+$\phi$=0.8\
+$$
+GPP_{state,\ t}=\beta_0+\phi\times GPP_{state,\ t-1}+\sigma_{sdp}\\
+$$
+
+
+```{r fig1, echo=FALSE, fig.cap="Process-only model simulated data ", fig.align = "center", out.width='70%'}
+#Simulate data
+
+N<-365 #length of data
+t<-1:N #time
+time<-seq(as.POSIXct("2020/1/1"),as.POSIXct("2020/12/30"), by="day") #for light
+
+##GPP based on time-series model with known parameters
+set.seed(550)
+z<-NA
+sdp <- 0.01
+phi <-0.8
+z[1]<-0
+
+## Set the seed, so we can reproduce the results
+set.seed(550)
+## For-loop that simulates the state through time, using i instead of t,
+for (t in 2:N){
+  z[t] = phi*z[t-1]+rnorm(1, 0, sdp)
+}
+
+y_full<-data.frame(z,t)
+
+ggplot(data=y_full, aes(x=time, y=z))+
+  geom_point(color="black", size=3)+
+  theme_classic()+
+  theme(axis.title.x=element_text(size=18,colour = "black"))+
+  theme(axis.title.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.y=element_text(size=18,colour = "black"))+
+  theme(axis.text.x=element_text(size=18,colour = "black"))+
+  theme(legend.position="top")+
+  ylab("Data")+
+  xlab("Time (days)")+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+
+```
+\newpage
+
+### STAN Code and output
+This code uses bits from Auger-Methe et al. (2021, Ecological Monigraphs) and various blogs on state-space models in Stan.
+```{r eval=FALSE}
+#STAN model
+sink("process.stan")
+
+cat(
+ 
+/*----------------------- Data --------------------------*/
+  data {
+    int N; // Length of state and observation time series
+    vector[N] z; // Observations
+    real z0;
+    }
+  
+/*----------------------- Parameters --------------------------*/
+  
+  parameters {
+    real<lower=0> sdp; // Standard deviation of the process equation
+    real b0;
+    real<lower = 0, upper=1 > phi; // Auto-regressive parameter
+      }
+  
+
+  /*----------------------- Model --------------------------*/
+  model {
+    // Prior distributions
+    sdp ~ normal(0, 1);
+    phi ~ beta(1,1);
+    b0 ~ normal(0,5);
+    
+    // Distribution for the first state
+    z[1] ~ normal(z0, sdp);
+  
+    // Distributions for all other states
+    for(t in 2:N){
+       z[t] ~ normal(b0+phi*z[t-1], sdp);// process model with error
+    }
+  }
+  
+    ,fill=TRUE)
+sink()
+
+#Prep model
+model<-"process.stan"
+model<-stan_model(model)
+
+#Create data object
+data <- list(N = length(z),z=z, z0=z[1])
+
+#Run Stan
+fit<-rstan::sampling(object=model, data = data,  iter = 3000, chains = 4)
+```
+\newpage
+
+```{r fig2, echo=FALSE, fig.cap=c("Traceplot of process-only model", "Posterior distribution of process-only model with known values"), fig.align = "center", out.width='60%'}
+##Traceplots
+fit<-readRDS("C:/Users/matt/Documents/GitHub/missing-data/process.RDS")
+
+traceplot(fit, pars=c("phi", "sdp", "b0"))
+
+##Density plots
+plot_sdp <- stan_dens(fit, pars="sdp") + geom_vline(xintercept = sdp)
+plot_phi <- stan_dens(fit, pars="phi") + geom_vline(xintercept = phi)
+plot_b0 <- stan_dens(fit, pars="b0") + geom_vline(xintercept = 0)
+grid.arrange(plot_phi,plot_sdp,plot_b0, nrow=2)
+```
+The chains look great, and the known parameters match fairly well with the posterior distributions. **I am not sure if this is 'good enough' or if we should try for more accuracy**. For now, lets move on to a state-space model (add observation error).
+\newpage
+
+## Simple State-Space model
+Add an observation model equation to the process model above.
+$$
+\begin{aligned}
+GPP_{state,\ t}=\beta_0+\phi\times GPP_{state,\ t-1}+\sigma_{sdp}\\
+GPP_{obs}=GPP_{state}+\sigma_{obs}
+\end{aligned}
+$$
+Simulate some data-both the 'true/latent state', which only includes process error, as well as the observed data, which is the 'true/latent state' but with observation error. Here are the parameters I used for the model:\
+$\beta_0$=0\
+$\sigma_{sdp}$= 0.01\
+$\sigma_{sdo}$= 0.01\
+$\phi$=0.8\
+
+```{r echo=FALSE, fig.cap="Simulated data for state-space model", align='center', out.width='80%'}
+#Simulate data
+
+N<-500#length of data
+z<-numeric(N+1) 
+t<-numeric(N+1) 
+t<-0:500
+##GPP based on time-series model with known parameters
+set.seed(553)
+sdp <- 0.01
+sdo<-0.01
+phi<-.8
+
+## Set the seed, so we can reproduce the results
+set.seed(550)
+sd.p<-rnorm(N, 0, sdp)
+## For-loop that simulates the state through time
+for (i in 1:N){
+  z[i+1] =z[i]*phi+sd.p[i]
+}
+
+#Estimate observed data
+set.seed(500)
+sd.o <-rnorm(N, 0, sdo)
+y <-z[2:(N+1)]+ sd.o
+
+##Plot
+plot(1:length(y), y,
+     pch=3, cex = 0.8, col="blue", ty="o", lty = 3,
+     xlab = "t", ylab = expression(y[t]),
+     xlim = c(0,N), #ylim = c(min(y), max(y+max(y)/5)),
+     las = 1)
+points(0:N, z,
+       pch = 19, cex = 0.7, col="red", ty = "o")
+legend("top",
+       legend = c("Obs.", "True states"),
+       pch = c(3, 19),
+       col = c("blue", "red"),
+       lty = c(3, 1),
+       horiz=TRUE, bty="n", cex=0.9)
+
+```
+\newpage
+### An aside
+I have found that there are many ways to simulated the two data sets, and it is easy to simulate the data incorrectly. I was doing this wrong for a long time...
+
+I originally used this set of equations:
+```{r eval=FALSE}
+set.seed(550)
+## For-loop that simulates the latent state through time
+for (i in 2:N){
+  z[i] =z[i-1]+rnorm(1, 0, sdp)
+}
+
+#Estimate observed data
+y <-z+rnorm(N, 0, sdo)
+```
+
+But these equations create an offset of error between the two simulated vectors. I used Auger-Methes (2021) approach and it fixed the problem. Long-story short, you need to estimate time point 0 for the state to start the simulation. Then apply the observation error to index 2 of the state, which is actually time point 1.
+```{r eval=FALSE}
+## For-loop that simulates the state through time
+for (i in 1:N){
+  z[i+1] =z[i]*phi+rnorm(1, 0, sdp)
+}
+
+#Estimate observed data
+y <-z[2:(N+1)]+ rnorm(N, 0, sdo)
+```
+
+\newpage
+
+### STAN Code and output
+Now onto the STAN code and output for the state-space model.
+```{r eval=FALSE}
+#STAN model
+sink("ss_1.stan")
+
+cat("
+ 
+
+/*----------------------- Data --------------------------*/
+  data {
+    int N; // Length of state and observation time series
+    vector[N] y; // Observations
+    real z0; //intital state value
+    }
+  
+/*----------------------- Parameters --------------------------*/
+  
+  parameters {
+    vector[N] z; //latent state variable
+    real<lower=0> sdp; // Standard deviation of the process equation
+    real<lower=0> sdo; // Standard deviation of the observation equation
+    real<lower = 0, upper=1 > phi; // Auto-regressive parameter
+    real b0; 
+      }
+  
+
+  /*----------------------- Model --------------------------*/
+  model {
+    // Prior distributions
+    sdo ~ normal(0, 1);
+    sdp ~ normal(0, 1);
+    phi ~ beta(1,1);
+    b0  ~ normal(0,5);
+    
+    // Distribution for the first state
+    z[1] ~ normal(z0,sdp);
+  
+    // Distributions for all other states
+    for(i in 2:N){
+       z[i] ~ normal(z[i-1]*phi+b0, sdp);// process model with error
+    }
+    
+    for(i in 1:N){
+       y[i] ~ normal(z[i], sdo); // observation model with fixed observation error
+    }
+
+ }
+"
+    ,fill=TRUE)
+sink()
+closeAllConnections()
+
+#Prep model
+model<-"ss_1.stan"
+model<-stan_model(model)
+
+#Create data object
+data <- list(N = length(z),z=z, z0=z[1])
+
+#Run Stan
+fit<-rstan::sampling(object=model, data = data,  iter = 3000, chains = 4)
+```
+
+\newpage
+
+```{r echo=FALSE, fig.cap=c("Traceplot of state-space model", "Posterior distribution of state-space model with known values"), fig.align = "center", out.width='60%'}
+fit<-readRDS("C:/Users/matt/Documents/GitHub/missing-data/state_space_1.RDS")
+
+##Traceplots
+traceplot(fit, pars=c("sdo", "sdp", "phi", "b0"))
+
+##Plot density plots
+plot_sdo <- stan_dens(fit, pars="sdo") + geom_vline(xintercept =sdo)
+plot_sdp <- stan_dens(fit, pars="sdp") + geom_vline(xintercept = sdp)
+plot_phi <- stan_dens(fit, pars="phi") + geom_vline(xintercept = phi)
+plot_b0 <- stan_dens(fit, pars="b0") + geom_vline(xintercept =0)
+grid.arrange(plot_sdp,plot_sdo,plot_phi, plot_b0,nrow=2)
+```
+Again, these look pretty good. No errors, chains are stationary and well mixed, and the known parameters match with the posterior distribution (although, again, it's unclear to me if this is *good enough*.
+
+\newpage
+
+## The Rub with the state-space model
+Issues form when we **change the value of sdp or sdo**. If they are the same value it works fine (even at different magnitudes; say sdp/sdo=c(0.001,0.01,0.1)). Things fall apart if they are different.
+For example, lets set:\
+$\beta_0$=0\
+$\sigma_{sdp}$= 0.01\
+$\sigma_{sdo}$= 0.001\
+$\phi$=0.8\
+
+And use the same state-space model as above.
+
+```{r echo=FALSE, fig.cap=" ", fig.show="hold"}
+#Simulate data
+
+N<-500#length of data
+z<-numeric(N+1) 
+t<-numeric(N+1) 
+t<-0:500
+##GPP based on time-series model with known parameters
+set.seed(553)
+sdp <- 0.01
+sdo<-0.001
+phi<-.8
+
+## Set the seed, so we can reproduce the results
+set.seed(550)
+sd.p<-rnorm(N, 0, sdp)
+## For-loop that simulates the state through time
+for (i in 1:N){
+  z[i+1] =z[i]*phi+sd.p[i]
+}
+
+#Estimate observed data
+set.seed(500)
+sd.o <-rnorm(N, 0, sdo)
+y <-z[2:(N+1)]+ sd.o
+
+
+##Plot
+plot(1:length(y), y,
+     pch=3, cex = 0.8, col="blue", ty="o", lty = 3,
+     xlab = "t", ylab = expression(y[t]),
+     xlim = c(0,N), #ylim = c(min(y), max(y+max(y)/5)),
+     las = 1)
+points(0:N, z,
+       pch = 19, cex = 0.7, col="red", ty = "o")
+legend("top",
+       legend = c("Obs.", "True states"),
+       pch = c(3, 19),
+       col = c("blue", "red"),
+       lty = c(3, 1),
+       horiz=TRUE, bty="n", cex=0.9)
+```
+\newpage
+
+```{r echo=FALSE, fig.cap=c("Traceplot of state-space model", "Posterior distribution of state-space model with known values"), fig.align = "center", out.width='60%'}
+fit<-readRDS("C:/Users/matt/Documents/GitHub/missing-data/state_space_2.RDS")
+
+##Traceplots
+traceplot(fit, pars=c("sdo", "sdp", "phi", "b0"))
+
+##Plot density plots
+plot_sdo <- stan_dens(fit, pars="sdo") + geom_vline(xintercept =0.001)
+plot_sdp <- stan_dens(fit, pars="sdp") + geom_vline(xintercept = 0.01)
+plot_phi <- stan_dens(fit, pars="phi") + geom_vline(xintercept = phi)
+plot_b0 <- stan_dens(fit, pars="b0") + geom_vline(xintercept =0)
+grid.arrange(plot_sdp,plot_sdo,plot_phi, plot_b0,nrow=2)
+```
+Woah. Chaos. There are some issues with estimating sdo and sdp.
+
+\newpage
+
+Even worse if we flip the values for sdp/sdo!
+\
+$\beta_0$=0\
+$\sigma_{sdp}$= 0.001\
+$\sigma_{sdo}$= 0.01\
+$\phi$=0.8\
+
+```{r echo=FALSE, fig.cap=c("Traceplot of state-space model", "Posterior distribution of state-space model with known values"), fig.align = "center", out.width='60%'}
+fit<-readRDS("C:/Users/matt/Documents/GitHub/missing-data/state_space_3.RDS")
+
+##Traceplots
+traceplot(fit, pars=c("sdo", "sdp", "phi", "b0"))
+
+##Plot density plots
+plot_sdo <- stan_dens(fit, pars="sdo") + geom_vline(xintercept =0.01)
+plot_sdp <- stan_dens(fit, pars="sdp") + geom_vline(xintercept = 0.001)
+plot_phi <- stan_dens(fit, pars="phi") + geom_vline(xintercept = 0.8)
+plot_b0 <- stan_dens(fit, pars="b0") + geom_vline(xintercept =0)
+grid.arrange(plot_sdp,plot_sdo,plot_phi, plot_b0,nrow=2)
+```
+\newpage
+
+## My (unsuccessful) attempts to fix the problem
+* Hagiwara 2021- Time Series Analysis for the State-Space Model with R/Stan) does a few things different than our model. I tried a few and they don't help.   + modeling sdo and sdo as covariance matrices
+  + modeling z0 as a parameter to inform z1
+* Increasing sample size from 500-->5000
+* Strong prior on sdo (sdo ~ normal(0, 0.001))
+
+\newpage
+
+## Somewhat successful attempts
+* Fixing $\sigma_{sdo}$= to the true value
+ + $\beta_0$=0\
+$\sigma_{sdp}$= 0.5\
+$\sigma_{sdo}$= 0.01\
+$\phi$=0.8\
+
+```{r echo=FALSE, fig.cap=c("Traceplot of state-space model", "Posterior distribution of state-space model with known values"), fig.align = "center", out.width='60%'}
+fit<-readRDS("C:/Users/matt/Documents/GitHub/missing-data/ss_AM_fixedsdo.RDS")
+
+##Traceplots
+traceplot(fit, pars=c( "sdp", "phi", "b0"))
+
+##Plot density plots
+plot_sdp <- stan_dens(fit, pars="sdp") + geom_vline(xintercept =0.5)
+plot_phi <- stan_dens(fit, pars="phi") + geom_vline(xintercept =0.8)
+plot_b0 <- stan_dens(fit, pars="b0") + geom_vline(xintercept =0)
+grid.arrange(plot_sdp,plot_phi, plot_b0,nrow=2)
+```
+
+
