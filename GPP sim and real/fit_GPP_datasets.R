@@ -75,8 +75,8 @@ pr %>% mutate(site_name = 'Pine River') %>% plot_gpp()
 
 #Prep models ####
 # model file: "model types/fixed_oi_light_centered.stan"
-model_l <- stan_model("model types/Stan/AR1_light_centered.stan")
-model_lq <- stan_model("model types/Stan/AR1_light_Q_centered.stan")
+model_l <- stan_model("GPP sim and real/Stan_code/AR1_light_centered.stan")
+model_lq <- stan_model("GPP sim and real/Stan_code/AR1_light_Q_centered.stan")
 
 #Create data object
 data <- list(N = nrow(pr), P_obs = pr$GPP,
@@ -94,7 +94,10 @@ data <- list(N = nrow(pr), P_obs = pr$GPP,
 #Run Stan
 fit_lq <- rstan::sampling(object=model_lq, data = data,  
                        iter = 4000, chains = 4)
-# examine model outputs
+
+##beta 1: 1.18, beta 2: 2.93, beta 3:-1.27, phi: 0.63, sdp = 1.18 ####
+
+fit_l# examine model outputs
 traceplot(fit_l, pars=c("phi", "sdp", "beta"))
 pairs(fit_l, pars=c("phi", "sdp","beta","lp__"))
 stan_dens(fit_l, pars=c("phi", "sdp", "beta"))
@@ -121,3 +124,25 @@ plot_gpp(pr_l, pp_fit = TRUE)
 
 pr_q <- bind_cols(pr, get_pp(fit_lq))
 plot_gpp(pr_q, pp_fit = TRUE)
+
+
+### fit models Arima R ### compare results ## (MD 3/10/23)
+
+library(forecast)
+library(xts)
+library(nlme)
+library(tidyverse)
+
+
+head(pr)
+
+X = matrix(c(pr$light.rel, pr$Q), ncol = 2)
+
+fit <- Arima(xts(pr$GPP, order.by = pr$date), order = c(1,0,0), xreg = X)
+
+##works, but not fitting exactly like our stan model...I need to work on this more / ask for help### 
+
+##ar = 0.7139, x1 (light)= 5.27, x2 (Q)=-1.65 ## ##theres an intercept..#
+
+
+
