@@ -57,7 +57,7 @@ rand_mod_matrix <- function(n, p, sigma2 = 1, mu = 0, intercept = TRUE){
 # global parameters
   set.seed(235)
   nsims <- 1000
-  n <- 356
+  n <- 365
   p <- 2
   sde <- 1
   
