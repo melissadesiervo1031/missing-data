@@ -6,7 +6,7 @@
 # a few of the datasets created by the "gaussian_ar1_data_sims.R"
 # script (stored locally in the "data" folder as "gauss_ar1_0miss_
 # datasets.rds) using the AR1 model found in the "GPP sim and real/
-# Stan_code" folder as "AR1_light_Q_centered.stan"
+# Stan_code" folder as "AR1_light_Q_centered.stan".
 
 #### Setup ####
 
@@ -46,19 +46,19 @@ dat5_rc <- lapply(X = dat5,
                                                 typeMissing = "randChunks",
                   # proportion missing
                   # default is a vector from .05:.95 by .05    
-                                                propMiss = 0.25,
+                                                propMiss = 0.35,
                   # integer length of data missing in each chunk
                   # default is 5% of length of full time series
                                                 chunkSize = 14))
 
-# Quick plots of timeseries with 20% missingness in random chunks
-# So, there should be roughly 70 days missing in 2 week-long chunks
-# so, 5 chunks missing from each dataset.
-plot(x = 1:365, y = dat5_rc[[1]]$propMissing_0.2)
-plot(x = 1:365, y = dat5_rc[[2]]$propMissing_0.2)
-plot(x = 1:365, y = dat5_rc[[3]]$propMissing_0.2)
-plot(x = 1:365, y = dat5_rc[[4]]$propMissing_0.2)
-plot(x = 1:365, y = dat5_rc[[5]]$propMissing_0.2)
+# Quick plots of timeseries with 35% missingness in random chunks
+# So, there should be roughly 128 days missing in 2 week-long chunks
+# so, 9 chunks missing from each dataset.
+plot(x = 1:365, y = dat5_rc[[1]]$propMissing_0.35)
+plot(x = 1:365, y = dat5_rc[[2]]$propMissing_0.35)
+plot(x = 1:365, y = dat5_rc[[3]]$propMissing_0.35)
+plot(x = 1:365, y = dat5_rc[[4]]$propMissing_0.35)
+plot(x = 1:365, y = dat5_rc[[5]]$propMissing_0.35)
 
 # Looks good! Some chunks are put together while others aren't.
 
@@ -81,10 +81,12 @@ dat5_rc <- lapply(dat5_rc, function(x) cbind(x, light = light.rel))
 # Also need to add sdo.
 dat5_rc <- lapply(dat5_rc, function(x) cbind(x, sdo = 0.1))
 
-# And a column to denote missingness.
+# And a column to denote missingness and remove NAs from GPP data.
 dat5_rc <- lapply(dat5_rc, function(x) x %>%
-    mutate(miss_vec = case_when(is.na(propMissing_0.25) == TRUE ~ 0,
-                                                TRUE ~ 1)))
+    mutate(miss_vec = case_when(is.na(propMissing_0.35) == TRUE ~ 0,
+                                                TRUE ~ 1)) %>%
+      mutate(GPP_noNA = case_when(is.na(propMissing_0.35) == TRUE ~ 0,
+                                  TRUE ~ propMissing_0.35)))
 
 #### Model Fit ####
 
@@ -94,8 +96,8 @@ rstan_options(auto_write = TRUE)
 
 # Compile data
 stan_data_compile <- function(x){
-  data <- list(N = length(x$propMissing_0.25), # number of records
-               P_obs = x$propMissing_0.25, # simulated GPP
+  data <- list(N = length(x$propMissing_0.35), # number of records
+               P_obs = x$GPP_noNA, # simulated GPP w/o NAs
                light = x$light, # relativized light
                Q = x$Q,   # relativized discharge
                sdo = x$sdo,  # standard deviation of GPP estimates
@@ -114,10 +116,22 @@ ar1_fit5 <- lapply(stan_data5,
                      control = list(max_treedepth = 12), 
                      save_warmup=FALSE))
 
+# Ran on server - started 9:38, finished 9:42.
+
 # Examine output
 traceplot(ar1_fit5[[1]], pars=c("phi", "sdp", "beta"))
 pairs(ar1_fit5[[1]], pars=c("phi", "sdp","beta","lp__"))
 plot(ar1_fit5[[1]], pars=c("phi", "sdp", "beta"))
 print(ar1_fit5[[1]], pars=c("phi", "sdp", "beta"))
+
+# Trace plots and Rhat values look alright, and no divergent
+# transitions spat out as warnings.
+
+#         mean se_mean   sd  2.5%   25%  50%  75% 97.5% n_eff Rhat
+# phi     0.95    0.00 0.02  0.91  0.94 0.95 0.97  0.99  3031    1
+# sdp     0.86    0.00 0.04  0.78  0.84 0.86 0.89  0.95  4898    1
+# beta[1] 2.88    0.03 2.28 -2.34  1.67 3.03 4.25  6.95  4371    1
+# beta[2] 0.04    0.00 0.16 -0.28 -0.07 0.04 0.14  0.34  7462    1
+# beta[3] 0.04    0.00 0.05 -0.06  0.00 0.04 0.07  0.14  6342    1
 
 # End of script.
