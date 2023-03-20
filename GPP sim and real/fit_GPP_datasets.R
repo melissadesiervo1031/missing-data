@@ -142,11 +142,7 @@ fit <- Arima(xts(pr$GPP, order.by = pr$date), order = c(1,0,0), xreg = X)
 
 ##works, but not fitting exactly like our stan model...I need to work on this more / ask for help### 
 
-<<<<<<< HEAD
 ##ar = 0.7139, x1 (light)= 5.27, x2 (Q)=-1.65 ## ##theres an intercept..#
-=======
-##ar = 0.7139, x1 (light)= 5.27, x2 (Q)=-1.65 ##
->>>>>>> eb45d9f46f95a3a3c348add1d6443ce3559ace15
 
 
 
