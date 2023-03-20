@@ -42,7 +42,11 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
                                                       replace = FALSE),                                        
                                         values = NA)    )    
     
-    names(missingDat_list) <- paste0("propMissing_",propMiss_f)  
+    names(missingDat_list) <- paste0("propMissIn_",propMiss_f, "; propMissAct_",  
+                                     lapply(X = missingDat_list, 
+                                            FUN = function(x) round(sum(is.na(x))/length(x),2)
+                                     )
+    )
   }     
   
   ## if you want to generate missing data in chunks (relatively evenly spaced)  
@@ -93,9 +97,12 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
         missingDat_list[[i]] <- replace(timeSeries, list = indices_seq, values = NA)     
       }          
     }    
-    
-    names(missingDat_list) <- paste0("propMissing_",propMiss_f)  
-  }
+    names(missingDat_list) <- paste0("propMissIn_",propMiss_f, "; propMissAct_",  
+                                     lapply(X = missingDat_list, 
+                                            FUN = function(x) round(sum(is.na(x))/length(x),2)
+                                     )
+    )
+                                     }
   
   ## if you want to generate missing data in chunks (randomly spaced)  
   if (typeMissing == "randChunks") {    
@@ -117,7 +124,7 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       # get the indices of the starts and ends of each gap (have to loop through each gap?)
       # get the potential indices for the start first gap (1:length of timeSeries-chunkSize+1)
       indices_now <- 1:(length(timeSeries) - chunkSize_i[1]+1)
-      # get starting index for the first 
+      # get starting index for the first chunk
       sampleInd_i <- sample(x = indices_now,                                                    
                             size = 1,                                                     
                             replace = FALSE)
@@ -125,45 +132,40 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       missingDat_temp[sampleInd_i:(sampleInd_i+chunkSize_i[1]-1)] <- NA
       
       # if there are more than 1 chunks called for, proceed to the next chunk
-      if(length(chunkSize_i)>1) {
+      if (length(chunkSize_i)>1) {
         for (j in 2:length(chunkSize_i)) {
-          # updating vector of potential indices for starting values
-          indices_now[which(is.na(missingDat_temp))] <- NA
-          indices_now <- as.vector(na.exclude(indices_now))
+          if (chunkSize_i[j] > 1) {
+            # updating vector of potential indices for starting values
+            indices_now <- 1:(length(timeSeries)) #- chunkSize_i[j]+1)
+            indices_now[which(is.na(missingDat_temp))] <- NA
+            indices_now <- as.vector(na.exclude(indices_now))
+            # make sure there is enough room between this chunk and previous chunk
+            indices_now[diff(indices_now, lag = (chunkSize_i[j]-1)) > (chunkSize_i[j]-1)] <- NA
+            indices_now <- as.vector(na.exclude(indices_now))
+            # get starting index for the chunk
+            if (length(indices_now) > 0) {
+              sampleInd_i <- sample(x = indices_now,                                                    
+                                    size = 1,                                                     
+                                    replace = FALSE)
+              missingDat_temp[sampleInd_i:(sampleInd_i+chunkSize_i[j]-1)] <- NA 
+            }
+          }
         }
       }
       
-      
-      
-      indices_temp <- c(rbind((chunkSize_f * sample(x = 1:(length(timeSeries)/chunkSize_f),                                                    
-                                                    size = n_events_i,                                                     
-                                                    replace = FALSE)), 
-                              (chunkSize_i-1)))      
-      
-      indices_i <- NULL      
-      for (j in seq(from = 2, to = length(indices_temp), by = 2)) {        
-        indices_i <- append(indices_i, values = c(indices_temp[j-1], indices_temp[j-1] + indices_temp[j]))      
-      }      
-      
-      # if the indices are longer than the length of the timeSeries, then "recycle" them to start again in the time series      
-      indices_i[indices_i > length(timeSeries)] <- indices_i[indices_i > length(timeSeries)] - length(timeSeries)            
-      
-      ## now make a sequence of indices that are supposed to be changed to NA for each gap      
-      indices_seq <- NULL      
-      for (k in seq(from = 2, to = length(indices_i), by = 2)) {        
-        indices_seq <- append(indices_seq, indices_i[k-1]:indices_i[k])      
-      }            
-      
       ## store the results
       if (i == 1) {        
-        missingDat_list <- list(replace(timeSeries, list = indices_seq, values = NA))      
+        missingDat_list <- list(missingDat_temp)      
       } else {        
-        missingDat_list[[i]] <- replace(timeSeries, list = indices_seq, values = NA)      
+        missingDat_list[[i]] <- missingDat_temp     
       }     
       
     }
-    
-    names(missingDat_list) <- paste0("propMissing_",propMiss_f)  
+    names(missingDat_list) <- paste0("propMissIn_",propMiss_f, "; propMissAct_",  
+                                       lapply(X = missingDat_list, 
+                                              FUN = function(x) round(sum(is.na(x))/length(x),2)
+                                        )
+    )
   }
   
   ## if you want to remove maximum and minimum values  
@@ -195,7 +197,10 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
         }          
 
     
-    names(missingDat_list) <- paste0("propMissing_",propMiss_f)  
+      names(missingDat_list) <- paste0("propMissIn_",propMiss_f, "; propMissAct_",  
+                                       lapply(X = missingDat_list, 
+                                              FUN = function(x) round(sum(is.na(x))/length(x),2)
+                                       )
     }     
   
   return(missingDat_list)
