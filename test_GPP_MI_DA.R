@@ -42,6 +42,11 @@ pine_missing_list <-lapply(X = pine_listwdate, FUN = function(X)   makeMissing(t
 
 pine_missing_list_1<-pine_missing_list[[1]]  
 
+
+## data augmention ##
+
+
+
 ################## Multiple imputations w/ AMELIA ###################
 
 ##need to add back in the date column and the covariates## 
