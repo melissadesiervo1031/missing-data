@@ -17,7 +17,9 @@ dat <- read_csv('data/NWIS_MissingTS_subset.csv')
 mdat <- read_csv('data/NWIS_MissingTSinfo_subset.csv')
 
 id <- mdat$site_name[4]
-pr <- dat %>% filter(site_name == id) %>% select(date, GPP, light, Q) %>% mutate(light.rel = light/max(light))
+pr <- dat %>% filter(site_name == id) %>% select(date, GPP, light, Q, GPP.upper,GPP.lower) %>% mutate(light.rel = light/max(light))
+pr<-as.data.frame(pr)
+
 pr1<-pr %>% select(GPP)
 
 
@@ -27,41 +29,75 @@ pineriverGPP <- ggplot(pr, aes(date, GPP))+
     geom_line(size = 1, color="chartreuse4")+
     labs(y=expression('GPP (g '*~O[2]~ m^-2~d^-1*')'), title="Pine River GPP")
 
+##### #  ARIMA and STAN model with NO missing data #### ###note that there actually are some missing dates..ignore for now##
 
-##### make 10 copies of the pine river dataset into a list##
+### ARIMA ###
 
-pine_listwdate<-replicate(n = 10, expr = {data.frame(pr)}, simplify = F)
+X = matrix(c(pr$light.rel, pr$Q), ncol = 2)
 
-pine_list<-replicate(n = 10, expr = {data.frame(pr1)}, simplify = F)
+arimafit <- Arima(pr$GPP, order = c(1,0,0), xreg = X)
 
-###
-
-####################Apply missing data function to list of PR GPP ############
-
-pine_missing_list <-lapply(X = pine_listwdate, FUN = function(X)   makeMissing(timeSeries = X$GPP, typeMissing = "random")  )
-
-pine_missing_list_1<-pine_missing_list[[1]]  
+#ar1:0.7139     intercept: 1.9943  light.rel= 5.2758  Q = -1.6564  #
 
 
-## data augmention ##
+### STAN #### 
+
+# calculate observation error based on 95% CIs
+
+sigma_obs <- (pr$GPP.upper - pr$GPP.lower)/3.92
+pr <- pr %>%
+  select(date, GPP, light, Q) %>%
+  mutate(across(-date, ~zoo::na.approx(.)))%>%
+  mutate(light.rel = light/max(light))
+
+
+#Prep models ####
+# model file: "model types/fixed_oi_light_centered.stan"
+model_lq <- stan_model("GPP sim and real/Stan_code/AR1_light_Q_centered.stan")
+
+#Create data object
+data <- list(N = nrow(pr), P_obs = pr$GPP,
+             sdo = sigma_obs, light = pr$light.rel, Q = pr$Q,
+             miss_vec = rep(1, nrow(pr)))
+
+#Run Stan
+fit_lq <- rstan::sampling(object=model_lq, data = data,  
+                          iter = 4000, chains = 4)
+
+print(fit_lq,digits=5)
+
+## beta1 (intercept) = 1.17345, beta2 = 2.93198 (light), beta 3 = -1.26293 (Q), phi = 0.62793, sdp = 1.17685 ###
+
+## try again model w/ no error ###
+
+
+
+
+####################Apply missing data function to Pine River  GPP ############
+
+pine_missing_list<-makeMissing(timeSeries = pr$GPP, typeMissing = "random")
+
+
+##add back in the date column and the covariates## 
+
+pine_missing_list_11 <-lapply(X = pine_missing_list, FUN = function(X)   cbind.data.frame(GPP=X, date=as.Date(pr$date, format="%Y-%m-%d"), Q = pr$Q, light.rel=pr$light.rel))
+
+
+###################### Data augmentaion in STAN #####################
+
+
 
 
 
 ################## Multiple imputations w/ AMELIA ###################
 
-##need to add back in the date column and the covariates## 
-
-pine_missing_list_11 <-lapply(X = pine_missing_list_1, FUN = function(X)   cbind(X, day=seq(1, 360), Q = pr$Q, light.rel=pr$light.rel))
-
-amelia1 <-lapply(X = pine_missing_list_11, FUN = function(X)   amelia(X, ts="day", m=5, polytime=1))
+amelia1 <-lapply(X = pine_missing_list_11 , FUN = function(X)   amelia(X, ts="date", m=5, polytime=1))
 
 ### Amelia makes 5 version of each imputed dataset for each item in the list ###
 
 ##to look at one imputated dataset...##
 
 m1try<-as.data.frame(amelia1[["propMissing_0.05"]][["imputations"]][["imp1"]])
-
-m1try
 
 ##to look at 1 group of 5 imputed dataset ## 
 
