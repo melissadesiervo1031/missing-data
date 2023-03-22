@@ -147,27 +147,33 @@ outputlist<-print(GPPstanmissing, pars=c("phi", "sdp", "beta"), digits=7)
 amelia1 <-lapply(X = pine_missing_list_11 , FUN = function(X)   amelia(X, ts="date", m=5, polytime=1))
 
 ### Amelia makes 5 version of each imputed dataset for each item in the list ###
+#### list of lists ##
+
+kk1 <- amelia1 |> purrr::map(~c(pluck(."imputations"))) 
+
+amelia22<-amelia1[[]][["imputations"]]
+
+amelia2<-lapply(amelia1,'[[',)
 
 
-##pull out one list for forloop##
+##pull out one list of imputations for forloop##
 
 prop0.5list<-amelia1[["propMissIn_0.05; propMissAct_0.05"]][["imputations"]]
 
 
+
 ### ARIMA model to run on 1 imputed datasets###
-
-
-###
 
 X = matrix(c(pr$light.rel, pr$Q), ncol = 2)
 
+imp<-seq(1, 5, by=1)
+
 modelOutput_list <- replicate(length(5), rep(NULL), simplify = FALSE)
-
-
-for(i in 1:5){
+for(i in imp1){
   ## fit an ARIMA model to each AMELIA dataset ##
   arimaMI_i <-Arima(prop0.5list[[i]]$GPP, order = c(1,0,0), xreg = X)
   modelOutput_list[[i]] <- arimaMI_i$coef
+  names(modelOutput_list)[[i]] <- paste0(imp[i],"_imputation")
 }
 
 
