@@ -7,6 +7,7 @@ library(forecast)
 library(xts)
 library(nlme)
 library(tidyverse)
+library(lubridate)
 
 # Reference A. Stears' code with helpful function for removing data
 # makeMissing()
@@ -17,7 +18,7 @@ dat <- read_csv('data/NWIS_MissingTS_subset.csv')
 mdat <- read_csv('data/NWIS_MissingTSinfo_subset.csv')
 
 id <- mdat$site_name[4]
-pr <- dat %>% filter(site_name == id) %>% select(date, GPP, light, Q, GPP.upper,GPP.lower) %>% mutate(light.rel = light/max(light))
+pr <- dat %>% filter(site_name == id) %>% select(date, GPP, light, Q, GPP.upper,GPP.lower) %>% mutate(Jdate= yday(date), light.rel = light/max(light))
 pr<-as.data.frame(pr)
 
 pr1<-pr %>% select(GPP)
@@ -35,7 +36,9 @@ pineriverGPP <- ggplot(pr, aes(date, GPP))+
 
 X = matrix(c(pr$light.rel, pr$Q), ncol = 2)
 
-arimafit <- Arima(pr$GPP, order = c(1,0,0), xreg = X)
+arimafit <- Arima(xts(pr$GPP, order.by=as.POSIXct(pr$date)), order = c(1,0,0), xreg = X)
+
+summary(arimafit)$coef
 
 #ar1:0.7139     intercept: 1.9943  light.rel= 5.2758  Q = -1.6564  #
 
@@ -68,24 +71,74 @@ print(fit_lq,digits=5)
 
 ## beta1 (intercept) = 1.17345, beta2 = 2.93198 (light), beta 3 = -1.26293 (Q), phi = 0.62793, sdp = 1.17685 ###
 
-## try again model w/ no error ###
 
+###comparing ARIMA and STAN ### similar estimates for everything except light. SDP in STAN only ###
 
 
 
 ####################Apply missing data function to Pine River  GPP ############
 
-pine_missing_list<-makeMissing(timeSeries = pr$GPP, typeMissing = "random")
+pine_missing_list<-makeMissing(timeSeries = pr$GPP, typeMissing = "random")#  makes a list of GPP w/ increasing missingness## Missing at random from 0.5 - 95%
 
-
-##add back in the date column and the covariates## 
+      ##add back in the date column and the covariates## 
 
 pine_missing_list_11 <-lapply(X = pine_missing_list, FUN = function(X)   cbind.data.frame(GPP=X, date=as.Date(pr$date, format="%Y-%m-%d"), Q = pr$Q, light.rel=pr$light.rel))
 
 
-###################### Data augmentaion in STAN #####################
+###################### Data augmentation in STAN #####################
+
+## turn lists into dataframes ##
+
+pinemissingdfs <- lapply(pine_missing_list_11, function(x) as.data.frame(do.call(cbind, x)))
+
+##add SDO ##
+
+sdo<-(pr$GPP.upper - pr$GPP.lower)/3.92
+
+pinemissingdfs_2 <- lapply(pinemissingdfs, function(x) cbind(x, sdo))
+
+# And a column to denote missingness and remove NAs from GPP data.
+pinemissingdfs_3 <- lapply(pinemissingdfs_2, function(x) x %>%
+                    mutate(miss_vec = case_when(is.na(GPP) == TRUE ~ 0,
+                                                TRUE ~ 1)) %>%
+                    mutate(GPP_noNA = case_when(is.na(GPP) == TRUE ~ 0,
+                                                TRUE ~ GPP)))
+# Stan settings
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+
+# Compile data
+stan_data_compile <- function(x){
+  data <- list(N = length(x$GPP), # number of records
+               P_obs = x$GPP_noNA, # simulated GPP w/o NAs
+               light = x$light, # relativized light
+               Q = x$Q,   # relativized discharge
+               sdo = x$sdo,  # standard deviation of GPP estimates
+               miss_vec = x$miss_vec) # vector of missingness
+  return(data)
+}
+
+stan_data <- lapply(pinemissingdfs_3 , function(x) stan_data_compile(x))
+
+# Fit model
+GPPstanmissing <- lapply(stan_data,
+                   function(x) stan("GPP sim and real/Stan_code/AR1_light_Q_centered.stan",
+                                    data = x,
+                                    chains = 4, 
+                                    iter = 4000,
+                                    control = list(max_treedepth = 12), 
+                                    save_warmup=FALSE))
 
 
+
+
+# Ran on my laptop - started 5:02, finished 5:22.
+
+saveRDS(GPPstanmissing, file="GPPstanmissing.RData")
+
+outputlist<-print(GPPstanmissing, pars=c("phi", "sdp", "beta"), digits=7)
+
+## need to pull items out of list to make figure##
 
 
 
@@ -95,31 +148,42 @@ amelia1 <-lapply(X = pine_missing_list_11 , FUN = function(X)   amelia(X, ts="da
 
 ### Amelia makes 5 version of each imputed dataset for each item in the list ###
 
-##to look at one imputated dataset...##
 
-m1try<-as.data.frame(amelia1[["propMissing_0.05"]][["imputations"]][["imp1"]])
+##pull out one list for forloop##
 
-##to look at 1 group of 5 imputed dataset ## 
-
-m1to5<-amelia1[["propMissing_0.05"]][["imputations"]]
+prop0.5list<-amelia1[["propMissIn_0.05; propMissAct_0.05"]][["imputations"]]
 
 
 ### ARIMA model to run on 1 imputed datasets###
 
-X = matrix(c(pr$light.rel, pr$Q), ncol = 2)
-
-fit <- Arima(xts(m1try$X, order.by = as.Date(m1try$day)), order = c(1,0,0), xreg = X)
 
 ###
+
+X = matrix(c(pr$light.rel, pr$Q), ncol = 2)
+
 modelOutput_list <- replicate(length(5), rep(NULL), simplify = FALSE)
 
-### not yet working but close...##
 
 for(i in 1:5){
-  ## fit an ARIMA model to each AMELIA imputed dataset ##
-  arimamissing_i <- Arima(xts(m1to5[[i]][,1], order.by = as.Date(m1to5[[i]][,2])), order = c(1,0,0), xreg = X)
-  modelOutput_list[[i]] <- summary(arimamissing_i)$coefficients
+  ## fit an ARIMA model to each AMELIA dataset ##
+  arimaMI_i <-Arima(prop0.5list[[i]]$GPP, order = c(1,0,0), xreg = X)
+  modelOutput_list[[i]] <- arimaMI_i$coef
 }
 
 
+###loop over all the lists ### Left to do...3/21/23##
 
+
+#### how does ARIMA handle NAs ? ##
+
+miss20<-pine_missing_list_11[["propMissIn_0.2; propMissAct_0.2"]]
+
+X = matrix(c(pr$light.rel, pr$Q), ncol = 2)
+
+arimafitfull <-  Arima(xts(pr$GPP, order.by=as.POSIXct(pr$date)), order = c(1,0,0), xreg = X)
+
+arimafitmissing20<- arimafit <- Arima(xts(miss20$GPP, order.by=as.POSIXct(miss20$date)), order = c(1,0,0), xreg = X)
+
+
+## unclear...I think it just skips over them? ##
+#https://stats.stackexchange.com/questions/346225/fitting-arima-to-time-series-with-missing-values#
