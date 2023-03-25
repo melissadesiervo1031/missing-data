@@ -31,7 +31,7 @@
   
       // Distributions for states
       for(i in 2:N){
-          GPP[i] ~ normal(beta[1]*(1-phi) + GPP[i-1]*phi + light[i]*beta[2] + Q[i]*beta[3], sdp); // process model with error
+          GPP[i] ~ normal(beta[1] + GPP[i-1]*phi + light[i]*beta[2] + Q[i]*beta[3], sdp); // process model with error
          
           if(miss_vec[i]==1){
               target += normal_lpdf(P_obs[i]| GPP[i], sdo[i]); // observation model with fixed observation error
@@ -47,7 +47,7 @@
   
       // Distributions for states
       for(i in 2:N){
-          mu[i] = normal_rng(beta[1]*(1-phi) + mu[i-1]*phi + light[i]*beta[2] + Q[i]*beta[3], sdp); // process model with error
+          mu[i] = normal_rng(beta[1]+ mu[i-1]*phi + light[i]*beta[2] + Q[i]*beta[3], sdp); // process model with error
       }
       
       GPP_rep = normal_rng(mu, sdo); // observation model with fixed observation error
