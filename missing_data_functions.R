@@ -200,7 +200,7 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       names(missingDat_list) <- paste0("propMissIn_",propMiss_f, "; propMissAct_",  
                                        lapply(X = missingDat_list, 
                                               FUN = function(x) round(sum(is.na(x))/length(x),2)
-                                       )
+                                       ))
     }     
   
   return(missingDat_list)
