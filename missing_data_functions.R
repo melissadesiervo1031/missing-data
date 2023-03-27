@@ -200,8 +200,8 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       names(missingDat_list) <- paste0("propMissIn_",propMiss_f, "; propMissAct_",  
                                        lapply(X = missingDat_list, 
                                               FUN = function(x) round(sum(is.na(x))/length(x),2)
-                                       )
-    }     
+                                       ))
+                                       }     
   
   return(missingDat_list)
   }
@@ -227,4 +227,4 @@ makeMissing(timeSeries = ricker[[1]]$y, typeMissing = "random", propMiss = c(.5,
 makeMissing(timeSeries = ricker[[1]]$y, typeMissing = "evenChunks", propMiss = c(.5, .05), chunkSize = 3)
 
 ## testing w/ all of the ricker data list
-lapply(X = ricker, FUN = function(X)   makeMissing(timeSeries = X$y, typeMissing = "random")  )
+lapply(X = ricker, FUN = function(X) makeMissing(timeSeries = X$y, typeMissing = "random"))
