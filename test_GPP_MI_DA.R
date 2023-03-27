@@ -149,11 +149,40 @@ amelia1 <-lapply(X = pine_missing_list_11 , FUN = function(X)   amelia(X, ts="da
 ### Amelia makes 5 version of each imputed dataset for each item in the list ###
 #### list of lists ##
 
-kk1 <- amelia1 |> purrr::map(~c(pluck(."imputations"))) 
+##nested list of dataframes that just has the imputations###
+amelias11<-map(amelia1 , ~.[["imputations"]])
 
-amelia22<-amelia1[[]][["imputations"]]
 
-amelia2<-lapply(amelia1,'[[',)
+###loop over all the lists ##
+
+##start with amelia11, nested list ###
+
+###getting closer...###
+
+
+
+ch0=list()
+for (i in seq_along(amelias11)) {
+  a=list()
+  b=for (j in seq_along(amelias11[[i]])) {
+    tempobj=Arima(amelias11[[i]][[j]]$GPP, order = c(1,0,0), xreg = X)
+    tempobj2<-tempobj$coef
+    name <- paste('imp',seq_along((amelias11)[[i]])[[j]],sep='')
+    a[[name]] <- tempobj2
+  }
+  name1 <- names(amelias11)[[i]]
+  ch0[[name1]] <- a
+}
+
+ch0
+
+##list of 19 list of 5 model outputs for ARIMA model ###
+
+
+
+### need it to be 19 lists of 5 model outputs##
+
+
 
 
 ##pull out one list of imputations for forloop##
@@ -162,14 +191,14 @@ prop0.5list<-amelia1[["propMissIn_0.05; propMissAct_0.05"]][["imputations"]]
 
 
 
-### ARIMA model to run on 1 imputed datasets###
+### ARIMA model to run on 5 imputed datasets###
 
 X = matrix(c(pr$light.rel, pr$Q), ncol = 2)
 
 imp<-seq(1, 5, by=1)
 
 modelOutput_list <- replicate(length(5), rep(NULL), simplify = FALSE)
-for(i in imp1){
+for(i in imp){
   ## fit an ARIMA model to each AMELIA dataset ##
   arimaMI_i <-Arima(prop0.5list[[i]]$GPP, order = c(1,0,0), xreg = X)
   modelOutput_list[[i]] <- arimaMI_i$coef
@@ -177,7 +206,10 @@ for(i in imp1){
 }
 
 
-###loop over all the lists ### Left to do...3/21/23##
+
+
+
+
 
 
 #### how does ARIMA handle NAs ? ##
