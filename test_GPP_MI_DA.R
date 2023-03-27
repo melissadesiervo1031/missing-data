@@ -40,6 +40,8 @@ arimafit <- Arima(xts(pr$GPP, order.by=as.POSIXct(pr$date)), order = c(1,0,0), x
 
 summary(arimafit)$coef
 
+se<-sqrt(diag(vcov(arimafit)))
+
 #ar1:0.7139     intercept: 1.9943  light.rel= 5.2758  Q = -1.6564  #
 
 
@@ -178,6 +180,7 @@ ch0
 
 ##list of 19 list of 5 model outputs for ARIMA model ###
 
+## also need to pull out the standard errors###
 
 
 ### need it to be 19 lists of 5 model outputs##
