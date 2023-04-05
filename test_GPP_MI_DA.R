@@ -144,12 +144,11 @@ outputlist<-print(GPPstanmissing, pars=c("phi", "sdp", "beta"), digits=7)
 
 
 
-################## Multiple imputations w/ AMELIA ###################
+################## Multiple imputations w/ AMELIA ARIMA models ###################
 
 amelia1 <-lapply(X = pine_missing_list_11 , FUN = function(X)   amelia(X, ts="date", m=5, polytime=1))
 
 ### Amelia makes 5 version of each imputed dataset for each item in the list ###
-#### list of lists ##
 
 ##nested list of dataframes that just has the imputations###
 amelias11<-map(amelia1 , ~.[["imputations"]])
@@ -159,55 +158,74 @@ amelias11<-map(amelia1 , ~.[["imputations"]])
 
 ##start with amelia11, nested list ###
 
-###getting closer...###
-
-
-
-ch0=list()
-for (i in seq_along(amelias11)) {
-  a=list()
-  b=for (j in seq_along(amelias11[[i]])) {
-    tempobj=Arima(amelias11[[i]][[j]]$GPP, order = c(1,0,0), xreg = X)
-    tempobj2<-tempobj$coef
-    name <- paste('imp',seq_along((amelias11)[[i]])[[j]],sep='')
-    a[[name]] <- tempobj2
-  }
-  name1 <- names(amelias11)[[i]]
-  ch0[[name1]] <- a
-}
-
-ch0
-
-##list of 19 list of 5 model outputs for ARIMA model ###
-
-## also need to pull out the standard errors###
-
-
-### need it to be 19 lists of 5 model outputs##
-
-
-
-
-##pull out one list of imputations for forloop##
-
-prop0.5list<-amelia1[["propMissIn_0.05; propMissAct_0.05"]][["imputations"]]
-
-
-
-### ARIMA model to run on 5 imputed datasets###
-
+##matrix of covariates##
 X = matrix(c(pr$light.rel, pr$Q), ncol = 2)
 
-imp<-seq(1, 5, by=1)
+##working forloop## gives us the model parameters and errors for all the ARIMA models
 
-modelOutput_list <- replicate(length(5), rep(NULL), simplify = FALSE)
-for(i in imp){
-  ## fit an ARIMA model to each AMELIA dataset ##
-  arimaMI_i <-Arima(prop0.5list[[i]]$GPP, order = c(1,0,0), xreg = X)
-  modelOutput_list[[i]] <- arimaMI_i$coef
-  names(modelOutput_list)[[i]] <- paste0(imp[i],"_imputation")
+modelparamlist=list()
+modelerrorlist=list()
+for (i in seq_along(amelias11)) {
+  a=list()
+  aa=list()
+  for (j in seq_along(amelias11[[i]])) {
+    tempobj=Arima(amelias11[[i]][[j]]$GPP, order = c(1,0,0), xreg = X)
+    arimacoefs<-tempobj$coef
+    arimases<-sqrt(diag(vcov(tempobj)))
+    name <- paste('imp',seq_along((amelias11)[[i]])[[j]],sep='')
+    a[[name]] <- arimacoefs
+    aa[[name]]<-arimases
+  }
+  name1 <- names(amelias11)[[i]]
+  modelparamlist[[name1]] <- a
+  modelerrorlist[[name1]] <- aa
 }
 
+modelparamlist
+modelerrorlist
+
+
+### Averages the models together back to 1 model per missing data prop ##
+
+modelaveragelist=list()
+
+
+mapply(pine_missing_list_11, function(x) as.data.frame(do.call(cbind, x)))
+
+
+
+for (i in seq_along(modelparamlist)) 
+  for (j in seq_along(modelerrorlist)) {
+          tempobj2<-mi.meld(data.frame(modelparamlist[[i]]), data.frame(modelerrorlist[[j]]), byrow=FALSE)## K X M # #parameters by imputations##
+           }
+
+##should make a list of 19 output...not working ##
+
+
+
+### try with an mapply ###
+
+trial1<-mapply(function(X,Y) {
+          mi.meld(data.frame(X), data.frame(Y), byrow=FALSE)
+    }, X=modelparamlist, Y=modelerrorlist)
+
+### this is close, but its not storing it right...###
+
+
+modelaveragelist
+
+test<-mi.meld(data.frame(modelparamlist[1]), data.frame(modelerrorlist[1]), byrow=FALSE)
+
+
+### almost right...this is spitting out the same thing every time...###
+
+###model parameters from MI and model averaging ###
+
+
+modelavgparamlist<-map(modelaveragelist , ~.["q.mi"])
+modelseparamlist<-map(modelaveragelist , ~.["se.mi"])
+
+df <- as.data.frame(do.call(rbind, lapply(modelavgparamlist, as.data.frame)))
 
 
 
