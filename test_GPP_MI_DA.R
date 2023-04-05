@@ -38,9 +38,13 @@ X = matrix(c(pr$light.rel, pr$Q), ncol = 2)
 
 arimafit <- Arima(xts(pr$GPP, order.by=as.POSIXct(pr$date)), order = c(1,0,0), xreg = X)
 
-summary(arimafit)$coef
 
 se<-sqrt(diag(vcov(arimafit)))
+
+arimafullcoefdf<-as.data.frame(t(as.data.frame(arimafit$coef)))
+
+arimafullsedf<-as.data.frame(t(as.data.frame(sqrt(diag(vcov(arimafit))))))
+
 
 #ar1:0.7139     intercept: 1.9943  light.rel= 5.2758  Q = -1.6564  #
 
@@ -161,7 +165,7 @@ amelias11<-map(amelia1 , ~.[["imputations"]])
 ##matrix of covariates##
 X = matrix(c(pr$light.rel, pr$Q), ncol = 2)
 
-##working forloop## gives us the model parameters and errors for all the ARIMA models
+##working forloop## gives us the model parameters and errors for all the ARIMA models on imputed datasets
 
 modelparamlist=list()
 modelerrorlist=list()
@@ -187,62 +191,62 @@ modelerrorlist
 
 ### Averages the models together back to 1 model per missing data prop ##
 
-modelaveragelist=list()
+listcoefses<-mapply(function(X,Y) {
+         list(mi.meld(data.frame(X), data.frame(Y), byrow=FALSE))
+             }, X=modelparamlist, Y=modelerrorlist)
+
+##pulls out parameters and ses ##
+
+modelavgparamlist<-map(listcoefses , ~.["q.mi"])
+modelseparamlist<-map(listcoefses , ~.["se.mi"])
 
 
-mapply(pine_missing_list_11, function(x) as.data.frame(do.call(cbind, x)))
+modelavgparamdf <- map_df(modelavgparamlist, ~as.data.frame(.x), .id="missingprop")
+modelSEdf <- map_df(modelseparamlist, ~as.data.frame(.x), .id="missingprop")
+
+missingprop<-seq(from=0.05, to =0.95, by=0.05)
+
+modelavgparamdf2<-modelavgparamdf %>% dplyr::rename(ar1=q.mi.ar1, intercept=q.mi.intercept, light=q.mi.xreg1, discharge=q.mi.xreg2) %>% select(ar1, intercept, light, discharge) %>% mutate(type="Multiple imputations")
+
+modelavgparamdf2<-cbind(missingprop, modelavgparamdf2)
+
+      ###add in the no missing data##
+
+arimafullcoefdf2<-arimafullcoefdf %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2) %>%   mutate(type="Multiple imputations")  %>% mutate(missingprop=0.00) %>% select(propmissing, ar1, intercept, light, discharge, type)
+
+modelavgparamdf3<-rbind(as.data.frame(arimafullcoefdf2), as.data.frame(modelavgparamdf2))
+
+######## RUN ARIMA with DELETED data, no imputation or Augmentation ##
+
+head(pine_missing_list_11)
+
+
+ArimaoutputNAs <- lapply(seq_along(pine_missing_list_11), function(j) {
+  modelNAs <- Arima(pine_missing_list_11[[j]][["GPP"]],order = c(1,0,0), xreg = X)
+  arimacoefsNAs<-modelNAs$coef
+  arimasesNAs<-sqrt(diag(vcov(modelNAs)))
+  list(arimacoefsNAs=arimacoefsNAs, arimasesNAs=arimasesNAs)
+ })
+
+
+names(ArimaoutputNAs) <- names(pine_missing_list_11)
+
+
+modelNAparamlist<-map(ArimaoutputNAs , ~.["arimacoefsNAs"])
+modelNASElist<-map(ArimaoutputNAs , ~.["arimasesNAs"])
+
+modelNAparamlist2 <- lapply(modelNAparamlist, function(x) as.data.frame(do.call(rbind, x)))
+modelNASElist2 <- lapply(modelNASElist, function(x) as.data.frame(do.call(rbind, x)))
+
+
+modelNAparamdf <- map_df(modelNAparamlist2, ~as.data.frame(.x), .id="missingprop")
+modelNASEdf <- map_df(modelNASElist2, ~as.data.frame(.x), .id="missingprop")
+
+missingprop<-seq(from=0.05, to =0.95, by=0.05)
 
 
 
-for (i in seq_along(modelparamlist)) 
-  for (j in seq_along(modelerrorlist)) {
-          tempobj2<-mi.meld(data.frame(modelparamlist[[i]]), data.frame(modelerrorlist[[j]]), byrow=FALSE)## K X M # #parameters by imputations##
-           }
-
-##should make a list of 19 output...not working ##
+##
 
 
 
-### try with an mapply ###
-
-trial1<-mapply(function(X,Y) {
-          mi.meld(data.frame(X), data.frame(Y), byrow=FALSE)
-    }, X=modelparamlist, Y=modelerrorlist)
-
-### this is close, but its not storing it right...###
-
-
-modelaveragelist
-
-test<-mi.meld(data.frame(modelparamlist[1]), data.frame(modelerrorlist[1]), byrow=FALSE)
-
-
-### almost right...this is spitting out the same thing every time...###
-
-###model parameters from MI and model averaging ###
-
-
-modelavgparamlist<-map(modelaveragelist , ~.["q.mi"])
-modelseparamlist<-map(modelaveragelist , ~.["se.mi"])
-
-df <- as.data.frame(do.call(rbind, lapply(modelavgparamlist, as.data.frame)))
-
-
-
-
-
-
-
-#### how does ARIMA handle NAs ? ##
-
-miss20<-pine_missing_list_11[["propMissIn_0.2; propMissAct_0.2"]]
-
-X = matrix(c(pr$light.rel, pr$Q), ncol = 2)
-
-arimafitfull <-  Arima(xts(pr$GPP, order.by=as.POSIXct(pr$date)), order = c(1,0,0), xreg = X)
-
-arimafitmissing20<- arimafit <- Arima(xts(miss20$GPP, order.by=as.POSIXct(miss20$date)), order = c(1,0,0), xreg = X)
-
-
-## unclear...I think it just skips over them? ##
-#https://stats.stackexchange.com/questions/346225/fitting-arima-to-time-series-with-missing-values#
