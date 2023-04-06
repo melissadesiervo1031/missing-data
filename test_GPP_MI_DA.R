@@ -160,8 +160,6 @@ amelias11<-map(amelia1 , ~.[["imputations"]])
 
 ###loop over all the lists ##
 
-##start with amelia11, nested list ###
-
 ##matrix of covariates##
 X = matrix(c(pr$light.rel, pr$Q), ncol = 2)
 
@@ -212,9 +210,16 @@ modelavgparamdf2<-cbind(missingprop, modelavgparamdf2)
 
       ###add in the no missing data##
 
-arimafullcoefdf2<-arimafullcoefdf %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2) %>%   mutate(type="Multiple imputations")  %>% mutate(missingprop=0.00) %>% select(propmissing, ar1, intercept, light, discharge, type)
+arimafullcoefdf2<-arimafullcoefdf %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2) %>%   mutate(type="Multiple imputations")  %>% mutate(missingprop=0.00) %>% select(missingprop, ar1, intercept, light, discharge, type)
 
 modelavgparamdf3<-rbind(as.data.frame(arimafullcoefdf2), as.data.frame(modelavgparamdf2))
+
+### calculate bias### 
+
+modelavgparamdf4<-modelavgparamdf3 %>% mutate(ar1bias= abs(ar1-0.7138614)) %>% mutate(intbias=abs(intercept-1.994253)) %>% mutate(lightbias=abs(light-5.275784)) %>% mutate(dischargebias=abs(discharge--1.6563712)) %>% mutate(meanbias=round(rowMeans(modelavgparamdf4[7:10], na.rm=TRUE),digits=3))
+
+
+
 
 ######## RUN ARIMA with DELETED data, no imputation or Augmentation ##
 
@@ -242,11 +247,37 @@ modelNASElist2 <- lapply(modelNASElist, function(x) as.data.frame(do.call(rbind,
 modelNAparamdf <- map_df(modelNAparamlist2, ~as.data.frame(.x), .id="missingprop")
 modelNASEdf <- map_df(modelNASElist2, ~as.data.frame(.x), .id="missingprop")
 
+
+#### 
 missingprop<-seq(from=0.05, to =0.95, by=0.05)
 
+modelNAdf<-modelNAparamdf  %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2) %>% select(ar1, intercept, light, discharge) %>% mutate(type="Data deletion")
+
+modelNAdf2<-cbind(missingprop, modelNAdf)
+
+    ##adding in the zero missing###
+
+arimafullcoefdf3<-arimafullcoefdf %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2) %>%   mutate(type="Data deletion")  %>% mutate(missingprop=0.00) %>% select(missingprop, ar1, intercept, light, discharge, type)
+
+modelNAdf3<-rbind(as.data.frame(arimafullcoefdf3), as.data.frame(modelNAdf2))
+
+### calculate bias### 
+
+modelNAdf4<-modelNAdf3 %>% mutate(ar1bias= abs(ar1-0.7138614)) %>% mutate(intbias=abs(intercept-1.994253)) %>% mutate(lightbias=abs(light-5.275784)) %>% mutate(dischargebias=abs(discharge--1.6563712)) %>% mutate(meanbias=round(rowMeans(modelNAdf4[7:10], na.rm=TRUE),digits=3))
 
 
-##
+## MAKE A FIGURE COMPARING THE TWO APPROACHES####
+
+bothdf<-rbind(modelavgparamdf4,modelNAdf4)
 
 
+###plot estimate and Std error of estimates over missing-ness##
+
+comparisonplotGPP<-ggplot(data=bothdf, aes(x=as.numeric(missingprop), y=meanbias))+
+  facet_wrap(~type, scales="fixed")+
+  geom_point(size=3)+
+  #geom_hline(data=hline_dat, aes(yintercept=value), colour="salmon")+
+  theme_classic()+
+  xlab("Percent of Missing Data")+
+  ylab("Average bias in parameter estimate")
 
