@@ -13,13 +13,13 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
                         # generated ("random", "evenChunks", "randChunks", or "minMax")         
                         propMiss = NULL, # an optional vector argument that gives the proportion(s)          
                         # of the data that should be missing; if not specified, then increasingly          
-                        # more missingness is introduced from 5% to 95% by 5% increments,         
+                        # more missingness is introduced from 5% to 75% by 5% increments,         
                         chunkSize = NULL, # an optional integer argument giving the average length that you want          
                         # missing data gaps to be. Only used if typeMissing = "evenChunks" or "randChunks."          
                         # If a value isn't supplied, the function assumes chunk length is 5% of length of time series         
                         ...){
   if (is.null(propMiss)) {    # if "propMiss" is not provided, set it to be a vector from .05:.95 by .05    
-    propMiss_f <- seq(0.05, 0.95, by = .05)  
+    propMiss_f <- seq(0.05, 0.75, by = .05)  
   } else {
     propMiss_f <- propMiss  
   }    
@@ -42,11 +42,10 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
                                                       replace = FALSE),                                        
                                         values = NA)    )    
     
-    names(missingDat_list) <- paste0("propMissIn_",propMiss_f, "; propMissAct_",  
+    names(missingDat_list) <- paste0("propMissAct_",  
                                      lapply(X = missingDat_list, 
                                             FUN = function(x) round(sum(is.na(x))/length(x),2)
-                                     )
-    )
+                                     ))
   }     
   
   ## if you want to generate missing data in chunks (relatively evenly spaced)  
@@ -97,62 +96,65 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
         missingDat_list[[i]] <- replace(timeSeries, list = indices_seq, values = NA)     
       }          
     }    
-    names(missingDat_list) <- paste0("propMissIn_",propMiss_f, "; propMissAct_",  
+    names(missingDat_list) <- paste0("propMissAct_",  
                                      lapply(X = missingDat_list, 
                                             FUN = function(x) round(sum(is.na(x))/length(x),2)
-                                     )
-    )
+                                     ))
                                      }
   
   ## if you want to generate missing data in chunks (randomly spaced)  
   if (typeMissing == "randChunks") {    
-    for (i in 1:length(propMiss_f)) {      
-      #is the chunk size an equal or smaller amount  proportions of missing data that are input into the function      
-      if (chunkSize_f/length(timeSeries) > propMiss_f[i]) {        
-        print(paste0("there are no missing data generated for the argument resulting in ",propMiss_f[i]*100,                      
-                     "% missing data, because a single gap results in a greater proportion of missing data than indicated for this value of the 'propMiss' argument"))
-        next      }      
+     ## loop through values of "propMissing_f"
+     for (i in 1:length(propMiss_f)) {
+      n <- length(timeSeries)
       
-      # calculate the the number of gaps that will need to       
-      # exist to get the specified proportion of missing data in propMiss_f[i])      
-      n_events_i <- (propMiss_f[i] * length(timeSeries))/chunkSize_f       
+      # declare transition matrix
+      M <- matrix(nrow = 2, ncol = 2)
       
-      # make the length of the gap slightly random (draw from a poisson distribution) %%I think this is the right distribution to use?      
-      chunkSize_i <- rpois(n = n_events_i, lambda = chunkSize_f)            
+      # first row of transition matrix
+      # determines 0 -> 0 and 0 -> 1
+      M[1, ] <- c(1 - (1 / chunkSize_f), 1 / chunkSize_f)
       
-      ## now replace values in the timeSeries according in chunks of size chunkSize_i starting at random locations    
-      # get the indices of the starts and ends of each gap (have to loop through each gap?)
-      # get the potential indices for the start first gap (1:length of timeSeries-chunkSize+1)
-      indices_now <- 1:(length(timeSeries) - chunkSize_i[1]+1)
-      # get starting index for the first chunk
-      sampleInd_i <- sample(x = indices_now,                                                    
-                            size = 1,                                                     
-                            replace = FALSE)
-      missingDat_temp <- timeSeries
-      missingDat_temp[sampleInd_i:(sampleInd_i+chunkSize_i[1]-1)] <- NA
+      # stationary distribution
+      # determined by desired proportion of missingness
+      v <- c(propMiss_f[i], 1 - propMiss_f[i])
       
-      # if there are more than 1 chunks called for, proceed to the next chunk
-      if (length(chunkSize_i)>1) {
-        for (j in 2:length(chunkSize_i)) {
-          if (chunkSize_i[j] > 1) {
-            # updating vector of potential indices for starting values
-            indices_now <- 1:(length(timeSeries)) #- chunkSize_i[j]+1)
-            indices_now[which(is.na(missingDat_temp))] <- NA
-            indices_now <- as.vector(na.exclude(indices_now))
-            # make sure there is enough room between this chunk and previous chunk
-            indices_now[diff(indices_now, lag = (chunkSize_i[j]-1)) > (chunkSize_i[j]-1)] <- NA
-            indices_now <- as.vector(na.exclude(indices_now))
-            # get starting index for the chunk
-            if (length(indices_now) > 0) {
-              sampleInd_i <- sample(x = indices_now,                                                    
-                                    size = 1,                                                     
-                                    replace = FALSE)
-              missingDat_temp[sampleInd_i:(sampleInd_i+chunkSize_i[j]-1)] <- NA 
-            }
+      # Find transition probability 1 -> 0
+      # this is based on the stationary distribution
+      M[2, 1] <- M[1, 2] * v[1] / v[2]
+      
+      # complete the matrix
+      M[2, 2] <- 1 - M[2, 1]
+      
+      # generate series of states
+      X <- vector(mode = "double", length = n)
+      X[1] <- 2 # always start with an observed value
+      
+      for(t in 2:n){
+        p_t <- M[X[t - 1], ]
+        X[t] <- which(rmultinom(1, size = 1, prob = p_t) == 1)
+      }
+      ## is X only 0s? 
+      if (sum(X != 1) == 0) {
+        while (sum(X != 1) == 0) {
+          # if yes, redo the process again until you get at least one '1'
+          # generate series of states
+          X <- vector(mode = "double", length = n)
+          X[1] <- 2 # always start with an observed value
+          
+          for(t in 2:n){
+            p_t <- M[X[t - 1], ]
+            X[t] <- which(rmultinom(1, size = 1, prob = p_t) == 1)
           }
         }
       }
       
+      # now change to 0s and 1s
+      missingVec <- X - 1
+      
+      # remove the "0" values in the timeSeries string
+      missingDat_temp <- replace(timeSeries, list = which(missingVec == 0), values = NA)
+   
       ## store the results
       if (i == 1) {        
         missingDat_list <- list(missingDat_temp)      
@@ -161,11 +163,10 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       }     
       
     }
-    names(missingDat_list) <- paste0("propMissIn_",propMiss_f, "; propMissAct_",  
+    names(missingDat_list) <- paste0("propMissAct_",  
                                        lapply(X = missingDat_list, 
                                               FUN = function(x) round(sum(is.na(x))/length(x),2)
-                                        )
-    )
+                                        ))
   }
   
   ## if you want to remove maximum and minimum values  
@@ -197,12 +198,10 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
         }          
 
     
-      names(missingDat_list) <- paste0("propMissIn_",propMiss_f, "; propMissAct_",  
+      names(missingDat_list) <- paste0("propMissAct_",  
                                        lapply(X = missingDat_list, 
-                                              FUN = function(x) round(sum(is.na(x))/length(x),2)
-                                       ))
-    }     
-  
+                                              FUN = function(x) round(sum(is.na(x))/length(x),2)))
+                                       }    
   return(missingDat_list)
   }
 
@@ -227,4 +226,4 @@ makeMissing(timeSeries = ricker[[1]]$y, typeMissing = "random", propMiss = c(.5,
 makeMissing(timeSeries = ricker[[1]]$y, typeMissing = "evenChunks", propMiss = c(.5, .05), chunkSize = 3)
 
 ## testing w/ all of the ricker data list
-lapply(X = ricker, FUN = function(X)   makeMissing(timeSeries = X$y, typeMissing = "random")  )
+lapply(X = ricker, FUN = function(X) makeMissing(timeSeries = X$y, typeMissing = "random"))
