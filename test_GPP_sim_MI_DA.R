@@ -101,8 +101,34 @@ stan_datasim_fit <- lapply(stan_datasim,
 
 #stan_datasim_fit ## very large list ###
 
-paramDA<-map(stan_datasim_fit , ~.["samples"])
+##Pull param estimates into list
+fit_summary_pars_bayes <- vector("list",19)
+for (i in 1:19){
+  fit_summary_pars_bayes[[i]]<-(summary(stan_datasim_fit[[i]], pars=c("beta[1]","beta[2]", "beta[3]", "phi","sdp"), probs=c(0.025,.5,.975))$summary)
+}
 
+names(fit_summary_pars_bayes) <- names(sim_missing_list_2)
+
+
+DAparamdf <- map_df(fit_summary_pars_bayes, ~as.data.frame(.x), .id="missingprop")
+
+paramname<-c("beta[1]", "beta[2]", "beta[3]", "phi", "sdp")
+
+param=rep(paramname, 19)
+
+missingprop2=rep(missingprop, each=5)
+
+DAparamdf2<-cbind(param=param, missingprop2=missingprop2, DAparamdf) 
+
+
+DApropmissingGPPsim<-ggplot(data=DAparamdf2, aes(x=as.numeric(missingprop2), y=mean))+
+  facet_wrap(~param, scales="free",ncol=1)+
+  geom_point(size=3)+
+  #geom_hline(data=trueestdf, aes(yintercept=value), colour="salmon")+
+  theme_classic()+
+  ggtitle("Data augmentation: GPP simulated data")+
+  xlab("Percent of Missing Data")+
+  ylab("Parameter estimate")
 
 
 ################## Multiple imputations w/ AMELIA ARIMA models ###################
