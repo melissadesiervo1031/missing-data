@@ -65,7 +65,7 @@ rand_mod_matrix <- function(n, p, sigma2 = 1, mu = 0, intercept = TRUE){
   params <- purrr::map(
     1:nsims,
     ~ list(
-      phi = runif(1),
+      phi = runif(1, 0, 0.8),
       beta = rnorm(p + 1),
       X = rand_mod_matrix(n = n, p = p)
     )
