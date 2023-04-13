@@ -13,34 +13,43 @@ ARmod <- stan_model("GPP sim and real/Stan_code/AR1_obserror.stan")
 ARmod_ss <- stan_model("GPP sim and real/Stan_code/AR1_ss.stan")
 # Centered state space AR1 model with observation and process error and missing data loop:
 AR2 <- stan_model("GPP sim and real/Stan_code/AR1_light_Q_centered.stan")
-
+DF <- data.frame()
 # DF <- data.frame()
-for(i in 1:10){
+for(i in 1:100){
   print(paste0("i = ", i))
 # simulate dataset ####
-N <- 300
+N <- 365
 K <- 2
 X <- matrix(c(rep(1, N), rnorm(2*N, 0, 1)), ncol = 3)
 beta <- rnorm(K + 1, 0, 2)
-sdo <- 1
-sdp <- 1
+sd <- rbeta(1, 2, 1)
+# sdp <- 1
 
-phi <- runif(1, 0, 1)
+phi <- runif(1, -1, 1)
 
-mu0 <- rnorm(1, X[1,] %*% beta, sdo) 
+mu0 <- rnorm(1, X[1,] %*% beta, sd) 
 mu <- rep(mu0, N);
 
 for(i in 2:N){
-    mu[i] = X[i, ] %*% beta + mu[i-1] * phi + rnorm(1, 0, sdo)
+    mu[i] = X[i, ] %*% beta + mu[i-1] * phi + rnorm(1, 0, sd)
 }
 
-y = rnorm(N, mu, sdp)
+# y = rnorm(N, mu, sdo)
 
 
 df <- data.frame(
-  parameter = c('phi', 'beta1', 'beta2', 'beta3', 'sdo', 'sdp', 'sd'),
-  value = c(phi, beta, sdo, sdp, sqrt(2))
+  parameter = c('phi', 'beta1', 'beta2', 'beta3', 'sd'),
+  value = c(phi, beta, sd)
 )
+# simdat <- data.frame(y = y, 
+#                      l = X[,2],
+#                      q = X[,3])
+
+arima_mod <- arima(mu, order = c(1,0,0), xreg = X[,2:3])
+summary(arima_mod)
+df$Arima <- c(arima_mod$coef,  arima_mod$sigma2)
+DF <- bind_rows(df, DF)
+}
 # plot(X[,3], mu)
 # plot(X[,2], mu)
 
@@ -110,7 +119,7 @@ df$AR_f2 <- get_pars(AR_f2, TRUE)
 simdat <- data.frame(y = y, 
                      l = X[,2],
                      q = X[,3])
-
+df$Arima <- c(arima_mod$coef, rep(NA, 2), arima_mod$sigma2)
 arima_mod <- forecast::Arima(mu, order = c(1,0,0), xreg = X[,2:3])
 brm_mod <- brms::brm(y ~ ar(p = 1) + l + q, data = simdat)
 
@@ -125,6 +134,7 @@ DF <- DF %>%
   rename(AR_obserr = AR_fit, AR_ss = ARss_fit, AR_missdat = AR_f2) 
 
 write_csv(DF, 'data/AR_model_comparison_test.csv')
+DF <- read_csv('data/AR_model_comparison_test.csv')
 
 DF %>% mutate(across(-parameter, ~(. - value))) %>%
   select(-value) %>%
@@ -135,6 +145,12 @@ DF %>% mutate(across(-parameter, ~(. - value))) %>%
   ylim(-5,5)+
   theme_minimal() + geom_hline(yintercept = 0)
 
+DF %>%
+  ggplot(aes(value,Arima, col = parameter))+
+  geom_abline(slope = 1, intercept = 0)+
+  facet_wrap(.~parameter)+
+  ylim(-5, 5)+
+  geom_point()
 # the arima and brms models always seem to recover the same parameters as each other,
 # and phi tends to be higher than the true value and than the estimate generated from 
 # the Stan models above. Sometimes, the beta parameters are similar to those from the 
