@@ -38,9 +38,13 @@ X = matrix(c(pr$light.rel, pr$Q), ncol = 2)
 
 arimafit <- Arima(xts(pr$GPP, order.by=as.POSIXct(pr$date)), order = c(1,0,0), xreg = X)
 
-summary(arimafit)$coef
 
 se<-sqrt(diag(vcov(arimafit)))
+
+arimafullcoefdf<-as.data.frame(t(as.data.frame(arimafit$coef)))
+
+arimafullsedf<-as.data.frame(t(as.data.frame(sqrt(diag(vcov(arimafit))))))
+
 
 #ar1:0.7139     intercept: 1.9943  light.rel= 5.2758  Q = -1.6564  #
 
@@ -144,12 +148,11 @@ outputlist<-print(GPPstanmissing, pars=c("phi", "sdp", "beta"), digits=7)
 
 
 
-################## Multiple imputations w/ AMELIA ###################
+################## Multiple imputations w/ AMELIA ARIMA models ###################
 
 amelia1 <-lapply(X = pine_missing_list_11 , FUN = function(X)   amelia(X, ts="date", m=5, polytime=1))
 
 ### Amelia makes 5 version of each imputed dataset for each item in the list ###
-#### list of lists ##
 
 ##nested list of dataframes that just has the imputations###
 amelias11<-map(amelia1 , ~.[["imputations"]])
@@ -157,74 +160,124 @@ amelias11<-map(amelia1 , ~.[["imputations"]])
 
 ###loop over all the lists ##
 
-##start with amelia11, nested list ###
+##matrix of covariates##
+X = matrix(c(pr$light.rel, pr$Q), ncol = 2)
 
-###getting closer...###
+##working forloop## gives us the model parameters and errors for all the ARIMA models on imputed datasets
 
-
-
-ch0=list()
+modelparamlist=list()
+modelerrorlist=list()
 for (i in seq_along(amelias11)) {
   a=list()
-  b=for (j in seq_along(amelias11[[i]])) {
+  aa=list()
+  for (j in seq_along(amelias11[[i]])) {
     tempobj=Arima(amelias11[[i]][[j]]$GPP, order = c(1,0,0), xreg = X)
-    tempobj2<-tempobj$coef
+    arimacoefs<-tempobj$coef
+    arimases<-sqrt(diag(vcov(tempobj)))
     name <- paste('imp',seq_along((amelias11)[[i]])[[j]],sep='')
-    a[[name]] <- tempobj2
+    a[[name]] <- arimacoefs
+    aa[[name]]<-arimases
   }
   name1 <- names(amelias11)[[i]]
-  ch0[[name1]] <- a
+  modelparamlist[[name1]] <- a
+  modelerrorlist[[name1]] <- aa
 }
 
-ch0
-
-##list of 19 list of 5 model outputs for ARIMA model ###
-
-## also need to pull out the standard errors###
+modelparamlist
+modelerrorlist
 
 
-### need it to be 19 lists of 5 model outputs##
+### Averages the models together back to 1 model per missing data prop ##
+
+listcoefses<-mapply(function(X,Y) {
+         list(mi.meld(data.frame(X), data.frame(Y), byrow=FALSE))
+             }, X=modelparamlist, Y=modelerrorlist)
+
+##pulls out parameters and ses ##
+
+modelavgparamlist<-map(listcoefses , ~.["q.mi"])
+modelseparamlist<-map(listcoefses , ~.["se.mi"])
 
 
+modelavgparamdf <- map_df(modelavgparamlist, ~as.data.frame(.x), .id="missingprop")
+modelSEdf <- map_df(modelseparamlist, ~as.data.frame(.x), .id="missingprop")
 
+missingprop<-seq(from=0.05, to =0.95, by=0.05)
 
-##pull out one list of imputations for forloop##
+modelavgparamdf2<-modelavgparamdf %>% dplyr::rename(ar1=q.mi.ar1, intercept=q.mi.intercept, light=q.mi.xreg1, discharge=q.mi.xreg2) %>% select(ar1, intercept, light, discharge) %>% mutate(type="Multiple imputations")
 
-prop0.5list<-amelia1[["propMissIn_0.05; propMissAct_0.05"]][["imputations"]]
+modelavgparamdf2<-cbind(missingprop, modelavgparamdf2)
 
+      ###add in the no missing data##
 
+arimafullcoefdf2<-arimafullcoefdf %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2) %>%   mutate(type="Multiple imputations")  %>% mutate(missingprop=0.00) %>% select(missingprop, ar1, intercept, light, discharge, type)
 
-### ARIMA model to run on 5 imputed datasets###
+modelavgparamdf3<-rbind(as.data.frame(arimafullcoefdf2), as.data.frame(modelavgparamdf2))
 
-X = matrix(c(pr$light.rel, pr$Q), ncol = 2)
+### calculate bias### 
 
-imp<-seq(1, 5, by=1)
-
-modelOutput_list <- replicate(length(5), rep(NULL), simplify = FALSE)
-for(i in imp){
-  ## fit an ARIMA model to each AMELIA dataset ##
-  arimaMI_i <-Arima(prop0.5list[[i]]$GPP, order = c(1,0,0), xreg = X)
-  modelOutput_list[[i]] <- arimaMI_i$coef
-  names(modelOutput_list)[[i]] <- paste0(imp[i],"_imputation")
-}
-
-
-
-
-
+modelavgparamdf4<-modelavgparamdf3 %>% mutate(ar1bias= abs(ar1-0.7138614)) %>% mutate(intbias=abs(intercept-1.994253)) %>% mutate(lightbias=abs(light-5.275784)) %>% mutate(dischargebias=abs(discharge--1.6563712)) %>% mutate(meanbias=round(rowMeans(modelavgparamdf4[7:10], na.rm=TRUE),digits=3))
 
 
 
-#### how does ARIMA handle NAs ? ##
 
-miss20<-pine_missing_list_11[["propMissIn_0.2; propMissAct_0.2"]]
+######## RUN ARIMA with DELETED data, no imputation or Augmentation ##
 
-X = matrix(c(pr$light.rel, pr$Q), ncol = 2)
-
-arimafitfull <-  Arima(xts(pr$GPP, order.by=as.POSIXct(pr$date)), order = c(1,0,0), xreg = X)
-
-arimafitmissing20<- arimafit <- Arima(xts(miss20$GPP, order.by=as.POSIXct(miss20$date)), order = c(1,0,0), xreg = X)
+head(pine_missing_list_11)
 
 
-## unclear...I think it just skips over them? ##
-#https://stats.stackexchange.com/questions/346225/fitting-arima-to-time-series-with-missing-values#
+ArimaoutputNAs <- lapply(seq_along(pine_missing_list_11), function(j) {
+  modelNAs <- Arima(pine_missing_list_11[[j]][["GPP"]],order = c(1,0,0), xreg = X)
+  arimacoefsNAs<-modelNAs$coef
+  arimasesNAs<-sqrt(diag(vcov(modelNAs)))
+  list(arimacoefsNAs=arimacoefsNAs, arimasesNAs=arimasesNAs)
+ })
+
+
+names(ArimaoutputNAs) <- names(pine_missing_list_11)
+
+
+modelNAparamlist<-map(ArimaoutputNAs , ~.["arimacoefsNAs"])
+modelNASElist<-map(ArimaoutputNAs , ~.["arimasesNAs"])
+
+modelNAparamlist2 <- lapply(modelNAparamlist, function(x) as.data.frame(do.call(rbind, x)))
+modelNASElist2 <- lapply(modelNASElist, function(x) as.data.frame(do.call(rbind, x)))
+
+
+modelNAparamdf <- map_df(modelNAparamlist2, ~as.data.frame(.x), .id="missingprop")
+modelNASEdf <- map_df(modelNASElist2, ~as.data.frame(.x), .id="missingprop")
+
+
+#### 
+missingprop<-seq(from=0.05, to =0.95, by=0.05)
+
+modelNAdf<-modelNAparamdf  %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2) %>% select(ar1, intercept, light, discharge) %>% mutate(type="Data deletion")
+
+modelNAdf2<-cbind(missingprop, modelNAdf)
+
+    ##adding in the zero missing###
+
+arimafullcoefdf3<-arimafullcoefdf %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2) %>%   mutate(type="Data deletion")  %>% mutate(missingprop=0.00) %>% select(missingprop, ar1, intercept, light, discharge, type)
+
+modelNAdf3<-rbind(as.data.frame(arimafullcoefdf3), as.data.frame(modelNAdf2))
+
+### calculate bias### 
+
+modelNAdf4<-modelNAdf3 %>% mutate(ar1bias= abs(ar1-0.7138614)) %>% mutate(intbias=abs(intercept-1.994253)) %>% mutate(lightbias=abs(light-5.275784)) %>% mutate(dischargebias=abs(discharge--1.6563712)) %>% mutate(meanbias=round(rowMeans(modelNAdf4[7:10], na.rm=TRUE),digits=3))
+
+
+## MAKE A FIGURE COMPARING THE TWO APPROACHES####
+
+bothdf<-rbind(modelavgparamdf4,modelNAdf4)
+
+
+###plot estimate and Std error of estimates over missing-ness##
+
+comparisonplotGPP<-ggplot(data=bothdf, aes(x=as.numeric(missingprop), y=meanbias))+
+  facet_wrap(~type, scales="fixed")+
+  geom_point(size=3)+
+  #geom_hline(data=hline_dat, aes(yintercept=value), colour="salmon")+
+  theme_classic()+
+  xlab("Percent of Missing Data")+
+  ylab("Average bias in parameter estimate")
+
