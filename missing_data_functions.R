@@ -72,6 +72,8 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       
       # make the length of the gap slightly random (draw from a poisson distribution) %%I think this is the right distribution to use?      
       chunkSize_i <- rpois(n = n_events_i, lambda = chunkSize_f)        
+      # make sure that chunks are at least 1  unit long
+      chunkSize_i[chunkSize_i==0] <- 1
       
       ## now replace values in the timeSeries according in chunks of size chunkSize_i along intervals intervals_i      
       # get the indices of the starts and ends of each gap      
@@ -103,7 +105,7 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
                                      }
   
   ## if you want to generate missing data in chunks (randomly spaced)  
-  if (typeMissing == "randChunks") {    
+  if (typeMissing == "randChunks")     
      ## loop through values of "propMissing_f"
      for (i in 1:length(propMiss_f)) {
       n <- length(timeSeries)
@@ -189,13 +191,7 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
                                                  which(timeSeries > qnorm(1-X/2, mean = mean(timeSeries), sd = sd(timeSeries)))),
                                                                                
                                         values = NA))    
-
-      ## store the output
-      if (i == 1) {       
-        missingDat_list <- list(replace(timeSeries, list = indices_seq, values = NA))     
-      } else {       
-        missingDat_list[[i]] <- replace(timeSeries, list = indices_seq, values = NA)     
-        }          
+ 
 
     
       names(missingDat_list) <- paste0("propMissAct_",  
