@@ -105,7 +105,7 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
                                      }
   
   ## if you want to generate missing data in chunks (randomly spaced)  
-  if (typeMissing == "randChunks")     
+  if (typeMissing == "randChunks") {      
      ## loop through values of "propMissing_f"
      for (i in 1:length(propMiss_f)) {
       n <- length(timeSeries)

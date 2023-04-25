@@ -7,6 +7,7 @@
 
 # Load Packages -----------------------------------------------------------
 library(tidyverse)
+library(lubridate)
 
 # Load Functions ----------------------------------------------------------
 # import the "makeMissing" function
@@ -196,10 +197,36 @@ pois_real_minMaxMiss <- cbind(pois_real, pois_real_minMaxMiss_TEMP)
 # Store missing data  -----------------------------------------------------
 # all datasets will be stored in "data/missingDatasets/"
 
-## store simulated gaussian data (are stored in a list, each elemnt of the list 
+## store simulated Gaussian data (are stored in a list, each elemnt of the list 
 # is a simulation run. Within each simulation run, the $y element contains 16 
 # elements that have the response variable ranging from no missing data to the 
 # highest proportion of missing data. The $sim_params element contains the 
 # parameters used to generate that simulated dataset)
+saveRDS(gauss_sim_randMiss, file = "./data/missingDatasets/gauss_sim_randMiss.rds")
+saveRDS(gauss_sim_evenChunkMiss, file = "./data/missingDatasets/gauss_sim_evenChunkMiss.rds")
+saveRDS(gauss_sim_randChunkMiss, file = "./data/missingDatasets/gauss_sim_randChunkMiss.rds")
+saveRDS(gauss_sim_minMaxMiss, file = "./data/missingDatasets/gauss_sim_minMaxMiss.rds")
 
+## store simulated Poisson data (are stored in a list, each elemnt of the list 
+# is a simulation run. Within each simulation run, the $y element contains 16 
+# elements that have the response variable ranging from no missing data to the 
+# highest proportion of missing data. The $sim_params element contains the 
+# parameters used to generate that simulated dataset)
+saveRDS(pois_sim_randMiss, file = "./data/missingDatasets/pois_sim_randMiss.rds")
+saveRDS(pois_sim_evenChunkMiss, file = "./data/missingDatasets/pois_sim_evenChunkMiss.rds")
+saveRDS(pois_sim_randChunkMiss, file = "./data/missingDatasets/pois_sim_randChunkMiss.rds")
+saveRDS(pois_sim_minMaxMiss, file = "./data/missingDatasets/pois_sim_minMaxMiss.rds")
 
+## store real Gaussian data (a data frame with columns added for increasing 
+# amounts of missingness in the response variable)
+saveRDS(gauss_real_randMiss, file = "./data/missingDatasets/gauss_real_randMiss.rds")
+saveRDS(gauss_real_evenChunkMiss, file = "./data/missingDatasets/gauss_real_evenChunkMiss.rds")
+saveRDS(gauss_real_randChunkMiss, file = "./data/missingDatasets/gauss_real_randChunkMiss.rds")
+saveRDS(gauss_real_minMaxMiss, file = "./data/missingDatasets/gauss_real_minMaxMiss.rds")
+
+## store real Poisson data (a data frame with columns added for increasing 
+# amounts of missingness in the response variable)
+saveRDS(pois_real_randMiss, file = "./data/missingDatasets/pois_real_randMiss.rds")
+saveRDS(pois_real_evenChunkMiss, file = "./data/missingDatasets/pois_real_evenChunkMiss.rds")
+saveRDS(pois_real_randChunkMiss, file = "./data/missingDatasets/pois_real_randChunkMiss.rds")
+saveRDS(pois_real_minMaxMiss, file = "./data/missingDatasets/pois_real_minMaxMiss.rds")
