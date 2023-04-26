@@ -1,7 +1,9 @@
 #/////////////////////
 # Generates datasets with various levels of missingness
 # (with real and simulated datasets)
-# 24 April 2023
+# 24 April 2023  ### AS ####
+
+### MD made small edits on 26 April 2023 ####
 #/////////////////////
 
 # Load Packages -----------------------------------------------------------
@@ -21,7 +23,7 @@ gauss_sim <- readRDS("./data/gauss_ar1_0miss_datasets.rds")
 # make missing data types
 # missing at random
 gauss_sim_randMiss <- lapply(X = gauss_sim, FUN = function(x) 
-  list("y" = makeMissing(timeSeries = x$y, typeMissing = "random"), 
+  list("y" = makeMissing(timeSeries = x$y,propMiss=(seq(0.05, 0.95, by = .05)), typeMissing = "random"), ### specify up to 0.95 ####
        "sim_params" <- x$sim_params)
 )
 
@@ -55,13 +57,13 @@ for (i in 1:length(gauss_sim_randChunkMiss)) {
 
 # missing in min and max of data
 gauss_sim_minMaxMiss <- lapply(X = gauss_sim, FUN = function(x) 
-  list("y" = makeMissing(timeSeries = x$y, typeMissing = "minMax"), 
+  list("y" = makeMissing(timeSeries = x$y, propMiss=(seq(0.05, 0.95, by = .05)), typeMissing = "minMax"), 
        "sim_params" <- x$sim_params)
 )
 
 for (i in 1:length(gauss_sim_minMaxMiss)) {
   names(gauss_sim_minMaxMiss[[i]]) <- c("y", "sim_params")
-  gauss_sim_minMaxMiss[[i]]$y <- c(list("y_noMiss" = gauss_sim[[i]]$y), gauss_sim_minMaxMiss[[i]]$y)
+  gauss_sim_minMaxMiss[[i]]$y <- c(list("y_noMiss" = gauss_sim[[i]]$y), gauss_sim_minMaxMiss[[i]]$y) ### specify up to 0.95 ####
 }
 
 # Gaussian Real Data (Pine River GPP data) --------------------------------

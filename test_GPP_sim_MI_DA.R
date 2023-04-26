@@ -15,34 +15,23 @@ source("missing_data_functions.R")
 
 
 #### Read in the missing dataframes that Alice S. made #####
+###### Pull out the first in 1000 nested lists for this code ### (Eventually loop over all the lists)
 
 
 
-gauss_miss_datasets <- readRDS(here("data/Missingdatasets/gauss_sim_randMiss.rds"))
+gauss_sim_MAR_datasets <- readRDS(here("data/Missingdatasets/gauss_sim_randMiss.rds"))
 
 
+## no missing###
 
-#########################################################################################################################
-## Pull in simulated AR time series and create lists of datasets w/ NAS (missing at random)
-###########################################################################################################################
+sim1<-gauss_sim_MAR_datasets [[1]][["y"]][["y_noMiss"]]
 
-
-##Pull in one simulated GPP dataset to try out methods##
-
-gauss_ar1_0miss_datasets <- readRDS(here("data/gauss_ar1_0miss_datasets.rds"))
-
-sim1<-gauss_ar1_0miss_datasets[[1]]$y 
-
-#### params #####
-realphi<-gauss_ar1_0miss_datasets[[1]]$sim_params$phi
-realbetas<-gauss_ar1_0miss_datasets[[1]]$sim_params$beta
+realphi<-gauss_sim_MAR_datasets[[1]][["sim_params"]][["phi"]]
+realbetas<-gauss_sim_MAR_datasets[[1]][["sim_params"]][["beta"]]
 
 trueestdf <- data.frame (param = c("ar1", "intercept", "light", "discharge"), value = c(realphi, realbetas))
 
-
-####
-
-covariates<-gauss_ar1_0miss_datasets[[1]]$sim_params$X
+covariates<-gauss_sim_MAR_datasets[[1]][["sim_params"]][["X"]]
 
 covariatesX<-as.matrix(covariates[,2:3])
 
@@ -58,13 +47,14 @@ simGPP <- ggplot(sim1df, aes(x=days, y=GPP))+
   labs(y=expression('GPP (g '*~O[2]~ m^-2~d^-1*')'), title="Simulated GPP")
 
 
-###make lists of missing data##
 
-sim_missing_list<-makeMissing(timeSeries = sim1df$GPP, propMiss <- seq(0.05, 0.95, by = .05), typeMissing = "random")#  makes a list of GPP w/ increasing missingness## Missing at random from 0.5 - 95%
+##For nested list of GPP datasets with increasing MAR data add back in the date column and the covariates## 
 
-##add back in the date column and the covariates## 
+GPP_sim_MAR<- gauss_sim_MAR_datasets [[1]][["y"]]
 
-sim_missing_list_2 <-lapply(X = sim_missing_list, FUN = function(X)   cbind.data.frame(GPP=X, days=sim1df$days, light = sim1df$light, discharge = sim1df$discharge))
+GPP_sim_MAR_2 <-lapply(X = GPP_sim_MAR, FUN = function(X)   cbind.data.frame(GPP=X, days=sim1df$days, light = sim1df$light, discharge = sim1df$discharge))
+
+
 
 #########################################################################################################################
 ## ARIMA estimate with no missing data ##
@@ -86,8 +76,8 @@ arimaestdf <- data.frame (param = c("ar1", "intercept", "light", "discharge"), v
 
 # drops rows with missing data ###
 
-sim_missing_list_drop <- lapply(seq_along(sim_missing_list_2), function(j) {
- drop_na(sim_missing_list_2[[j]])
+sim_missing_list_drop <- lapply(seq_along(GPP_sim_MAR_2), function(j) {
+ drop_na(GPP_sim_MAR_2[[j]])
 })
 
 Arimaoutputdrop <- lapply(seq_along(sim_missing_list_drop ), function(j) {
@@ -97,9 +87,9 @@ Arimaoutputdrop <- lapply(seq_along(sim_missing_list_drop ), function(j) {
   list(arimacoefsdrop=arimacoefsdrop, arimasesdrop=arimasesdrop)
 })
 
-names(Arimaoutputdrop ) <- names(sim_missing_list_2)
+names(Arimaoutputdrop ) <- names(GPP_sim_MAR_2)
 
-
+########### formatting for figure #############
 
 modeldropparamlist<-purrr::map(Arimaoutputdrop , ~.["arimacoefsdrop"])
 modeldropSElist<-map(Arimaoutputdrop , ~.["arimasesdrop"])
@@ -116,7 +106,7 @@ modeldropdf<-modeldropparamdf  %>% dplyr::rename(ar1=ar1, intercept=intercept, l
 modeldropSEdf<-modeldropSEdf  %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2) %>% select(ar1, intercept, light, discharge) %>% mutate(type="Data Deletion")
 
 
-missingprop<-seq(0.05, 0.95, by=0.05)
+missingprop<-seq(0.00, 0.95, by=0.05)
 
 modeldropdf2<-cbind(missingprop, modeldropdf)
 
@@ -129,28 +119,20 @@ paramdropSElong <- gather(SEdropdf2, param, SE, ar1:discharge, factor_key=TRUE)
 
 paramdroplong2<-merge(paramdroplong, paramdropSElong)
 
-deletepropmissingGPPsim<-ggplot(data=paramdroplong, aes(x=as.numeric(missingprop), y=value))+
-  facet_wrap(~param, scales="free",ncol=1)+
-  geom_point(size=3)+
-  geom_hline(data=trueestdf, aes(yintercept=value), colour="salmon")+
-  theme_classic()+
-  ggtitle("Data deletion: GPP simulated data")+
-  xlab("Percent of Missing Data")+
-  ylab("Parameter estimate")
-
 ################################################## #########################################################
 # ARIMA WITH NAS KALMAN FILTER
 ############################################################################################################
 
-ArimaoutputNAs <- lapply(seq_along(sim_missing_list_2), function(j) {
-  modelNAs <- Arima(sim_missing_list_2[[j]][["GPP"]],order = c(1,0,0), xreg = X)
+ArimaoutputNAs <- lapply(seq_along(GPP_sim_MAR_2), function(j) {
+  modelNAs <- Arima(GPP_sim_MAR_2[[j]][["GPP"]],order = c(1,0,0), xreg = X)
   arimacoefsNAs<-modelNAs$coef
   arimasesNAs<-sqrt(diag(vcov(modelNAs)))
   list(arimacoefsNAs=arimacoefsNAs, arimasesNAs=arimasesNAs)
 })
 
-names(ArimaoutputNAs) <- names(sim_missing_list_2)
+names(ArimaoutputNAs) <- names(GPP_sim_MAR_2)
 
+############ formatting for figure #############
 
 modelNAparamlist<-purrr::map(ArimaoutputNAs , ~.["arimacoefsNAs"])
 modelNASElist<-map(ArimaoutputNAs , ~.["arimasesNAs"])
@@ -167,7 +149,7 @@ modelNAdf<-modelNAparamdf  %>% dplyr::rename(ar1=ar1, intercept=intercept, light
 modelNASEdf<-modelNASEdf  %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2) %>% select(ar1, intercept, light, discharge) %>% mutate(type="Kalman filter")
 
 
-missingprop<-seq(0.05, 0.95, by=0.05)
+missingprop<-seq(0.00, 0.95, by=0.05)
 
 modelNAdf2<-cbind(missingprop, modelNAdf)
 
@@ -185,34 +167,7 @@ paramNAlong2<-merge(paramNAlong, paramNASElong)
 # MULTIPLE IMPUTATIONS W/ AMELIA     ARIMA TO SOLVE FOR PARAMETER ESTIMATES       AVERAGE ESTIMATES
 ############################################################################################################
 
-amelia1sim <-lapply(X = sim_missing_list_2 , FUN = function(X)   amelia(X, ts="days", m=5, lags="GPP")) ## lags by 1 day ##
-
-###plot the time series with missing ##
-
-simmissing40<-sim_missing_list_2[[8]]
-
-
-##quick plot simulated dataset with missing ##
-plotmissing40 <- ggplot(simmissing40, aes(x=days, y=GPP))+
-  geom_point(size = 2, color="chartreuse4") + 
-  geom_line(size = 1, color="chartreuse4")+
-  labs(y=expression('GPP (g '*~O[2]~ m^-2~d^-1*')'), title="Simulated GPP with 40 % missing data")
-
-########## plot what amelia is imputing ####
-
-a.out8<-amelia1sim[8] 
-
-a.outimp1<-a.out8$`propMissIn_0.4; propMissAct_0.4`$imputations$imp1
-missmatrix<-a.out8$`propMissIn_0.4; propMissAct_0.4`$missMatrix[,1]
-
-imp1missing40<-cbind(a.outimp1, miss=missmatrix)
-
-##quick plot what amelia is imputing ##
-plotimpmissing40 <- ggplot(imp1missing40, aes(x=days, y=GPP, color=miss))+
-  geom_point(size = 2) + 
-  geom_line(size = 1, color="chartreuse4")+
-  labs(y=expression('GPP (g '*~O[2]~ m^-2~d^-1*')'), title="Simulated GPP with 40 % missing data, imputed values")
-
+amelia1sim <-lapply(X = GPP_sim_MAR_2 , FUN = function(X)   amelia(X, ts="days", m=5, lags="GPP")) ## lags by 1 day ##
 
 
 ##nested list of dataframes that just has the imputations###
@@ -262,14 +217,14 @@ selistsim<-map(listcoefsessim , ~.["se.mi"])
 avgparamdf <- map_df(paramlistsim, ~as.data.frame(.x), .id="missingprop")
 avglSEdf <- map_df(selistsim, ~as.data.frame(.x), .id="missingprop")
 
-missingprop<-seq(from=0.05, to =0.95, by=0.05)
+missingprop<-seq(from=0.00, to =0.95, by=0.05)
 
 avgparamdf2<-avgparamdf %>% dplyr::rename(ar1=q.mi.ar1, intercept=q.mi.intercept, light=q.mi.xreg1, discharge=q.mi.xreg2) %>% select(ar1, intercept, light, discharge) %>% mutate(type="Multiple imputations")
 
 avglSEdf2<-avglSEdf  %>% dplyr::rename(ar1=se.mi.ar1, intercept=se.mi.intercept, light=se.mi.xreg1, discharge=se.mi.xreg2) %>% select(ar1, intercept, light, discharge) %>% mutate(type="Multiple imputations")
 
 
-missingprop<-seq(0.05, 0.95, by=0.05)
+missingprop<-seq(0.00, 0.95, by=0.05)
 
 MIdf2<-cbind(missingprop, avgparamdf2)
 
@@ -283,9 +238,6 @@ paramMISElong <- gather(MISEdf2, param, SE, ar1:discharge, factor_key=TRUE)
 paramMIlong2<-merge(paramMIlong,paramMISElong)
 
 
-head(Arimanomissingdf)
-
-
 #### PLOT ALL THE ARIMA METHODS TOGETHER ###############
 
 
@@ -295,7 +247,6 @@ paramNAlong2
 
 paramallARIMA<-rbind(paramdroplong2, paramMIlong2, paramNAlong2)
 
-cust_label <- setNames(paste0("sch.id:", unique(ten$sch.id)), unique(ten$sch.id))
 
 arimallmethods<-ggplot(data=paramallARIMA, aes(x=as.numeric(missingprop), y=value))+
   facet_grid(~factor(param, levels=c("ar1", "intercept", "light", "discharge"))~ type, scales="free")+
@@ -318,7 +269,7 @@ arimallmethods<-ggplot(data=paramallARIMA, aes(x=as.numeric(missingprop), y=valu
 
 # Need to first decompose each of these nested lists into dfs
 
-simmissingdf <- lapply(sim_missing_list_2, function(x) as.data.frame(do.call(cbind, x)))
+simmissingdf <- lapply(GPP_sim_MAR_2, function(x) as.data.frame(do.call(cbind, x)))
 
 # Also need to add sdo.
 simmissingdf <- lapply(simmissingdf, function(x) cbind(x, sdo = 0.1))
@@ -359,7 +310,7 @@ stan_datasim_fit <- lapply(stan_datasim,
                                     control = list(max_treedepth = 12), 
                                     save_warmup=FALSE))
 
-# Ran on server - started 12:52 , finished XXX.
+# Ran on server - started 3:16 , finished XXX.
 
 #stan_datasim_fit ## very large list ###
 
@@ -369,7 +320,7 @@ for (i in 1:19){
   fit_summary_pars_bayes[[i]]<-(summary(stan_datasim_fit[[i]], pars=c("beta[1]","beta[2]", "beta[3]", "phi","sdp"), probs=c(0.025,.5,.975))$summary)
 }
 
-names(fit_summary_pars_bayes) <- names(sim_missing_list_2)
+names(fit_summary_pars_bayes) <- names(GPP_sim_MAR_2)
 
 
 DAparamdf <- map_df(fit_summary_pars_bayes, ~as.data.frame(.x), .id="missingprop")
