@@ -201,7 +201,7 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
   return(missingDat_list)
   }
 
-# testing -----------------------------------------------------------------
+# testing for functionality -----------------------------------------------------------------
 ## load example data
 ## 1000 simulated AR(1) time series with 2 covariates to mimic the basic structure 
 #of the GPP dataset. Each time series is stored in a list and named `y`. The 
@@ -215,7 +215,7 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
 # stored in a list and named `y`. The parameters used to simulate the data are 
 # stored in a sublist called `sim_params` and include `r`, the intrinsic growth 
 # rate, and `alpha`, the intraspecific competition coefficient.
-ricker <- read_rds("./data/ricker_0miss_datasets.rds")
+ricker <- readRDS("./data/ricker_0miss_datasets.rds")
 
 ## testing with a subset of the ricker data
 makeMissing(timeSeries = ricker[[1]]$y, typeMissing = "random", propMiss = c(.5, .05))
@@ -223,3 +223,102 @@ makeMissing(timeSeries = ricker[[1]]$y, typeMissing = "evenChunks", propMiss = c
 
 ## testing w/ all of the ricker data list
 lapply(X = ricker, FUN = function(X) makeMissing(timeSeries = X$y, typeMissing = "random"))
+
+
+# Testing for MCAR vs MNAR ------------------------------------------------
+library(ggpubr)
+
+# use the simulated gaussian AR1 data
+gausSim <- readRDS("./data/gauss_ar1_0miss_datasets.rds")
+# for now, get just the first dataset
+gausSim <- data.frame("y" = gausSim[[1]]$y, 
+                      "time" = 1:length(gausSim[[1]]$y))
+
+# get 40% missing completely at random 
+gausSim$y_randMiss <- as.vector(unlist(makeMissing(timeSeries = gausSim$y, typeMissing = "random", propMiss = .4)))
+
+# get 40% missing in evenly spaced chunks
+gausSim$y_evenChunkMiss <- as.vector(unlist(makeMissing(timeSeries = gausSim$y, typeMissing = "evenChunks", propMiss = .4, chunkSize = 5)))
+
+# get 40% missing in randomly spaced chunks
+gausSim$y_randChunkMiss <- as.vector(unlist(makeMissing(timeSeries = gausSim$y, typeMissing = "randChunks", propMiss = .4, chunkSize = 5)))
+
+# get 40% missing in minmax of data
+gausSim$y_minMaxMiss <- as.vector(unlist(makeMissing(timeSeries = gausSim$y, typeMissing = "minMax", propMiss = .4)))
+
+# make histograms like Dusty made (looking at histogram of values in the missing
+# data time series vs. expected distribution from the AR1 process)
+# no missing data
+noMiss_line <- ggplot(data = gausSim, aes(x = time, y = y)) + 
+  geom_line() + 
+  geom_point(size = 1) +
+  ggtitle("No Missing Data") + 
+  theme_classic()
+
+noMiss_hist <- ggplot() + 
+  geom_histogram(data = gausSim, aes(y, after_stat(density)), fill = "grey", color = "darkgrey") + 
+  geom_line(aes(y = dnorm(seq(-5,7,.1), mean = mean(gausSim$y), sd = sd(gausSim$y)), 
+                x = seq(-5,7,.1)), color = "blue") + 
+  theme_classic()
+
+# randomly missing
+randMiss_line <- ggplot(data = gausSim, aes(x = time, y = y_randMiss)) + 
+  geom_line() + 
+  geom_point(size = 1) +
+  ggtitle("Missing Completely At Random") + 
+  theme_classic()
+
+randMiss_hist <- ggplot() + 
+  geom_histogram(data = gausSim, aes(y_randMiss, after_stat(density)), fill = "grey", color = "darkgrey") + 
+  geom_line(aes(y = dnorm(seq(-5,7,.1), mean = mean(gausSim$y), sd = sd(gausSim$y)), 
+                x = seq(-5,7,.1)), color = "blue") + 
+  theme_classic()
+
+# missing evenly spaced chunks
+evenChunkMiss_line <- ggplot(data = gausSim, aes(x = time, y = y_evenChunkMiss)) + 
+  geom_line() + 
+  geom_point(size = 1) +
+  ggtitle("Missing Even Chunks") + 
+  theme_classic()
+
+evenChunkMiss_hist <- ggplot() + 
+  geom_histogram(data = gausSim, aes(y_evenChunkMiss, after_stat(density)), fill = "grey", color = "darkgrey") + 
+  geom_line(aes(y = dnorm(seq(-5,7,.1), mean = mean(gausSim$y), sd = sd(gausSim$y)), 
+                x = seq(-5,7,.1)), color = "blue") + 
+  theme_classic()
+
+# missing randomly spaced chunks
+randChunkMiss_line <- ggplot(data = gausSim, aes(x = time, y = y_randChunkMiss)) + 
+  geom_line() + 
+  geom_point(size = 1) +
+  ggtitle("Missing Randomly Spaced Chunks") + 
+  theme_classic()
+
+randChunkMiss_hist <- ggplot() + 
+  geom_histogram(data = gausSim, aes(y_randChunkMiss, after_stat(density)), fill = "grey", color = "darkgrey") + 
+  geom_line(aes(y = dnorm(seq(-5,7,.1), mean = mean(gausSim$y), sd = sd(gausSim$y)), 
+                x = seq(-5,7,.1)), color = "blue") + 
+  theme_classic()
+
+# missing at min and max
+minMaxMiss_line <- ggplot(data = gausSim, aes(x = time, y = y_minMaxMiss)) + 
+  geom_line() + 
+  geom_point(size = 1) +
+  ggtitle("Missing Min and Max") + 
+  ylim(c(-2.5,5)) +
+  theme_classic()
+
+minMaxMiss_hist <- ggplot() + 
+  geom_histogram(data = gausSim, aes(y_minMaxMiss, after_stat(density)), fill = "grey", color = "darkgrey") + 
+  geom_line(aes(y = dnorm(seq(-5,7,.1), mean = mean(gausSim$y), sd = sd(gausSim$y)), 
+                x = seq(-5,7,.1)), color = "blue") + 
+  theme_classic()
+
+ggarrange(noMiss_line, noMiss_hist, 
+          randMiss_line, randMiss_hist, 
+          evenChunkMiss_line, evenChunkMiss_hist,
+          randChunkMiss_line, randChunkMiss_hist,
+          minMaxMiss_line, minMaxMiss_hist,
+          widths = c(.75,.25, .75,.25, .75,.25, .75,.25, .75,.25), 
+          ncol = 2, 
+          nrow = 5)
