@@ -14,6 +14,14 @@ library(lubridate)
 source("missing_data_functions.R")
 
 
+#### Read in the missing dataframes that Alice S. made #####
+
+
+
+gauss_miss_datasets <- readRDS(here("data/Missingdatasets/gauss_sim_randMiss.rds"))
+
+
+
 #########################################################################################################################
 ## Pull in simulated AR time series and create lists of datasets w/ NAS (missing at random)
 ###########################################################################################################################
