@@ -197,6 +197,11 @@ pois_real_minMaxMiss <- cbind(pois_real, pois_real_minMaxMiss_TEMP)
 # Store missing data  -----------------------------------------------------
 # all datasets will be stored in "data/missingDatasets/"
 
+# if it doesn't exist, make a folder to hold the datasets
+if (dir.exists("./data/missingDatasets") == FALSE) {
+  dir.create("./data/missingDatasets")
+}
+
 ## store simulated Gaussian data (are stored in a list, each elemnt of the list 
 # is a simulation run. Within each simulation run, the $y element contains 16 
 # elements that have the response variable ranging from no missing data to the 
