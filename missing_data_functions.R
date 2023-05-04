@@ -74,7 +74,9 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       }
       # find out how many of the chunks we need to get the amount of missing data we want
       chunkSize_i <- chunkSize_TEMP[1:which.min(abs(colSums(chunkMat, na.rm = TRUE) - gapsNeeded))]
-      
+
+    
+
       # calculate the shape parameter (the number of gaps that will need to
       # exist to get the specified proportion of missing data in propMiss_f[i]     
       n_events_i <- length(chunkSize_i)  
@@ -100,7 +102,8 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       for (j in 2:length(indices_temp)) {        
         indices_j <- append(indices_j, values = indices_j[j-1] + indices_temp[j])      
       }      
-      
+    
+
       indices_seq <- NULL      
       for (k in seq(from = 2, to = length(indices_j), by = 2)) {        
         indices_seq <- append(indices_seq, indices_j[k-1]:indices_j[k])      
@@ -117,12 +120,13 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
                                      lapply(X = missingDat_list, 
                                             FUN = function(x) round(sum(is.na(x))/length(x),2)
                                      ))
-  }
+                                     }
   
   ## if you want to generate missing data in chunks (randomly spaced)  
   if (typeMissing == "randChunks") {      
-    ## loop through values of "propMissing_f"
-    for (i in 1:length(propMiss_f)) {
+     ## loop through values of "propMissing_f"
+     for (i in 1:length(propMiss_f)) {
+
       n <- length(timeSeries)
       
       # declare transition matrix
@@ -171,7 +175,7 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       
       # remove the "0" values in the timeSeries string
       missingDat_temp <- replace(timeSeries, list = which(missingVec == 0), values = NA)
-      
+   
       ## store the results
       if (i == 1) {        
         missingDat_list <- list(missingDat_temp)      
@@ -181,9 +185,9 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       
     }
     names(missingDat_list) <- paste0("propMissAct_",  
-                                     lapply(X = missingDat_list, 
-                                            FUN = function(x) round(sum(is.na(x))/length(x),2)
-                                     ))
+                                       lapply(X = missingDat_list, 
+                                              FUN = function(x) round(sum(is.na(x))/length(x),2)
+                                        ))
   }
   
   ## if you want to remove maximum and minimum values  
@@ -206,13 +210,14 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
                                                  which(timeSeries > qnorm(1-X/2, mean = mean(timeSeries), sd = sd(timeSeries)))),
                                         
                                         values = NA))    
+ 
+
     
-    
-    
-    names(missingDat_list) <- paste0("propMissAct_",  
-                                     lapply(X = missingDat_list, 
-                                            FUN = function(x) round(sum(is.na(x))/length(x),2)))
-  }    
+      names(missingDat_list) <- paste0("propMissAct_",  
+                                       lapply(X = missingDat_list, 
+                                              FUN = function(x) round(sum(is.na(x))/length(x),2)))
+                                       }    
+
   return(missingDat_list)
 }
 
