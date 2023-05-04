@@ -314,6 +314,9 @@ stan_datasim_fit <- lapply(stan_datasim,
 
 #stan_datasim_fit ## very large list ###
 
+
+#### pull out SDs as well...###
+
 ##Pull param estimates into list ## takes a minute###
 fit_summary_pars_bayes <- vector("list",20)
 for (i in 1:20){
@@ -335,7 +338,7 @@ missingprop2=rep(missingprop, each=5)
 
 DAparamdf2<-cbind(param=param, missingprop2=missingprop2, DAparamdf) 
 
-DAparamdf3<- DAparamdf2 %>% mutate(type = "Data augmentation: STAN") %>% select(missingprop2, type, param, mean, se_mean) %>% rename(missingprop=missingprop2, value=mean, SE = se_mean) 
+DAparamdf3<- DAparamdf2 %>% mutate(type = "Data augmentation: STAN") %>% select(missingprop2, type, param, mean, sd) %>% rename(missingprop=missingprop2, value=mean, SD = sd) 
 
 
 
@@ -365,23 +368,29 @@ paramallARIMA2$type <- str_replace(paramallARIMA2$type, "Kalman filter", "Kalman
 
 #### add ARIMA and STAN dataframes together ###
 
-paramallARIMASTAN<-rbind(paramallARIMA2, DAparamdf3)
+## ERROR (SE for ARIMA, SD for STAN) ###
+
+
+paramallARIMA3 <- paramallARIMA2 %>% rename("error" = "SE") %>% mutate(errortype="SE")
+DAparamdf4 <- DAparamdf3 %>% rename("error" = "SD") %>% mutate(errortype="SD")
+
+
+paramallARIMASTAN<-rbind(paramallARIMA3, DAparamdf4)
 
 ## drop sdp for comparison with arima ###
 paramallARIMASTAN2<- paramallARIMASTAN %>% filter(param != "sdp" ) 
 
 trueestdf2 <- data.frame (param = c("phi", "intercept", "light", "discharge"), value = c(realphi, realbetas))
 
-arimastanMAR
 
-paramallARIMASTAN2$type <- factor(paramallARIMASTAN2$type, levels=c("Data Deletion: Arima", "Kalman filter: Arima (default)", "Multiple imputations: Arima", "Data augmentation: STAN"), ordered=TRUE)
+#paramallARIMASTAN2$type <- factor(paramallARIMASTAN2$type, levels=c("Data Deletion: Arima", "Kalman filter: Arima (default)", "Multiple imputations: Arima", "Data augmentation: STAN"), ordered=TRUE)
 
-arimastanMAR<-ggplot(data=paramallARIMASTAN2, aes(x=as.numeric(missingprop), y=value))+
+arimastanMAR<-ggplot(data=paramallARIMASTAN2, aes(x=as.numeric(missingprop), y=value, color=errortype))+
   facet_grid(~factor(param, levels=c("intercept", "phi", "light", "discharge"),exclude = NA)~ type, scales="free_y")+
-  geom_hline(data=trueestdf2, aes(yintercept=value), colour="salmon")+
+  geom_hline(data=trueestdf2, aes(yintercept=value), colour="gray")+
   #geom_hline(data=arimaestdf, aes(yintercept=value), colour="light blue")+
   geom_point(size=1)+
-  geom_errorbar(aes(ymin=value-SE, ymax=value+SE), size=0.3)+
+  geom_errorbar(aes(ymin=value-error, ymax=value+error), size=0.3)+
   theme_bw()+
   xlab("Percent of Missing Data (Missing at Random)")+
   ylab("Parameter estimate")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 6))
@@ -704,7 +713,7 @@ missingprop2=rep(missingprop, each=5)
 
 DAparamdfMNAR2<-cbind(param=param, missingprop2=missingprop2, DAparamdfMNAR) 
 
-DAparamdfMNAR3<- DAparamdfMNAR2 %>% mutate(type = "Data augmentation: STAN") %>% select(missingprop2, type, param, mean, se_mean) %>% rename(missingprop=missingprop2, value=mean, SE = se_mean) 
+DAparamdfMNAR3<- DAparamdfMNAR2 %>% mutate(type = "Data augmentation: STAN") %>% select(missingprop2, type, param, mean, sd) %>% rename(missingprop=missingprop2, value=mean, SD = sd) 
 
 
 #### plotting ARIMA AND DATA AUGMENTATION (STAN) TOGETHER ###
