@@ -74,7 +74,9 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       }
       # find out how many of the chunks we need to get the amount of missing data we want
       chunkSize_i <- chunkSize_TEMP[1:which.min(abs(colSums(chunkMat, na.rm = TRUE) - gapsNeeded))]
+
     
+
       # calculate the shape parameter (the number of gaps that will need to
       # exist to get the specified proportion of missing data in propMiss_f[i]     
       n_events_i <- length(chunkSize_i)  
@@ -101,6 +103,7 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
         indices_j <- append(indices_j, values = indices_j[j-1] + indices_temp[j])      
       }      
     
+
       indices_seq <- NULL      
       for (k in seq(from = 2, to = length(indices_j), by = 2)) {        
         indices_seq <- append(indices_seq, indices_j[k-1]:indices_j[k])      
@@ -123,6 +126,7 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
   if (typeMissing == "randChunks") {      
      ## loop through values of "propMissing_f"
      for (i in 1:length(propMiss_f)) {
+
       n <- length(timeSeries)
       
       # declare transition matrix
@@ -190,21 +194,21 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
   if (typeMissing == "minMax") {    ## get the missing data time series for each 
     # value of missingness (returns a list where each element of the time series 
     # is increasingly missing more and more data)    
-      
-      # use a normal distribution with the same mean and sd of the timeSeries 
-      # (assume it is normally distributed... ##AES change?)
-      ## get the cutoff values above and below which values will be turned to NAs 
-      # e.g. if 5% of data should be missing (propMiss_f == .05), then the cutoff 
-      # values will be the values at .025 and 0.975 percentiles of a normal 
-      # distribution with the mean and sd of the time series
-
-      missingDat_list <- lapply(X = propMiss_f,                               
+    
+    # use a normal distribution with the same mean and sd of the timeSeries 
+    # (assume it is normally distributed... ##AES change?)
+    ## get the cutoff values above and below which values will be turned to NAs 
+    # e.g. if 5% of data should be missing (propMiss_f == .05), then the cutoff 
+    # values will be the values at .025 and 0.975 percentiles of a normal 
+    # distribution with the mean and sd of the time series
+    
+    missingDat_list <- lapply(X = propMiss_f,                               
                               FUN = function(X)
                                 replace(timeSeries,    
-                                # get the indices of the timeSeries values above or below the cutoff values,  
+                                        # get the indices of the timeSeries values above or below the cutoff values,  
                                         list = c(which(timeSeries < qnorm(X/2, mean = mean(timeSeries), sd = sd(timeSeries))),
                                                  which(timeSeries > qnorm(1-X/2, mean = mean(timeSeries), sd = sd(timeSeries)))),
-                                                                               
+                                        
                                         values = NA))    
  
 
@@ -213,8 +217,9 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
                                        lapply(X = missingDat_list, 
                                               FUN = function(x) round(sum(is.na(x))/length(x),2)))
                                        }    
+
   return(missingDat_list)
-  }
+}
 
 # testing for functionality -----------------------------------------------------------------
 ## load example data
