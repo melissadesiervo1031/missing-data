@@ -23,6 +23,7 @@ gauss_sim <- readRDS("./data/gauss_ar1_0miss_datasets.rds")
 # missing at random
 gauss_sim_randMiss <- lapply(X = gauss_sim, FUN = function(x) 
   list("y" = makeMissing(timeSeries = x$y, typeMissing = "random"), 
+
        "sim_params" <- x$sim_params)
 )
 
@@ -57,12 +58,14 @@ for (i in 1:length(gauss_sim_randChunkMiss)) {
 # missing in min and max of data
 gauss_sim_minMaxMiss <- lapply(X = gauss_sim, FUN = function(x) 
   list("y" = makeMissing(timeSeries = x$y, typeMissing = "minMax"), 
+
        "sim_params" <- x$sim_params)
 )
 
 for (i in 1:length(gauss_sim_minMaxMiss)) {
   names(gauss_sim_minMaxMiss[[i]]) <- c("y", "sim_params")
   gauss_sim_minMaxMiss[[i]]$y <- c(list("y_noMiss" = gauss_sim[[i]]$y), gauss_sim_minMaxMiss[[i]]$y)
+
 }
 
 # Gaussian Real Data (Pine River GPP data) --------------------------------
@@ -84,6 +87,7 @@ gauss_real_randMiss <- cbind(gauss_real, gauss_real_randMiss_TEMP)
 gauss_real_evenChunkMiss_TEMP <-  as.data.frame(makeMissing(timeSeries = gauss_real$GPP, 
                                                       typeMissing = "evenChunks", chunkSize = 4))
 
+
 names(gauss_real_evenChunkMiss_TEMP) <- paste0("GPP_",names(gauss_real_evenChunkMiss_TEMP))
 
 gauss_real_evenChunkMiss <- cbind(gauss_real, gauss_real_evenChunkMiss_TEMP)
@@ -93,6 +97,7 @@ gauss_real_evenChunkMiss <- cbind(gauss_real, gauss_real_evenChunkMiss_TEMP)
 gauss_real_randChunkMiss_TEMP <- as.data.frame(makeMissing(timeSeries = gauss_real$GPP, 
                                                         typeMissing = "randChunks", chunkSize = 4))
 
+
 names(gauss_real_randChunkMiss_TEMP) <- paste0("GPP_",names(gauss_real_randChunkMiss_TEMP))
 
 gauss_real_randChunkMiss <- cbind(gauss_real, gauss_real_randChunkMiss_TEMP)
@@ -101,6 +106,7 @@ gauss_real_randChunkMiss <- cbind(gauss_real, gauss_real_randChunkMiss_TEMP)
 # missing in min and max of data
 gauss_real_minMaxMiss_TEMP <- as.data.frame(makeMissing(timeSeries = gauss_real$GPP, 
                                                    typeMissing = "minMax"))
+
 
 names(gauss_real_minMaxMiss_TEMP) <- paste0("GPP_",names(gauss_real_minMaxMiss_TEMP))
 
@@ -171,6 +177,7 @@ pois_real_randMiss <- cbind(pois_real, pois_real_randMiss_TEMP)
 pois_real_evenChunkMiss_TEMP <-  as.data.frame(makeMissing(timeSeries = pois_real$Broods, 
                                                             typeMissing = "evenChunks", chunkSize = 2))
 
+
 names(pois_real_evenChunkMiss_TEMP) <- paste0("Broods_",names(pois_real_evenChunkMiss_TEMP))
 
 pois_real_evenChunkMiss <- cbind(pois_real, pois_real_evenChunkMiss_TEMP)
@@ -180,6 +187,7 @@ pois_real_evenChunkMiss <- cbind(pois_real, pois_real_evenChunkMiss_TEMP)
 pois_real_randChunkMiss_TEMP <- as.data.frame(makeMissing(timeSeries = pois_real$Broods, 
                                                            typeMissing = "randChunks", chunkSize = 3))
 
+
 names(pois_real_randChunkMiss_TEMP) <- paste0("Broods_",names(pois_real_randChunkMiss_TEMP))
 
 pois_real_randChunkMiss <- cbind(pois_real, pois_real_randChunkMiss_TEMP)
@@ -188,6 +196,7 @@ pois_real_randChunkMiss <- cbind(pois_real, pois_real_randChunkMiss_TEMP)
 # missing in min and max of data
 pois_real_minMaxMiss_TEMP <- as.data.frame(makeMissing(timeSeries = pois_real$Broods, 
                                                         typeMissing = "minMax"))
+
 
 names(pois_real_minMaxMiss_TEMP) <- paste0("Broods_",names(pois_real_minMaxMiss_TEMP))
 
@@ -212,6 +221,7 @@ saveRDS(gauss_sim_evenChunkMiss, file = "./data/missingDatasets/gauss_sim_evenCh
 saveRDS(gauss_sim_randChunkMiss, file = "./data/missingDatasets/gauss_sim_randChunkMiss.rds")
 saveRDS(gauss_sim_minMaxMiss, file = "./data/missingDatasets/gauss_sim_minMaxMiss.rds")
 
+
 ## store simulated Poisson data (are stored in a list, each elemnt of the list 
 # is a simulation run. Within each simulation run, the $y element contains 16 
 # elements that have the response variable ranging from no missing data to the 
@@ -221,6 +231,7 @@ saveRDS(pois_sim_randMiss, file = "./data/missingDatasets/pois_sim_randMiss.rds"
 saveRDS(pois_sim_evenChunkMiss, file = "./data/missingDatasets/pois_sim_evenChunkMiss.rds")
 saveRDS(pois_sim_randChunkMiss, file = "./data/missingDatasets/pois_sim_randChunkMiss.rds")
 saveRDS(pois_sim_minMaxMiss, file = "./data/missingDatasets/pois_sim_minMaxMiss.rds")
+
 
 ## store real Gaussian data (a data frame with columns added for increasing 
 # amounts of missingness in the response variable)
@@ -235,3 +246,4 @@ saveRDS(pois_real_randMiss, file = "./data/missingDatasets/pois_real_randMiss.rd
 saveRDS(pois_real_evenChunkMiss, file = "./data/missingDatasets/pois_real_evenChunkMiss.rds")
 saveRDS(pois_real_randChunkMiss, file = "./data/missingDatasets/pois_real_randChunkMiss.rds")
 saveRDS(pois_real_minMaxMiss, file = "./data/missingDatasets/pois_real_minMaxMiss.rds")
+
