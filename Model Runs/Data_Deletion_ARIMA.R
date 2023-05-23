@@ -1,8 +1,6 @@
 # Load packages
 library(here)
 library(tidyverse)
-library(rstan)
-library(Amelia)
 library(forecast)
 library(xts)
 library(nlme)
@@ -25,9 +23,18 @@ gauss_sim_MAR_datasets <- readRDS(here("data/Missingdatasets/gauss_sim_randMiss.
 
 GPP_sim_MAR<- gauss_sim_MAR_datasets [[1]][["y"]]
 
+sim1<-gauss_sim_MAR_datasets [[1]][["y"]][["y_noMiss"]]
+
+covariates<-gauss_sim_MAR_datasets[[1]][["sim_params"]][["X"]]
+
+covariatesX<-as.matrix(covariates[,2:3])
+
+days<-seq(1, 365)
+
+
+sim1df<-as.data.frame(cbind(days=days, GPP=sim1, light=covariates[,2], discharge=covariates[,3]))
+
 GPP_sim_MAR_2 <-lapply(X = GPP_sim_MAR, FUN = function(X)   cbind.data.frame(GPP=X, days=sim1df$days, light = sim1df$light, discharge = sim1df$discharge))
-
-
 
 
 #### MISSING COMPLETELY AT RANDOM (MCAR) ######
@@ -88,6 +95,18 @@ paramdroplong2<-merge(paramdroplong, paramdropSElong)
 ###### Pull out the first in 1000 nested lists for this code ### (Eventually loop over all the lists)
 
 gauss_sim_MNAR_datasets <- readRDS(here("data/Missingdatasets/gauss_sim_minMaxMiss.rds"))
+
+## no missing###
+
+sim1MNAR<-gauss_sim_MNAR_datasets [[1]][["y"]][["y_noMiss"]]
+
+covariates<-gauss_sim_MNAR_datasets[[1]][["sim_params"]][["X"]]
+
+covariatesX<-as.matrix(covariates[,2:3])
+
+days<-seq(1, 365)
+
+sim1MNARdf<-as.data.frame(cbind(days=days, GPP=sim1MNAR, light=covariates[,2], discharge=covariates[,3]))
 
 ##For nested list of GPP datasets with increasing MNAR data add back in the date column and the covariates## 
 
