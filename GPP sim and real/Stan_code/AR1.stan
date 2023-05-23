@@ -19,10 +19,6 @@ transformed parameters {
 
     mu = beta[1] + beta[2] * light + beta[3] * discharge;
     
-    // for(i in 2:N){
-    //     mu[i] += phi * y[i-1];
-    // }
-    
 }
 
 model {
@@ -34,7 +30,7 @@ model {
  
     // likelihood
     for(n in 2:N){
-        y ~ normal(mu + phi * y[n-1], sigma);
+        y[n] ~ normal(mu + phi * y[n-1], sigma);
     }
     
 }
