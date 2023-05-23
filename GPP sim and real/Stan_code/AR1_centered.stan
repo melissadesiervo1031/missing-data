@@ -28,7 +28,7 @@ model {
  
     // likelihood
     for(i in 2:N){
-        P_obs[i] ~ normal(phi * P_obs[i-1] + mu[i], sigma);   
+        P_obs[i] ~ normal(phi * P_obs[i-1] + (1-phi) * mu[i], sigma);   
     }
     
 }
