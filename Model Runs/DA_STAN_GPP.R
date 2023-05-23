@@ -117,7 +117,32 @@ brmsparamdf <- map_df(bpars, ~as.data.frame(.x), .id="missingprop") %>%
   mutate(parameter = case_when(parameter == 'ar[1]'~ 'phi',
                                TRUE ~ parameter))
 
+DAparamdf$parameter <- brmsparamdf$parameter
 
+df <- left_join(DAparamdf, brmsparamdf, by = c('missingprop', 'parameter'), 
+          suffix = c('', '.brms'))
+true_pars <- data.frame(parameter = c('b_Intercept', 'b_light', 'b_discharge', 
+                                      'phi', 'sigma'),
+                        value = c(GPP_sim_MAR$sim_params$beta, 
+                                  GPP_sim_MAR$sim_params$phi, 1))
+df %>%
+  mutate(missingprop = case_when(missingprop == 'y_noMiss' ~ 'propMissAct_0',
+                                 TRUE ~ missingprop),
+         missingprop = str_match(missingprop, 'propMissAct_([0-9.]+)$')[,2]) %>%
+  left_join(true_pars, by = 'parameter') %>%
+  mutate(diff.stan = mean - value, 
+         diff.brms = mean.brms - value) %>%
+  pivot_longer(cols = starts_with('diff'), 
+               names_to = 'model', 
+               values_to = 'diff', 
+               names_pattern = 'diff.([a-z]+)') %>%
+  ggplot(aes(missingprop, diff, col = model) )+
+  geom_point() +
+  facet_wrap(.~parameter) +
+  theme_classic() +
+  geom_hline(yintercept = 0)
+
+# it looks like stan is still overestimating sigma and undersetimating phi...
 
 ############ MISSING NOT AT RANDOM MNAR ##############################
 
