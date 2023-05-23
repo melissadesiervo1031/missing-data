@@ -53,6 +53,10 @@ ar_fit <- stan('GPP sim and real/Stan_code/AR1.stan',
                 data = datlist,
                 chains = 4,
                 iter = 2000)
+ar_fit2 <- stan('GPP sim and real/Stan_code/AR1_bob.stan',
+                data = datlist,
+                chains = 4,
+                iter = 2000)
 
 # phi; beta; sde
 # fit
@@ -65,6 +69,7 @@ dd <- data.frame(pars = c('phi', 'beta1', 'beta2', 'beta3', 'sigma'),
                  brms = c(summary(bmod)$cor_pars[,1], summary(bmod)$fixed[,1], 
                           summary(bmod)$spec_pars[,1]),
                  stan = c(summary(ar_fit)$summary[c(4, 1,2,3, 5), 1]),
+                 bob = c(summary(ar_fit2)$summary[c(4, 1,2,3,5), 1]),
                  model = paste0('mod_', i))
 
 row.names(dd) <- NULL
@@ -73,16 +78,17 @@ mod_dat <- bind_rows(mod_dat, dd)
 }
 
 
-mod_dat <- mod_dat %>%
+md <- mod_dat %>%
     # group_by(model) %>%
     # mutate(stan = case_when(pars == 'beta1' ~ stan/(1 - stan[pars == 'phi']),
     #                         TRUE ~ stan)) %>%
     mutate(arima_diff = arima - value,
            brm_diff = brms - value,
-           stan_diff = stan - value) 
+           stan_diff = stan - value, 
+           bob_diff = bob - value) 
   
 
-a <- mod_dat %>%
+md %>%
     pivot_longer(cols = ends_with('diff'), 
                  values_to = 'parameter_difference',
                  names_to = 'fit') %>%
@@ -90,14 +96,14 @@ a <- mod_dat %>%
     geom_boxplot()+
     theme_classic()
 
-mod_dat %>% 
-  ggplot(aes(arima, brms)) +
+md %>% 
+  ggplot(aes(value, bob)) +
   geom_point() +
   geom_abline(slope = 1, intercept = 0) +
   facet_wrap(.~pars) +
   theme_classic()
 
-mod_dat %>% 
+md %>% 
   ggplot(aes(value, arima)) +
   geom_point() +
   geom_point(aes(y = stan), col = 'brown') +
@@ -105,7 +111,7 @@ mod_dat %>%
   facet_wrap(.~pars) +
   theme_classic()
 
-b <- mod_dat %>% 
+md %>% 
     group_by(model) %>%
     mutate(phi_value = value[pars == 'phi'])%>%
     pivot_longer(cols = ends_with('diff'), 

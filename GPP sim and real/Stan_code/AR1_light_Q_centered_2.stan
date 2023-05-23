@@ -27,12 +27,15 @@
 /*----------------------- Transformed parameters---------*/
   transformed parameters {
       vector[N] y; 
+      vector[N] y2;
       vector[N] mu;
       
       y[ii_obs] = P_obs;
       y[ii_mis] = P_mis;
       
       mu = beta[1] + beta[2]*light + beta[3]*discharge;
+      
+      y2 = y - mu;
   }
   
 /*----------------------- Model -------------------------*/
@@ -44,7 +47,7 @@
       
       // likelihood
       for(i in 2:N){
-          y[i] ~ normal(phi * y[i-1] + mu[i], sigma);
+          y2[i] ~ normal(phi * y2[i-1], sigma);
       }
  
   }
