@@ -27,6 +27,13 @@ ricker_EM <- function(y, init_theta, fam = "poisson", tol = 1e-5, max_iter = 50)
   n <- length(y)
   p <- length(init_theta)
   
+  # remove starting NAs
+  if(is.na(y[1])){
+    obs <- which(!is.na(y))
+    y <- y[min(obs):n]
+    n <- length(y)
+  }
+  
   # define initial parameter vector
   Theta <- matrix(init_theta, ncol = length(init_theta), nrow= 1)
   
@@ -48,7 +55,7 @@ ricker_EM <- function(y, init_theta, fam = "poisson", tol = 1e-5, max_iter = 50)
       beta <- theta
     }
     if(fam == "neg_binom"){
-      beta <- theta[-p]
+      beta <- theta[p]
       phi <- theta[p]
     }
     
@@ -56,6 +63,8 @@ ricker_EM <- function(y, init_theta, fam = "poisson", tol = 1e-5, max_iter = 50)
     for(t in 2:n){
       if(is.na(z_s[t])){
         z_s[t] <- round(ricker_step(beta, z_s[t - 1]))
+        # if rounds to zero, round up instead
+        if(z_s[t] == 0){z_s[t] <- 1}
       }
     }
     
