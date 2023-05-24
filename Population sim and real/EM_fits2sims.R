@@ -7,9 +7,11 @@
 # load libraries
   library(tidyverse)
   library(here)
+
+# load user-defined functions
   our_functions <- list.files(here("R/"), pattern = ".R", full.names = T)
   lapply(our_functions, source)
-  source(here("Functions/missing_data_functions.R"))
+  source("Functions/missing_data_functions.R")
   
 # load data
   ricker_dat <- readRDS(here("data/ricker_0miss_datasets.rds"))
@@ -27,7 +29,7 @@
     miss_type = rep(c("random", "randChunks", "minMax"), each = 7)
   )
   
-# create list of lists columns
+  # create list of lists columns
   ricker_dat_all <- ricker_dat_all %>% mutate(
     dat = map2(
       miss_prop, miss_type,
@@ -39,32 +41,21 @@
       )
     )
   )
-
+  
 # fit the models using EM
-  # estims <- lapply(
-  #   ricker_dat_all$dat,
-  #   FUN = function(l){
-  #     lapply(
-  #       l,
-  #       FUN = function(x){
-  #         fit <- ricker_EM(unlist(x), init_theta = c(0.5, -0.05))
-  #         return(
-  #           list(estim = fit$theta, convergence = fit$convergence)
-  #         )
-  #       }
-  #     )
-  #   }
-  # )
-  estims <- vector(mode = "list", length = nrow(ricker_dat_all))
-  for(i in 1:length(estims)){
-    estims[[i]] <- vector(mode = "list", length = length(ricker_dat))
-  }
-  for(i in 1:nrow(ricker_dat_all)){
-    for(j in 1:length(ricker_dat_all$dat[[i]])){
-      y <- unlist(ricker_dat_all$dat[[i]][[j]])
-      estims[[i]][[j]] <- ricker_EM(y, init_theta = c(0.5, -0.05))$theta
+#  this part takes a while, but could be parallelized in R
+#  or, better yet, on Beartooth
+  estims <- lapply(
+    ricker_dat_all$dat,
+    FUN = function(l){
+      lapply(
+        l,
+        FUN = function(x){
+          ricker_EM(unlist(x), init_theta = c(0.5, -0.05))$theta
+        }
+      )
     }
-  }
+  )
   
   # now make relative differences column
   ricker_dat_all <- ricker_dat_all %>% mutate(
@@ -134,7 +125,7 @@
     )$se
   )
 
-  # replace values in param column with better labels
+# replace values in param column with better labels
   plot_df <- plot_df %>% mutate(
     param = rep(c("r", "alpha"), nrow(plot_df) / 2)
   )
@@ -149,6 +140,7 @@
     xlab("Proportion missing") +
     ylab("(estim - true) / true")
   
+# save the plot
   ggsave(
     here("Population sim and real/Figures/mean_rel_diff_ricker_EM.png"),
     p, height = 4, width = 6, units = "in"
