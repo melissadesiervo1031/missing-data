@@ -1,18 +1,12 @@
 # Load packages
 library(here)
 library(tidyverse)
-library(rstan)
 library(Amelia)
 library(forecast)
 library(xts)
 library(nlme)
 library(tidyverse)
 library(lubridate)
-
-
-# Reference A. Stears' code with helpful function for removing data
-# makeMissing()
-source("missing_data_functions.R")
 
 
 #### Read in the missing dataframes that Alice S. made #####
@@ -24,11 +18,21 @@ gauss_sim_MAR_datasets <- readRDS(here("data/Missingdatasets/gauss_sim_randMiss.
 
 ##For nested list of GPP datasets with increasing MAR data add back in the date column and the covariates## 
 
+
 GPP_sim_MAR<- gauss_sim_MAR_datasets [[1]][["y"]]
 
+sim1<-gauss_sim_MAR_datasets [[1]][["y"]][["y_noMiss"]]
+
+covariates<-gauss_sim_MAR_datasets[[1]][["sim_params"]][["X"]]
+
+covariatesX<-as.matrix(covariates[,2:3])
+
+days<-seq(1, 365)
+
+
+sim1df<-as.data.frame(cbind(days=days, GPP=sim1, light=covariates[,2], discharge=covariates[,3]))
+
 GPP_sim_MAR_2 <-lapply(X = GPP_sim_MAR, FUN = function(X)   cbind.data.frame(GPP=X, days=sim1df$days, light = sim1df$light, discharge = sim1df$discharge))
-
-
 
 
 #### MISSING COMPLETELY AT RANDOM (MCAR) ######
@@ -39,7 +43,7 @@ GPP_sim_MAR_2 <-lapply(X = GPP_sim_MAR, FUN = function(X)   cbind.data.frame(GPP
 ############################################################################################################
 
 ArimaoutputNAs <- lapply(seq_along(GPP_sim_MAR_2), function(j) {
-  modelNAs <- Arima(GPP_sim_MAR_2[[j]][["GPP"]],order = c(1,0,0), xreg = X)
+  modelNAs <- Arima(GPP_sim_MAR_2[[j]][["GPP"]],order = c(1,0,0), xreg = covariatesX)
   arimacoefsNAs<-modelNAs$coef
   arimasesNAs<-sqrt(diag(vcov(modelNAs)))
   list(arimacoefsNAs=arimacoefsNAs, arimasesNAs=arimasesNAs)
@@ -98,7 +102,7 @@ GPP_sim_MNAR_2 <-lapply(X = GPP_sim_MNAR, FUN = function(X)   cbind.data.frame(G
 ############################################################################################################
 
 ArimaoutputNAsMNAR <- lapply(seq_along(GPP_sim_MNAR_2), function(j) {
-  modelNAs <- Arima(GPP_sim_MNAR_2[[j]][["GPP"]],order = c(1,0,0), xreg = X)
+  modelNAs <- Arima(GPP_sim_MNAR_2[[j]][["GPP"]],order = c(1,0,0), xreg = covariatesX)
   arimacoefsNAs<-modelNAs$coef
   arimasesNAs<-sqrt(diag(vcov(modelNAs)))
   list(arimacoefsNAs=arimacoefsNAs, arimasesNAs=arimasesNAs)
