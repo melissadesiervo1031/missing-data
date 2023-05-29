@@ -1,7 +1,6 @@
 # Load packages
 library(here)
 library(tidyverse)
-library(rstan)
 library(Amelia)
 library(forecast)
 library(xts)
@@ -12,10 +11,13 @@ library(lubridate)
 
 # Reference A. Stears' code with helpful function for removing data
 # makeMissing()
-source("missing_data_functions.R")
+source("Functions/missing_data_functions.R")
 
 
 #### Read in the missing dataframes that Alice S. made #####
+###### Pull out the first in 1000 nested lists for this code ### (Eventually loop over all the lists)
+
+
 ###### Pull out the first in 1000 nested lists for this code ### (Eventually loop over all the lists)
 
 
@@ -24,10 +26,21 @@ gauss_sim_MAR_datasets <- readRDS(here("data/Missingdatasets/gauss_sim_randMiss.
 
 ##For nested list of GPP datasets with increasing MAR data add back in the date column and the covariates## 
 
+
 GPP_sim_MAR<- gauss_sim_MAR_datasets [[1]][["y"]]
 
-GPP_sim_MAR_2 <-lapply(X = GPP_sim_MAR, FUN = function(X)   cbind.data.frame(GPP=X, days=sim1df$days, light = sim1df$light, discharge = sim1df$discharge))
+sim1<-gauss_sim_MAR_datasets [[1]][["y"]][["y_noMiss"]]
 
+covariates<-gauss_sim_MAR_datasets[[1]][["sim_params"]][["X"]]
+
+covariatesX<-as.matrix(covariates[,2:3])
+
+days<-seq(1, 365)
+
+
+sim1df<-as.data.frame(cbind(days=days, GPP=sim1, light=covariates[,2], discharge=covariates[,3]))
+
+GPP_sim_MAR_2 <-lapply(X = GPP_sim_MAR, FUN = function(X)   cbind.data.frame(GPP=X, days=sim1df$days, light = sim1df$light, discharge = sim1df$discharge))
 
 
 #### MISSING COMPLETELY AT RANDOM (MCAR) ######
@@ -130,6 +143,25 @@ amelia1simMNAR <-lapply(X = GPP_sim_MNAR_2 , FUN = function(X)   amelia(X, ts="d
 
 ##nested list of dataframes that just has the imputations###
 amelias11simMNAR<-map(amelia1simMNAR , ~.[["imputations"]])
+
+
+
+###### Pull out the first in 1000 nested lists for this code ### (Eventually loop over all the lists)
+
+gauss_sim_MNAR_datasets <- readRDS(here("data/Missingdatasets/gauss_sim_minMaxMiss.rds"))
+
+## no missing###
+
+sim1MNAR<-gauss_sim_MNAR_datasets [[1]][["y"]][["y_noMiss"]]
+
+covariates<-gauss_sim_MNAR_datasets[[1]][["sim_params"]][["X"]]
+
+covariatesX<-as.matrix(covariates[,2:3])
+
+days<-seq(1, 365)
+
+sim1dfMNAR<-as.data.frame(cbind(days=days, GPP=sim1MNAR, light=covariates[,2], discharge=covariates[,3]))
+
 
 
 ###
