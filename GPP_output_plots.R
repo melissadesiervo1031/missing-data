@@ -11,10 +11,15 @@ library(lubridate)
 
 
 # Reference A. Stears' code with helpful function for removing data
-# makeMissing()
-source("missing_data_functions.R")
+source("functions/missing_data_functions.R")
 
+## Run code for Data_Deletion over 1 run ####
 
+source("Model Runs/Data_Deletion_ARIMA.R")
+
+source("Model Runs/Kalman_ARIMA.R")
+
+source("Model Runs/MI_ARIMA.R")
 
 
 ############# MISSING COMPLETELY AT RANDOM (MCAR)#########################################
