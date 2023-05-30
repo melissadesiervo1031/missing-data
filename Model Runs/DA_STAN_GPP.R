@@ -67,15 +67,20 @@ rstan_options(auto_write = TRUE)
 bform <- brms::bf(GPP | mi() ~ light + discharge + ar(p = 1))
 bmod <- brms::brm_multiple(bform, data = simmissingdf, combine = FALSE)
 
-bfit <- bmod[[1]]
+# bfit <- bmod[[1]]
 extract_brms_pars <- function(bfit){
-    bsum <- summary(bfit$fit)$summary
-    bsum <- data.frame(bsum) %>%
+    bsum <- brms::posterior_summary(bfit, probs = c(0.025, 0.5, 0.975))
+    bsum <- as.data.frame(bsum) %>%
         mutate(parameter = row.names(bsum)) %>%
-        select(parameter, mean, se_mean, sd, 
-               '2.5%' = X2.5., '50%' = X50., '97.5%' = X97.5.) %>%
-        slice(1:5)
-  
+        filter(parameter %in% c('b_Intercept', 'b_light', 'b_discharge',
+                                'ar[1]', 'sigma')) %>%
+        mutate(parameter = case_when(parameter == 'ar[1]' ~ 'phi',
+                                     TRUE ~ parameter)) %>%
+        select(parameter, mean = Estimate, sd = Est.Error, 
+               '2.5%' = Q2.5, '50%' = Q50, '97.5%' = Q97.5) 
+    
+    row.names(bsum) <- NULL
+    
     return(bsum)
 }
 
