@@ -22,6 +22,9 @@ library(brms)
 #' including the value for the AR1 coefficient (phi), the value of the covariate
 #' effects (beta) and the matrix of simulated covariates (X)
 #'
+#' @param iter the number of iterations of the MCMC chain to run for each model. 
+#' Defaults to 4000 because 2000 was giving warnings for the datasets with missing.
+#' 
 #' @param include_missing a boolean indicating if the parameter estimates for 
 #' the missing data should be returned or not. Defaults to FALSE to match the 
 #' arima function outputs.
@@ -30,16 +33,23 @@ library(brms)
 #' simulated dataset.  
 #'
 
-fit_brms_model <- function(sim_list, sim_pars, include_missing = FALSE){
+fit_brms_model <- function(sim_list, sim_pars, 
+                           iter = 4000, include_missing = FALSE){
     simmissingdf <-lapply(X = sim_list, 
                           FUN = function(X) cbind.data.frame(GPP = X, 
                                                              light = sim_pars$X[,2], 
                                                              discharge = sim_pars$X[,3]))
     
     
-    
+    # Make the model formula and priors
     bform <- brms::bf(GPP | mi() ~ light + discharge + ar(p = 1))
-    bmod <- brms::brm_multiple(bform, data = simmissingdf, combine = FALSE)
+    bprior <- c(prior(uniform(0,1), class = 'ar', lb = 0, ub = 1),
+                prior(normal(0,5), class = 'b'))
+    
+    # fit model to list of datasets
+    bmod <- brms::brm_multiple(bform, data = simmissingdf, 
+                               prior = bprior, iter = iter, 
+                               combine = FALSE)
     
     extract_brms_pars <- function(bfit, include_missing = FALSE){
         bsum <- brms::posterior_summary(bfit, probs = c(0.025, 0.5, 0.975))
@@ -75,4 +85,4 @@ fit_brms_model <- function(sim_list, sim_pars, include_missing = FALSE){
 # 
 # brms_fit <- fit_brms_model(GPP_sim_MAR$y,
 #                            GPP_sim_MAR$sim_params,
-#                            include_missing = FALSE) 
+#                            include_missing = FALSE)
