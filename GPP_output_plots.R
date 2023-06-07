@@ -13,13 +13,25 @@ library(lubridate)
 # Reference A. Stears' code with helpful function for removing data
 source("functions/missing_data_functions.R")
 
-## Run code for Data_Deletion over 1 run ####
+## Run code for ARIMA methods over 1 run ####
 
 source("Model Runs/Data_Deletion_ARIMA.R")
 
 source("Model Runs/Kalman_ARIMA.R")
 
 source("Model Runs/MI_ARIMA.R")
+
+## Run code for STAN method over 1 run ####
+
+source("Functions/model_fitting.R")
+
+
+gauss_sim_MAR_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss.rds")
+GPP_sim_MAR<- gauss_sim_MAR_datasets [[1]]
+
+brms_fit_MAR <- fit_brms_model(GPP_sim_MAR$y,
+                            GPP_sim_MAR$sim_params,
+                            include_missing = FALSE)
 
 
 ############# MISSING COMPLETELY AT RANDOM (MCAR)#########################################
@@ -78,8 +90,6 @@ Arimanomissing
 
 arimaestdf <- data.frame (param = c("ar1", "intercept", "light", "discharge"), value =Arimanomissing$coef)
 
-#### PLOT ALL THE ARIMA METHODS TOGETHER ###############
-
 
 paramdroplong2 
 paramMIlong2
@@ -88,19 +98,30 @@ paramNAlong2
 paramallARIMA<-rbind(paramdroplong2, paramMIlong2, paramNAlong2)
 
 
-arimallmethods<-ggplot(data=paramallARIMA, aes(x=as.numeric(missingprop), y=value))+
-  facet_grid(~factor(param, levels=c("ar1", "intercept", "light", "discharge"))~ type, scales="free")+
-  geom_hline(data=trueestdf, aes(yintercept=value), colour="salmon")+
-  geom_hline(data=arimaestdf, aes(yintercept=value), colour="light blue")+
-  geom_point(size=3)+
-  geom_errorbar(aes(ymin=value-SE, ymax=value+SE))+
-  theme_bw()+
-  ggtitle("Parameter estimates generated from Arima models")+
-  xlab("Percent of Missing Data (Missing at Random)")+
-  ylab("Parameter estimate")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
-
-
 #### plotting ARIMA AND DATA AUGMENTATION (STAN) TOGETHER ###
+
+
+#########BRMS OUTPUT#############
+
+bpars<-brms_fit_MAR$brms_pars
+
+brmsparamdf <- map_df(bpars, ~as.data.frame(.x), .id="missingprop") %>%
+  mutate(parameter = case_when(parameter == 'ar[1]'~ 'phi',
+                               TRUE ~ parameter))
+## fix names of params ##
+
+missingprop<-sort(rep(seq(0.00, 0.95, by=0.05), times=5))
+
+brmsparamdf2<-brmsparamdf %>% mutate(type="Data Augmentation: STAN")  %>% mutate(param=brmsparamdf$parameter) %>% mutate(value=brmsparamdf$mean)%>% mutate(SE=brmsparamdf$sd) %>% select(type, param, value, SE) 
+
+brmsparamdf2$param <- str_replace(brmsparamdf2$param, "b_Intercept", "intercept")
+brmsparamdf2$param <- str_replace(brmsparamdf2$param, "b_light", "light")
+brmsparamdf2$param <- str_replace(brmsparamdf2$param, "b_discharge", "discharge")
+
+brmsparamdf3<-cbind(missingprop, brmsparamdf2)
+
+##########arima output#############
+
 
 ## change AR 1 to be phi ##
 
@@ -116,29 +137,22 @@ paramallARIMA2$type <- str_replace(paramallARIMA2$type, "Kalman filter", "Kalman
 
 #### add ARIMA and STAN dataframes together ###
 
-## ERROR (SE for ARIMA, SD for STAN) ###
-
-
-paramallARIMA3 <- paramallARIMA2 %>% rename("error" = "SE") %>% mutate(errortype="SE")
-DAparamdf4 <- DAparamdf3 %>% rename("error" = "SD") %>% mutate(errortype="SD")
-
-
-paramallARIMASTAN<-rbind(paramallARIMA3, DAparamdf4)
+paramallARIMASTAN<-rbind(paramallARIMA2, brmsparamdf3)
 
 ## drop sdp for comparison with arima ###
-paramallARIMASTAN2<- paramallARIMASTAN %>% filter(param != "sdp" ) 
+paramallARIMASTAN2<- paramallARIMASTAN %>% filter(param != "sigma" ) 
 
 trueestdf2 <- data.frame (param = c("phi", "intercept", "light", "discharge"), value = c(realphi, realbetas))
 
 
 #paramallARIMASTAN2$type <- factor(paramallARIMASTAN2$type, levels=c("Data Deletion: Arima", "Kalman filter: Arima (default)", "Multiple imputations: Arima", "Data augmentation: STAN"), ordered=TRUE)
 
-arimastanMAR<-ggplot(data=paramallARIMASTAN2, aes(x=as.numeric(missingprop), y=value, color=errortype))+
+arimastanMAR<-ggplot(data=paramallARIMASTAN2, aes(x=as.numeric(missingprop), y=value))+
   facet_grid(~factor(param, levels=c("intercept", "phi", "light", "discharge"),exclude = NA)~ type, scales="free_y")+
   geom_hline(data=trueestdf2, aes(yintercept=value), colour="gray")+
   #geom_hline(data=arimaestdf, aes(yintercept=value), colour="light blue")+
   geom_point(size=1)+
-  geom_errorbar(aes(ymin=value-error, ymax=value+error), size=0.3)+
+  geom_errorbar(aes(ymin=value-SE, ymax=value+SE), size=0.3)+
   theme_bw()+
   xlab("Percent of Missing Data (Missing at Random)")+
   ylab("Parameter estimate")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 6))
@@ -182,31 +196,49 @@ Arimanomissing
 arimaestdf <- data.frame (param = c("ar1", "intercept", "light", "discharge"), value =Arimanomissing$coef)
 
 
-#### PLOT ALL THE ARIMA METHODS TOGETHER ###############
+#### plotting ARIMA AND DATA AUGMENTATION (STAN) TOGETHER ###
+
+#### DATA AUGMENTATION WITH BRMS ##########
 
 
-paramdroplongMNAR2 
+gauss_sim_MNAR_datasets <- readRDS(here("data/Missingdatasets/gauss_sim_minMaxMiss.rds"))
+
+## run the BRMS on the list of datasets with increasing missingness##
+
+GPP_sim_MNAR<- gauss_sim_MNAR_datasets [[1]]
+
+brms_fit_MNAR <- fit_brms_model(GPP_sim_MNAR$y,
+                                GPP_sim_MNAR$sim_params,
+                               include_missing = FALSE)
+
+
+bparsMNAR<-brms_fit_MNAR$brms_pars
+
+brmsparamdfMNAR <- map_df(bparsMNAR, ~as.data.frame(.x), .id="missingprop") %>%
+  mutate(parameter = case_when(parameter == 'ar[1]'~ 'phi',
+                               TRUE ~ parameter))
+## fix names of params ##
+
+missingprop<-sort(rep(seq(0.00, 0.95, by=0.05), times=5))
+
+brmsparamdfMNAR2<-brmsparamdfMNAR %>% mutate(type="Data Augmentation: STAN")  %>% mutate(param=brmsparamdfMNAR$parameter) %>% mutate(value=brmsparamdfMNAR$mean)%>% mutate(SE=brmsparamdfMNAR$sd) %>% select(type, param, value, SE) 
+
+brmsparamdfMNAR2$param <- str_replace(brmsparamdfMNAR2$param, "b_Intercept", "intercept")
+brmsparamdfMNAR2$param <- str_replace(brmsparamdfMNAR2$param, "b_light", "light")
+brmsparamdfMNAR2$param <- str_replace(brmsparamdfMNAR2$param, "b_discharge", "discharge")
+
+brmsparamdfMNAR3<-cbind(missingprop, brmsparamdfMNAR2)
+
+
+
+## combine all the ARIMA output and change AR 1 to be phi ##
+
+paramdroplongMNAR2
 paramMIlongMNAR2
 paramNAlongMNAR2 
 
 paramallARIMAMNAR<-rbind(paramdroplongMNAR2, paramMIlongMNAR2, paramNAlongMNAR2)
 
-
-arimallmethodsMNAR<-ggplot(data=paramallARIMAMNAR, aes(x=as.numeric(missingprop), y=value))+
-  facet_grid(~factor(param, levels=c("ar1", "intercept", "light", "discharge"))~ type, scales="free")+
-  geom_hline(data=trueestdf, aes(yintercept=value), colour="salmon")+
-  geom_hline(data=arimaestdf, aes(yintercept=value), colour="light blue")+
-  geom_point(size=3)+
-  geom_errorbar(aes(ymin=value-SE, ymax=value+SE))+
-  theme_bw()+
-  ggtitle("Parameter estimates generated from Arima models")+
-  xlab("Percent of Missing Data (Missing NOT at Random)")+
-  ylab("Parameter estimate")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
-
-
-#### plotting ARIMA AND DATA AUGMENTATION (STAN) TOGETHER ###
-
-## change AR 1 to be phi ##
 
 paramallARIMAMNAR2<-paramallARIMAMNAR
 
@@ -220,16 +252,12 @@ paramallARIMAMNAR2$type <- str_replace(paramallARIMAMNAR2$type, "Kalman filter",
 
 #### add ARIMA and STAN dataframes together ###
 
-paramallARIMASTANMNAR<-rbind(paramallARIMAMNAR2, DAparamdfMNAR3)
+paramallARIMASTANMNAR<-rbind(paramallARIMAMNAR2, brmsparamdfMNAR3)
 
 ## drop sdp for comparison with arima ###
-paramallARIMASTANMNAR2<- paramallARIMASTANMNAR %>% filter(param != "sdp" ) 
+paramallARIMASTANMNAR2<- paramallARIMASTANMNAR %>% filter(param != "sigma" ) 
 
 trueestdf2 <- data.frame (param = c("phi", "intercept", "light", "discharge"), value = c(realphi, realbetas))
-
-arimastanMAR
-
-paramallARIMASTANMNAR2$type <- factor(paramallARIMASTANMNAR2$type, levels=c("Data Deletion: Arima", "Kalman filter: Arima (default)", "Multiple imputations: Arima", "Data augmentation: STAN"), ordered=TRUE)
 
 arimastanMNAR<-ggplot(data=paramallARIMASTANMNAR2, aes(x=as.numeric(missingprop), y=value))+
   facet_grid(~factor(param, levels=c("intercept", "phi", "light", "discharge"),exclude = NA)~ type, scales="free_y")+
