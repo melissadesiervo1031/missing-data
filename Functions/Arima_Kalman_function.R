@@ -1,0 +1,35 @@
+# Load packages
+library(here)
+library(tidyverse)
+library(lubridate)
+
+
+
+### Function that will drop missing values and then fit model using ARIMA ###
+
+fit_arima_Kalman <- function(sim_list, sim_pars){
+  
+  simmissingdf <-lapply(X = sim_list, 
+                        FUN = function(X) cbind.data.frame(GPP = X, 
+                                                           light = sim_pars$X[,2], 
+                                                           discharge = sim_pars$X[,3]))
+  
+  ## fit ARIMA with the missing values as NAS . Applies KALMAN FILTER###
+  
+  ArimaoutputNAs <- lapply(seq_along(simmissingdf), function(j) {
+    modelNAs <- Arima(simmissingdf[[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(simmissingdf [[j]][["light"]],simmissingdf [[j]][["discharge"]]), ncol = 2))
+    arimacoefsNAs<-modelNAs$coef
+    arimasesNAs<-sqrt(diag(vcov(modelNAs)))
+    list(arimacoefsNAs=arimacoefsNAs, arimasesNAs=arimasesNAs)
+    
+    return(list(arima_pars = arimasesNAs,
+                arima_errors = arimasesNAs,
+                sim_params = sim_pars))
+  })
+}
+  
+# example code using this function:
+#gauss_sim_MAR_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss.rds")
+#GPP_sim_MAR<- gauss_sim_MAR_datasets [[1]]
+
+#arima_kalman <- fit_arima_Kalman(GPP_sim_MAR$y,GPP_sim_MAR$sim_params)
