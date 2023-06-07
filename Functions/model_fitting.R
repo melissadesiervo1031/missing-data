@@ -4,6 +4,8 @@
 
 library(tidyverse)
 library(brms)
+library(dplyr)
+library(tidyr)
 
 ################################################################################
 # Data Augmentation in Stan using BRMS ####
