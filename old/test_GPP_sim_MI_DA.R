@@ -17,8 +17,6 @@ source("missing_data_functions.R")
 #### Read in the missing dataframes that Alice S. made #####
 ###### Pull out the first in 1000 nested lists for this code ### (Eventually loop over all the lists)
 
-
-
 gauss_sim_MAR_datasets <- readRDS(here("data/Missingdatasets/gauss_sim_randMiss.rds"))
 
 
