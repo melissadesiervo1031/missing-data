@@ -13,15 +13,32 @@ library(lubridate)
 # Reference A. Stears' code with helpful function for removing data
 source("functions/missing_data_functions.R")
 
-## Run code for ARIMA methods over 1 run ####
+
+########## Run code for ARIMA methods over GPP 1 simulated dataset w/ increasing missingness (both MAR and MNAR) #####
+
+## ARIMA method 1: Drop NAs ###
+
+source("Functions/Arima_drop_function.R")
 
 source("Model Runs/Data_Deletion_ARIMA.R")
 
+## ARIMA method 2: Kalman filter (preserves the NAS) ###
+
+source("Functions/Arima_Kalman_function.R")
+
 source("Model Runs/Kalman_ARIMA.R")
+
+## ARIMA method 3: Multiple imputations with AMELIA ###
+
+### as of 6/7 this isn't working quite right yet...###
+
+source("Functions/Arima_MI_function.R")
 
 source("Model Runs/MI_ARIMA.R")
 
-## Run code for STAN method over 1 run ####
+
+
+########## Run code for ARIMA methods over GPP 1 simulated dataset w/ increasing missingness #####
 
 source("Functions/model_fitting.R")
 
