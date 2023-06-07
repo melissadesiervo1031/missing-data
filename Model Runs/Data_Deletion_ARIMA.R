@@ -7,56 +7,24 @@ library(nlme)
 library(tidyverse)
 library(lubridate)
 
-#### Read in the missing dataframes that Alice S. made #####
-###### Pull out the first in 1000 nested lists for this code ### (Eventually loop over all the lists)
 
-
-gauss_sim_MAR_datasets <- readRDS(here("data/Missingdatasets/gauss_sim_randMiss.rds"))
-
-
-##For nested list of GPP datasets with increasing MAR data add back in the date column and the covariates## 
-
-GPP_sim_MAR<- gauss_sim_MAR_datasets [[1]][["y"]]
-
-sim1<-gauss_sim_MAR_datasets [[1]][["y"]][["y_noMiss"]]
-
-covariates<-gauss_sim_MAR_datasets[[1]][["sim_params"]][["X"]]
-
-covariatesX<-as.matrix(covariates[,2:3])
-
-days<-seq(1, 365)
-
-
-sim1df<-as.data.frame(cbind(days=days, GPP=sim1, light=covariates[,2], discharge=covariates[,3]))
-
-GPP_sim_MAR_2 <-lapply(X = GPP_sim_MAR, FUN = function(X)   cbind.data.frame(GPP=X, days=sim1df$days, light = sim1df$light, discharge = sim1df$discharge))
-
-
-#### MISSING COMPLETELY AT RANDOM (MCAR) ######
 
 ################################################## #########################################################
-# LIST WISE DELETION SOLVE WITH ARIMA
+# MISSING AT RANDOM
 ############################################################################################################
 
-# drops rows with missing data ###
 
-sim_missing_list_drop <- lapply(seq_along(GPP_sim_MAR_2), function(j) {
-  drop_na(GPP_sim_MAR_2[[j]])
-})
+gauss_sim_MAR_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss.rds")
+GPP_sim_MAR<- gauss_sim_MAR_datasets [[1]]
 
-Arimaoutputdrop <- lapply(seq_along(sim_missing_list_drop ), function(j) {
-  modeldrop <- Arima(sim_missing_list_drop [[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(sim_missing_list_drop [[j]][["light"]],sim_missing_list_drop [[j]][["discharge"]]), ncol = 2))
-  arimacoefsdrop<-modeldrop$coef
-  arimasesdrop<-sqrt(diag(vcov(modeldrop)))
-  list(arimacoefsdrop=arimacoefsdrop, arimasesdrop=arimasesdrop)
-})
-
-names(Arimaoutputdrop ) <- names(GPP_sim_MAR_2)
+arima_drop_MAR<- fit_arima_dropmissing(GPP_sim_MAR$y,GPP_sim_MAR$sim_params)
 
 ########### formatting for figure #############
 
-modeldropparamlist<-purrr::map(Arimaoutputdrop , ~.["arimacoefsdrop"])
-modeldropSElist<-map(Arimaoutputdrop , ~.["arimasesdrop"])
+names(arima_drop_MAR) <- names(GPP_sim_MAR)
+
+modeldropparamlist<-purrr::map(arima_drop_MAR , ~.["arima_pars"])
+modeldropSElist<-purrr::map(arima_drop_MAR , ~.["arima_errors"])
 
 modeldropparamlist2 <- lapply(modeldropparamlist, function(x) as.data.frame(do.call(rbind, x)))
 modeldropSElist2 <- lapply(modeldropSElist, function(x) as.data.frame(do.call(rbind, x)))
@@ -83,56 +51,23 @@ paramdropSElong <- gather(SEdropdf2, param, SE, ar1:discharge, factor_key=TRUE)
 
 paramdroplong2<-merge(paramdroplong, paramdropSElong)
 
-
+########################################################
 ############ MISSING NOT AT RANDOM MNAR ##############################
+####################################################################
 
 
-###### Pull out the first in 1000 nested lists for this code ### (Eventually loop over all the lists)
 
-gauss_sim_MNAR_datasets <- readRDS(here("data/Missingdatasets/gauss_sim_minMaxMiss.rds"))
+gauss_sim_MNAR_datasets <- readRDS("data/Missingdatasets/gauss_sim_minMaxMiss.rds")
+GPP_sim_MNAR<- gauss_sim_MNAR_datasets [[1]]
 
-## no missing###
-
-sim1MNAR<-gauss_sim_MNAR_datasets [[1]][["y"]][["y_noMiss"]]
-
-covariates<-gauss_sim_MNAR_datasets[[1]][["sim_params"]][["X"]]
-
-covariatesX<-as.matrix(covariates[,2:3])
-
-days<-seq(1, 365)
-
-sim1MNARdf<-as.data.frame(cbind(days=days, GPP=sim1MNAR, light=covariates[,2], discharge=covariates[,3]))
-
-##For nested list of GPP datasets with increasing MNAR data add back in the date column and the covariates## 
-
-GPP_sim_MNAR<- gauss_sim_MNAR_datasets [[1]][["y"]]
-
-GPP_sim_MNAR_2 <-lapply(X = GPP_sim_MNAR, FUN = function(X)   cbind.data.frame(GPP=X, days=sim1df$days, light = sim1df$light, discharge = sim1df$discharge))
-
-
-################################################## #########################################################
-# LIST WISE DELETION SOLVE WITH ARIMA
-############################################################################################################
-
-# drops rows with missing data ###
-
-sim_missing_list_dropMNAR <- lapply(seq_along(GPP_sim_MNAR_2), function(j) {
-  drop_na(GPP_sim_MNAR_2[[j]])
-})
-
-ArimaoutputdropMNAR <- lapply(seq_along(sim_missing_list_dropMNAR), function(j) {
-  modeldrop <- Arima(sim_missing_list_dropMNAR[[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(sim_missing_list_dropMNAR[[j]][["light"]],sim_missing_list_dropMNAR[[j]][["discharge"]]), ncol = 2))
-  arimacoefsdrop<-modeldrop$coef
-  arimasesdrop<-sqrt(diag(vcov(modeldrop)))
-  list(arimacoefsdrop=arimacoefsdrop, arimasesdrop=arimasesdrop)
-})
-
-names(ArimaoutputdropMNAR ) <- names(GPP_sim_MNAR_2)
+arima_drop_MNAR<- fit_arima_dropmissing(GPP_sim_MNAR$y,GPP_sim_MNAR$sim_params)
 
 ########### formatting for figure #############
 
-modeldropparamlistMNAR<-purrr::map(ArimaoutputdropMNAR , ~.["arimacoefsdrop"])
-modeldropSElistMNAR<-map(ArimaoutputdropMNAR , ~.["arimasesdrop"])
+names(arima_drop_MNAR) <- names(GPP_sim_MAR)
+
+modeldropparamlistMNAR<-purrr::map(arima_drop_MNAR , ~.["arima_pars"])
+modeldropSElistMNAR<-purrr::map(arima_drop_MNAR , ~.["arima_errors"])
 
 modeldropparamlistMNAR2 <- lapply(modeldropparamlistMNAR, function(x) as.data.frame(do.call(rbind, x)))
 modeldropSElistMNAR2 <- lapply(modeldropSElistMNAR, function(x) as.data.frame(do.call(rbind, x)))
