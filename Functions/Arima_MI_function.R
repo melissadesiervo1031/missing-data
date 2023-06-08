@@ -1,12 +1,14 @@
 # Load packages
 library(here)
+library(stats)
+library(forecast)
 library(tidyverse)
 library(lubridate)
 library(Amelia)
 
 
 
-### Function that will impuate missing values w/ AMELIA and then fit model using ARIMA ###
+### Function that will impute missing values w/ AMELIA and then fit model using ARIMA ###
 
 fit_arima_MI <- function(sim_list, sim_pars, imputationsnum){
   
@@ -43,6 +45,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum){
         name1 <- names(amelias11sim)[[i]]
         modelparamlistsim[[name1]] <- a
         modelerrorlistsim[[name1]] <- aa
+      }
       
       
         ### Averages the models together back to 1 model per missing data prop ##
@@ -51,15 +54,14 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum){
           list(mi.meld(data.frame(X), data.frame(Y), byrow=FALSE))
         }, X=modelparamlistsim, Y=modelerrorlistsim)
        
-        return(list(arima_pars = modelparamlistsim,
-                    arima_errors = modelerrorlistsim,
-                    sim_params = sim_pars))
-      }
+        return(list(paramlistsim<-map(listcoefsessim , ~.["q.mi"]),
+                    selistsim<-map(listcoefsessim , ~.["se.mi"])))
+      
 }
 
 
 
-# example code using this function:
+#example code using this function:
 #gauss_sim_MAR_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss.rds")
 #GPP_sim_MAR<- gauss_sim_MAR_datasets [[1]]
 
