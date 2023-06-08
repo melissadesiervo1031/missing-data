@@ -30,13 +30,10 @@ source("Model Runs/Kalman_ARIMA.R")
 
 ## ARIMA method 3: Multiple imputations with AMELIA ###
 
-### as of 6/7 this isn't working quite right yet...###
 
 source("Functions/Arima_MI_function.R")
 
 source("Model Runs/MI_ARIMA.R")
-
-
 
 ########## Run code for ARIMA methods over GPP 1 simulated dataset w/ increasing missingness #####
 
