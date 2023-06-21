@@ -10,17 +10,13 @@ library(tidyverse)
 ## remove data at increasing levels of missingness...
 makeMissing <- function(timeSeries, # a time series in vector format (a single vector, not a list)         
                         typeMissing, # a character string indicating how missingness is to be          
-                        # generated ("random", "Chunks", or "minMax")         
+                        # generated ("random" (with varying degrees of autocorrelation) or "minMax")         
                         propMiss = NULL, # an optional vector argument that gives the proportion(s)          
                         # of the data that should be missing; if not specified, then increasingly          
                         # more missingness is introduced from 5% to 75% by 5% increments,         
                         chunkSize = NULL, # an optional integer argument giving the average length that you want          
-                        # missing data gaps to be. Only used if typeMissing = "Chunks."          
-                        # If a value isn't supplied, the function assumes chunk length is 5% of length of time series         
-                        chunkAutoCorr = NULL, # an argument that required, but 
-                        # only if typeMissing = "Chunks." This arugment indicates 
-                        # how autocorrelated the missing chunks should be (i.e. if 
-                        # they should be randomly spaced (low autocorrelation) or evenly spaced (highly autocorrelated))
+                        # missing data gaps to be. Only used if typeMissing = "random"          
+                        # If a value isn't supplied, the function assumes chunk length is 1          
                         ...){
   if (is.null(propMiss)) {    # if "propMiss" is not provided, set it to be a vector from .05:.95 by .05    
     propMiss_f <- seq(0.05, 0.75, by = .05)  
