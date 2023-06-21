@@ -26,102 +26,11 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
   
   if (is.null(chunkSize)) {    
     # if "chunkSize" is not provided, set it to be 5% of length of time series (rounded to nearest integer)    
-    chunkSize_f <- round(length(timeSeries)*.05)    
+    chunkSize_f <- 1
   } else {    
     chunkSize_f <- chunkSize  
   }    
-  
-  ## if you want to generate randomly missing data  
-  if (typeMissing == "random") {    ## get the missing data time series for each value of missingness (returns a     
-    # list where each element of the time series is increasingly missing more and more data)    
-    missingDat_list <- lapply(X = propMiss_f,                               
-                              FUN = function(X)
-                                replace(timeSeries,                         
-                                        list = sample(x = 1:length(timeSeries),
-                                                      size = X*length(timeSeries),          
-                                                      replace = FALSE),                                        
-                                        values = NA)    )    
-    
-    names(missingDat_list) <- paste0("propMissAct_",  
-                                     lapply(X = missingDat_list, 
-                                            FUN = function(x) round(sum(is.na(x))/length(x),2)
-                                     ))
-  }     
-  
-  ## if you want to generate missing data in chunks (relatively evenly spaced)  
-  if (typeMissing == "evenChunks") {
-    # the 'average' chunk size is stored in "chunkSize_f"
-    # iterate through the different missingness proportions (stored in "propMiss_f")
-    for (i in 1:length(propMiss_f)) {
-      #is the chunk size an equal or smaller amount  proportions of missing data that are input into the function
-      if (chunkSize_f/length(timeSeries) > propMiss_f[i]) {
-        print(paste0("there are no missing data generated for the argument resulting in ",propMiss_f[i]*100,
-                     "% missing data, because a single gap results in a greater proportion of missing data than indicated for this value of the 'propMiss' argument")) 
-        next      }     
-      
-      # make the length of the gap slightly random (draw from a poisson distribution) %%I think this is the right distribution to use?      
-      # get a vector of possible gap sizes, then pick the first 
-      chunkSize_TEMP <- rpois(n = 100, lambda = chunkSize_f)        
-      # make sure that chunks are at least 1  unit long
-      chunkSize_TEMP[chunkSize_TEMP==0] <- 1
-      # get the correct number of chunks that correspond to the amount of missing 
-      # data that the propMiss_f[i] argument specificies
-      gapsNeeded <- propMiss_f[i]*length(timeSeries)
-      
-      chunkMat <- matrix(NA, nrow = 100, ncol = 100)
-      for (k in 1:length(chunkSize_TEMP)) {
-        chunkMat[,k] <- c(chunkSize_TEMP[1:k], rep(NA, length.out = 100-k))
-      }
-      # find out how many of the chunks we need to get the amount of missing data we want
-      chunkSize_i <- chunkSize_TEMP[1:which.min(abs(colSums(chunkMat, na.rm = TRUE) - gapsNeeded))]
 
-    
-
-      # calculate the shape parameter (the number of gaps that will need to
-      # exist to get the specified proportion of missing data in propMiss_f[i]     
-      n_events_i <- length(chunkSize_i)  
-      
-      # calculate the scale parameter (what is the mean time between events that
-      # needs to exist to get the specified proportion of missing data in propMiss_f[i]   
-      beta_i <- round((length(timeSeries) - sum(chunkSize_i))/n_events_i)         
-      
-      # given the average distance between chunks calculated above, when should       
-      # the next gap occur? (returns the the number of intervals needed for the number of events for this i)      
-      # intervals are random, but make it so that the length of the events/iterations can't be longer than the length of the time series
-      repeat {
-        intervals_i <- round(rgamma(n = n_events_i, shape = 1, scale = beta_i))  
-        if (sum(intervals_i, chunkSize_i) <= length(timeSeries)) {
-          break
-        }
-      }          
-      
-      ## now replace values in the timeSeries according in chunks of size chunkSize_i along intervals intervals_i      
-      # get the indices of the starts and ends of each gap      
-      indices_temp <- c(rbind((intervals_i+1), (chunkSize_i-1)))      
-      indices_j <- c(indices_temp[1])      
-      for (j in 2:length(indices_temp)) {        
-        indices_j <- append(indices_j, values = indices_j[j-1] + indices_temp[j])      
-      }      
-    
-
-      indices_seq <- NULL      
-      for (k in seq(from = 2, to = length(indices_j), by = 2)) {        
-        indices_seq <- append(indices_seq, indices_j[k-1]:indices_j[k])      
-      }          
-      
-      ## store the output
-      if (i == 1) {       
-        missingDat_list <- list(replace(timeSeries, list = indices_seq, values = NA))     
-      } else {       
-        missingDat_list[[i]] <- replace(timeSeries, list = indices_seq, values = NA)     
-      }          
-    }    
-    names(missingDat_list) <- paste0("propMissAct_",  
-                                     lapply(X = missingDat_list, 
-                                            FUN = function(x) round(sum(is.na(x))/length(x),2)
-                                     ))
-                                     }
-  
   ## if you want to generate missing data in chunks (randomly spaced)  
   if (typeMissing == "randChunks") {      
      ## loop through values of "propMissing_f"
