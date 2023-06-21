@@ -18,7 +18,7 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
                         # missing data gaps to be. Only used if typeMissing = "random"          
                         # If a value isn't supplied, the function assumes chunk length is 1          
                         ...){
-  if (is.null(propMiss)) {    # if "propMiss" is not provided, set it to be a vector from .05:.95 by .05    
+  if (is.null(propMiss)) {    # if "propMiss" is not provided, set it to be a vector from .05:.75 by .05    
     propMiss_f <- seq(0.05, 0.75, by = .05)  
   } else {
     propMiss_f <- propMiss  
@@ -32,7 +32,7 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
   }    
 
   ## if you want to generate missing data in chunks (randomly spaced)  
-  if (typeMissing == "randChunks") {      
+  if (typeMissing == "random") {      
      ## loop through values of "propMissing_f"
      for (i in 1:length(propMiss_f)) {
 
@@ -55,6 +55,12 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       
       # complete the matrix
       M[2, 2] <- 1 - M[2, 1]
+      
+      # check that there are no negative or >1 probabilities in the transition matrix 
+      # (i.e. not a feasible combination of chunk size and desired proportion of missingness)
+      if (sum(M > 1) > 0 | sum(M < 0) > 0) {
+        next
+      }
       
       # generate series of states
       X <- vector(mode = "double", length = n)
@@ -147,11 +153,13 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
 ricker <- readRDS("./data/ricker_0miss_datasets.rds")
 
 ## testing with a subset of the ricker data
-makeMissing(timeSeries = ricker[[1]]$y, typeMissing = "random", propMiss = c(.5, .05))
-makeMissing(timeSeries = ricker[[1]]$y, typeMissing = "evenChunks", propMiss = c(.5, .05), chunkSize = 3)
+# for missing at random (chunk size = 1)
+makeMissing(timeSeries = ricker[[1]]$y, typeMissing = "random", propMiss = c(.5, .05), chunkSize = 1)
+# for missing at random but autocorrelated (chunk size = 3)
+makeMissing(timeSeries = ricker[[1]]$y, typeMissing = "random", propMiss = c(.5, .05), chunkSize = 3)
 
 ## testing w/ all of the ricker data list
-lapply(X = ricker, FUN = function(X) makeMissing(timeSeries = X$y, typeMissing = "random"))
+lapply(X = ricker, FUN = function(X) makeMissing(timeSeries = X$y, typeMissing = "random", chunkSize = 1))
 
 
 # Testing for MCAR vs MNAR ------------------------------------------------
