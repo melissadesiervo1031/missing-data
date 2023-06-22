@@ -14,9 +14,9 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
                         propMiss = NULL, # an optional vector argument that gives the proportion(s)          
                         # of the data that should be missing; if not specified, then increasingly          
                         # more missingness is introduced from 5% to 75% by 5% increments,         
-                        chunkSize = NULL, # an optional integer argument giving the average length that you want          
-                        # missing data gaps to be. Only used if typeMissing = "random"          
-                        # If a value isn't supplied, the function assumes chunk length is 1          
+                        autoCorr= NULL, # an optional argument between 0 and 1 (non-inclusive) giving the degree of 
+                        # autocorrelation in missingness that the timeseries will have.
+                        # Only used if typeMissing = "random". If a value isn't supplied, the function assumes no autocorrelation (.5)        
                         ...){
   if (is.null(propMiss)) {    # if "propMiss" is not provided, set it to be a vector from .05:.75 by .05    
     propMiss_f <- seq(0.05, 0.75, by = .05)  
@@ -24,11 +24,11 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
     propMiss_f <- propMiss  
   }    
   
-  if (is.null(chunkSize)) {    
+  if (is.null(autoCorr)) {    
     # if "chunkSize" is not provided, set it to be 5% of length of time series (rounded to nearest integer)    
-    chunkSize_f <- 1
+    autoCorr_f <- .5
   } else {    
-    chunkSize_f <- chunkSize  
+    autoCorr_f <- autoCorr  
   }    
 
   ## if you want to generate missing data in chunks (randomly spaced)  
@@ -41,24 +41,53 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       # declare transition matrix
       M <- matrix(nrow = 2, ncol = 2)
       
+      # populate transition matrix based on Gharib et al. 2014 ("Characterization of Markov-Bernoulli geometric distribution related to random sums")
+      #         X_i+1
+      #          0                 1
+      #          ______________________
+      #       0| 1-(1-rho)p      (1-rho)p
+      # X_i   1| (1-rho)(1-p)    rho + (1-rho)p
+      #
+      # with the initial distribution P(X_1=1) = p = 1-P(X_1 = 0)
+      # (so p = 1-propMiss_f[i])
+      p <- 1-propMiss_f[i]
+      
+      ## rho is the correlation coefficient between values at times t and t+1
+      # 0 indicates maximum negative autocorrelation
+      # 1 indicates the maximum positive autocorrelation
+      # 0.5 indicates no autocorrelation
+      
       # first row of transition matrix
       # determines 0 -> 0 and 0 -> 1
-      M[1, ] <- c(1 - (1 / chunkSize_f), 1 / chunkSize_f)
+       M[1, ] <- c(1 - (1 - autoCorr_f)*p, (1 - autoCorr_f)*p)
+      # M[1, ] <- c(1 - (1 - autoCorr_f), (1 - autoCorr_f))
       
-      # stationary distribution
-      # determined by desired proportion of missingness
-      v <- c(propMiss_f[i], 1 - propMiss_f[i])
+      # # stationary distribution
+      # # determined by desired proportion of missingness
+      # v <- c(propMiss_f[i], 1 - propMiss_f[i])
+      # 
+      # # Find transition probability 1 -> 0
+      # # this is based on the stationary distribution
+      # M[2, 1] <- M[1, 2] * v[1] / v[2]
+      # 
+      # # complete the matrix
+      # M[2, 2] <- 1 - M[2, 1]
       
-      # Find transition probability 1 -> 0
-      # this is based on the stationary distribution
-      M[2, 1] <- M[1, 2] * v[1] / v[2]
-      
-      # complete the matrix
-      M[2, 2] <- 1 - M[2, 1]
-      
+      # find second row of matrix
+      # determines 1 -> 0 and 1 -> 1
+      M[2,] <- c((1 - autoCorr_f)*(1-p), autoCorr_f + (1 - autoCorr_f)*p)
+
       # check that there are no negative or >1 probabilities in the transition matrix 
       # (i.e. not a feasible combination of chunk size and desired proportion of missingness)
       if (sum(M > 1) > 0 | sum(M < 0) > 0) {
+        missingDat_temp <- c("no viable transition matrix for this combination of autocorrelation and proportion missing")
+        
+        ## store the results
+        if (i == 1) {        
+          missingDat_list <- list(missingDat_temp)      
+        } else {        
+          missingDat_list[[i]] <- missingDat_temp     
+        }     
         next
       }
       
@@ -87,6 +116,15 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       
       # now change to 0s and 1s
       missingVec <- X - 1
+      
+      ## quick checks:
+      # average size of 'chunks' of missing data
+      ones <- which(missingVec==1)
+      mean(diff(ones)[diff(ones) != 1]-1)
+      # proportion of missing data
+      table(missingVec)[1]/n
+      # stationary distribution
+      M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M
       
       # remove the "0" values in the timeSeries string
       missingDat_temp <- replace(timeSeries, list = which(missingVec == 0), values = NA)
@@ -125,7 +163,6 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
                                                  which(timeSeries > qnorm(1-X/2, mean = mean(timeSeries), sd = sd(timeSeries)))),
                                         
                                         values = NA))    
- 
 
     
       names(missingDat_list) <- paste0("propMissAct_",  
