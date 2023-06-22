@@ -60,18 +60,6 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       # first row of transition matrix
       # determines 0 -> 0 and 0 -> 1
        M[1, ] <- c(1 - (1 - autoCorr_f)*p, (1 - autoCorr_f)*p)
-      # M[1, ] <- c(1 - (1 - autoCorr_f), (1 - autoCorr_f))
-      
-      # # stationary distribution
-      # # determined by desired proportion of missingness
-      # v <- c(propMiss_f[i], 1 - propMiss_f[i])
-      # 
-      # # Find transition probability 1 -> 0
-      # # this is based on the stationary distribution
-      # M[2, 1] <- M[1, 2] * v[1] / v[2]
-      # 
-      # # complete the matrix
-      # M[2, 2] <- 1 - M[2, 1]
       
       # find second row of matrix
       # determines 1 -> 0 and 1 -> 1
