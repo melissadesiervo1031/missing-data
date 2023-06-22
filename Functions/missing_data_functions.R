@@ -172,13 +172,10 @@ gausSim <- data.frame("y" = gausSim[[1]]$y,
                       "time" = 1:length(gausSim[[1]]$y))
 
 # get 40% missing completely at random 
-gausSim$y_randMiss <- as.vector(unlist(makeMissing(timeSeries = gausSim$y, typeMissing = "random", propMiss = .4)))
-
-# get 40% missing in evenly spaced chunks
-gausSim$y_evenChunkMiss <- as.vector(unlist(makeMissing(timeSeries = gausSim$y, typeMissing = "evenChunks", propMiss = .4, chunkSize = 5)))
+gausSim$y_randMiss <- as.vector(unlist(makeMissing(timeSeries = gausSim$y, typeMissing = "random", propMiss = .4, chunkSize = 1)))
 
 # get 40% missing in randomly spaced chunks
-gausSim$y_randChunkMiss <- as.vector(unlist(makeMissing(timeSeries = gausSim$y, typeMissing = "randChunks", propMiss = .4, chunkSize = 5)))
+gausSim$y_randChunkMiss <- as.vector(unlist(makeMissing(timeSeries = gausSim$y, typeMissing = "random", propMiss = .4, chunkSize = 5)))
 
 # get 40% missing in minmax of data
 gausSim$y_minMaxMiss <- as.vector(unlist(makeMissing(timeSeries = gausSim$y, typeMissing = "minMax", propMiss = .4)))
@@ -202,7 +199,7 @@ noMiss_hist <- ggplot() +
 randMiss_line <- ggplot(data = gausSim, aes(x = time, y = y_randMiss)) + 
   geom_line() + 
   geom_point(size = 1) +
-  ggtitle("Missing Completely At Random") + 
+  ggtitle("Missing at Random: chunk size = 1") + 
   theme_classic()
 
 randMiss_hist <- ggplot() + 
@@ -211,24 +208,11 @@ randMiss_hist <- ggplot() +
                 x = seq(-5,7,.1)), color = "blue") + 
   theme_classic()
 
-# missing evenly spaced chunks
-evenChunkMiss_line <- ggplot(data = gausSim, aes(x = time, y = y_evenChunkMiss)) + 
-  geom_line() + 
-  geom_point(size = 1) +
-  ggtitle("Missing Even Chunks") + 
-  theme_classic()
-
-evenChunkMiss_hist <- ggplot() + 
-  geom_histogram(data = gausSim, aes(y_evenChunkMiss, after_stat(density)), fill = "grey", color = "darkgrey") + 
-  geom_line(aes(y = dnorm(seq(-5,7,.1), mean = mean(gausSim$y), sd = sd(gausSim$y)), 
-                x = seq(-5,7,.1)), color = "blue") + 
-  theme_classic()
-
 # missing randomly spaced chunks
 randChunkMiss_line <- ggplot(data = gausSim, aes(x = time, y = y_randChunkMiss)) + 
   geom_line() + 
   geom_point(size = 1) +
-  ggtitle("Missing Randomly Spaced Chunks") + 
+  ggtitle("Missing at Random: chunk size = 5") + 
   theme_classic()
 
 randChunkMiss_hist <- ggplot() + 
@@ -253,10 +237,9 @@ minMaxMiss_hist <- ggplot() +
 
 ggarrange(noMiss_line, noMiss_hist, 
           randMiss_line, randMiss_hist, 
-          evenChunkMiss_line, evenChunkMiss_hist,
           randChunkMiss_line, randChunkMiss_hist,
           minMaxMiss_line, minMaxMiss_hist,
           widths = c(.75,.25, .75,.25, .75,.25, .75,.25, .75,.25), 
           ncol = 2, 
-          nrow = 5)
+          nrow = 4)
 
