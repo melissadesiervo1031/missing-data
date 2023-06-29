@@ -15,8 +15,8 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
                         # of the data that should be missing; if not specified, then increasingly          
                         # more missingness is introduced from 5% to 75% by 5% increments,         
                         autoCorr= NULL, # an optional argument between 0 and 1 (non-inclusive) giving the degree of 
-                        # autocorrelation in missingness that the timeseries will have.
-                        # Only used if typeMissing = "random". If a value isn't supplied, the function assumes no autocorrelation (.5)        
+                        # autocorrelation in missingness that the timeseries will have. (0 is no autocorrelation, .99 is maximum autocorrelation)
+                        # Only used if typeMissing = "random". If a value isn't supplied, the function assumes no autocorrelation (0)        
                         ...){
   if (is.null(propMiss)) {    # if "propMiss" is not provided, set it to be a vector from .05:.75 by .05    
     propMiss_f <- seq(0.05, 0.75, by = .05)  
@@ -105,15 +105,15 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       # now change to 0s and 1s
       missingVec <- X - 1
       
-      ## quick checks:
-      # average size of 'chunks' of missing data
-      ones <- which(missingVec==1)
-      mean(diff(ones)[diff(ones) != 1]-1)
-      # proportion of missing data
-      table(missingVec)[1]/n
-      # stationary distribution
-      M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M
-      
+      # ## quick checks:
+      # # average size of 'chunks' of missing data
+      # ones <- which(missingVec==1)
+      # mean(diff(ones)[diff(ones) != 1]-1)
+      # # proportion of missing data
+      # table(missingVec)[1]/n
+      # # stationary distribution
+      # M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M %*% M
+      # 
       # remove the "0" values in the timeSeries string
       missingDat_temp <- replace(timeSeries, list = which(missingVec == 0), values = NA)
    
@@ -128,7 +128,9 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
     names(missingDat_list) <- paste0("propMissAct_",  
                                        lapply(X = missingDat_list, 
                                               FUN = function(x) round(sum(is.na(x))/length(x),2)
-                                        ))
+                                        ),
+                                     "_autoCorr_",autoCorr_f
+                                     )
   }
   
   ## if you want to remove maximum and minimum values  
@@ -179,9 +181,9 @@ ricker <- readRDS("./data/ricker_0miss_datasets.rds")
 
 ## testing with a subset of the ricker data
 # for missing at random (chunk size = 1)
-makeMissing(timeSeries = ricker[[1]]$y, typeMissing = "random", propMiss = c(.5, .05), chunkSize = 1)
+makeMissing(timeSeries = ricker[[1]]$y, typeMissing = "random", propMiss = c(.5, .05), autoCorr = .3)
 # for missing at random but autocorrelated (chunk size = 3)
-makeMissing(timeSeries = ricker[[1]]$y, typeMissing = "random", propMiss = c(.5, .05), chunkSize = 3)
+makeMissing(timeSeries = ricker[[1]]$y, typeMissing = "random", propMiss = c(.5, .05))
 
 ## testing w/ all of the ricker data list
 lapply(X = ricker, FUN = function(X) makeMissing(timeSeries = X$y, typeMissing = "random", chunkSize = 1))
@@ -197,10 +199,10 @@ gausSim <- data.frame("y" = gausSim[[1]]$y,
                       "time" = 1:length(gausSim[[1]]$y))
 
 # get 40% missing completely at random 
-gausSim$y_randMiss <- as.vector(unlist(makeMissing(timeSeries = gausSim$y, typeMissing = "random", propMiss = .4, chunkSize = 1)))
+gausSim$y_randMiss <- as.vector(unlist(makeMissing(timeSeries = gausSim$y, typeMissing = "random", propMiss = .4, autoCorr = .01)))
 
-# get 40% missing in randomly spaced chunks
-gausSim$y_randChunkMiss <- as.vector(unlist(makeMissing(timeSeries = gausSim$y, typeMissing = "random", propMiss = .4, chunkSize = 5)))
+# get 40% missing in highly autocorrelated chunks
+gausSim$y_randChunkMiss <- as.vector(unlist(makeMissing(timeSeries = gausSim$y, typeMissing = "random", propMiss = .4, autoCorr = .9)))
 
 # get 40% missing in minmax of data
 gausSim$y_minMaxMiss <- as.vector(unlist(makeMissing(timeSeries = gausSim$y, typeMissing = "minMax", propMiss = .4)))
@@ -224,7 +226,7 @@ noMiss_hist <- ggplot() +
 randMiss_line <- ggplot(data = gausSim, aes(x = time, y = y_randMiss)) + 
   geom_line() + 
   geom_point(size = 1) +
-  ggtitle("Missing at Random: chunk size = 1") + 
+  ggtitle("Missing at Random: 40% missing, autoCorr = .01") + 
   theme_classic()
 
 randMiss_hist <- ggplot() + 
@@ -237,7 +239,7 @@ randMiss_hist <- ggplot() +
 randChunkMiss_line <- ggplot(data = gausSim, aes(x = time, y = y_randChunkMiss)) + 
   geom_line() + 
   geom_point(size = 1) +
-  ggtitle("Missing at Random: chunk size = 5") + 
+  ggtitle("Missing at Random: 40% missing, autoCorr = .9") + 
   theme_classic()
 
 randChunkMiss_hist <- ggplot() + 
@@ -250,7 +252,7 @@ randChunkMiss_hist <- ggplot() +
 minMaxMiss_line <- ggplot(data = gausSim, aes(x = time, y = y_minMaxMiss)) + 
   geom_line() + 
   geom_point(size = 1) +
-  ggtitle("Missing Min and Max") + 
+  ggtitle("Missing Min and Max: 40% missing") + 
   ylim(c(-2.5,5)) +
   theme_classic()
 
@@ -260,6 +262,9 @@ minMaxMiss_hist <- ggplot() +
                 x = seq(-5,7,.1)), color = "blue") + 
   theme_classic()
 
+
+## save the figure to file
+png(filename = "./figures/CompareMissingnessTypes_fig.png", width = 700, height = 600)
 ggarrange(noMiss_line, noMiss_hist, 
           randMiss_line, randMiss_hist, 
           randChunkMiss_line, randChunkMiss_hist,
@@ -267,4 +272,4 @@ ggarrange(noMiss_line, noMiss_hist,
           widths = c(.75,.25, .75,.25, .75,.25, .75,.25, .75,.25), 
           ncol = 2, 
           nrow = 4)
-
+dev.off()
