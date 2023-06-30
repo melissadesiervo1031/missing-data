@@ -22,12 +22,14 @@ fit_arima_Kalman <- function(sim_list, sim_pars){
     arimasesNAs<-sqrt(diag(vcov(modelNAs)))
     list(arimacoefsNAs=arimacoefsNAs, arimasesNAs=arimasesNAs)
     
-    return(list(arima_pars = arimasesNAs,
+    return(list(arima_pars = arimacoefsNAs,
                 arima_errors = arimasesNAs,
                 sim_params = sim_pars))
   })
 }
   
+
+
 # example code using this function:
 #gauss_sim_MAR_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss.rds")
 #GPP_sim_MAR<- gauss_sim_MAR_datasets [[1]]
