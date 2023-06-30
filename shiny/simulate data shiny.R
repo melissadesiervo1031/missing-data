@@ -4,6 +4,8 @@
 
 # Shiny application = Packages/Data + User Interface + Server + shinyApp()
 
+# Note - missing file "fake_turb.csv" that allows this to run.
+
 #### Setup ####
 
 # Anything that should happen once, and only once, upon launching the app should 
