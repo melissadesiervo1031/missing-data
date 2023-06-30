@@ -339,14 +339,14 @@ MIdf <- map_df(paramMIlong2, ~as.data.frame(.x), .id="id")
 MIdfsummary<-MIdf%>% group_by(param, missingprop, type) %>% dplyr::summarise(sumdiffsquared=sum(diffsquared), n=n())%>% mutate(MSE=sumdiffsquared/(n-1))%>% mutate(RMSE=sqrt(MSE))
 
 
-###### MERGE THE THREE ARIMA APPROACHES AND PLOT THE RMSE ####
+############################### MERGE THE THREE ARIMA APPROACHES AND PLOT THE RMSE ##############################################
 
 RMSEallARIMA<-rbind(dropdfsummary, kalmandfsummary, MIdfsummary)
 
 
 ## change AR 1 to be phi ##
 
-RMSEallARIMA<-paramallARIMA
+#<-paramallARIMA
 
 RMSEallARIMA$param <- str_replace(RMSEallARIMA$param, "ar1", "phi")
 
@@ -356,6 +356,10 @@ RMSEarima<-ggplot(data=RMSEallARIMA, aes(x=as.numeric(missingprop), y=RMSE))+
   theme_bw()+
   xlab("Percent of Missing Data (Missing at Random)")+
   ylab("Root mean square error (3 simulations)")
+
+
+
+################# Method 4: Data augmentation with BRMS package ####
 
 
 
