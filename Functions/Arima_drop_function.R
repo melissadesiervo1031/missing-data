@@ -34,7 +34,7 @@ fit_arima_dropmissing <- function(sim_list, sim_pars){
 
 
 # example code using this function:
-gauss_sim_MAR_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss.rds")
-GPP_sim_MAR<- gauss_sim_MAR_datasets [[1]]
+#gauss_sim_MAR_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss.rds")
+#GPP_sim_MAR<- gauss_sim_MAR_datasets [[1]]
  
-arima_drop <- fit_arima_dropmissing(GPP_sim_MAR$y,GPP_sim_MAR$sim_params)
+#arima_drop <- fit_arima_dropmissing(GPP_sim_MAR$y,GPP_sim_MAR$sim_params)
