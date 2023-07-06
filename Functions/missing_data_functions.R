@@ -6,7 +6,7 @@
 # load packages -----------------------------------------------------------
 library(tidyverse)
 # function ----------------------------------------------------------------
-### goals: 
+### goals:                                    
 ## remove data at increasing levels of missingness...
 makeMissing <- function(timeSeries, # a time series in vector format (a single vector, not a list)         
                         typeMissing, # a character string indicating how missingness is to be          
@@ -105,6 +105,9 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       # now change to 0s and 1s
       missingVec <- X - 1
       
+      # ## calculate the actual autocorrelation of the time series in this iteration (with a time lag of 1)
+      # acf(x = missingVec, plot = FALSE, lag.max = 1)[1]
+      
       # ## quick checks:
       # # average size of 'chunks' of missing data
       # ones <- which(missingVec==1)
@@ -119,18 +122,18 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
    
       ## store the results
       if (i == 1) {        
-        missingDat_list <- list(missingDat_temp)      
+        missingDat_list <- list(missingDat_temp) 
       } else {        
         missingDat_list[[i]] <- missingDat_temp     
       }     
+      # add a name w/ the true proportion of missing and the true autocorrelation value for a lag of 1
+      names(missingDat_list)[i] <- paste0("propMissAct_",  
+                                       round(sum(is.na(missingDat_list[[i]]))/length(missingDat_list[[i]]),2),
+                                       "_autoCorr_",
+                                       round(acf(x = missingVec, plot = FALSE, lag.max = 1)$acf[,,1][2],2)
+      )
       
     }
-    names(missingDat_list) <- paste0("propMissAct_",  
-                                       lapply(X = missingDat_list, 
-                                              FUN = function(x) round(sum(is.na(x))/length(x),2)
-                                        ),
-                                     "_autoCorr_",autoCorr_f
-                                     )
   }
   
   ## if you want to remove maximum and minimum values  
