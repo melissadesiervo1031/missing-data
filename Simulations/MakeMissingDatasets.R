@@ -19,62 +19,26 @@ source("./Functions/missing_data_functions.R")
 # read in data
 gauss_sim <- readRDS("./data/gauss_ar1_0miss_datasets.rds")
 
-# make missing data types
-# missing at random (autocorrelation = 0.01)
-gauss_sim_randMiss_autoCorr_01 <- lapply(X = gauss_sim, FUN = function(x) 
-  list("y" = makeMissing(timeSeries = x$y, typeMissing = "random", autoCorr = 0.01), 
+## make missing data types for increasing levels of autocorrelation
+# possible autocorrelation vector
+inputAutocor <- c(.01, .10, .20, .30, .40, .50, .60, .70, .80, .90)
 
-       "sim_params" <- x$sim_params)
-)
-
-
-for (i in 1:length(gauss_sim_randMiss_autoCorr_01)) {
-  names(gauss_sim_randMiss_autoCorr_01[[i]]) <- c("y", "sim_params")
-  gauss_sim_randMiss_autoCorr_01[[i]]$y <- c(list("y_noMiss" = gauss_sim[[i]]$y), gauss_sim_randMiss_autoCorr_01[[i]]$y)
-}
-
-# missing at random (medium autocorrelation = .25)
-gauss_sim_randMiss_autoCorr_25 <- lapply(X = gauss_sim, FUN = function(x) 
-  list("y" = makeMissing(timeSeries = x$y, typeMissing = "random", autoCorr = .25), 
-       "sim_params" <- x$sim_params)
-)
-
-for (i in 1:length(gauss_sim_randMiss_autoCorr_25)) {
-  names(gauss_sim_randMiss_autoCorr_25[[i]]) <- c("y", "sim_params")
-  gauss_sim_randMiss_autoCorr_25[[i]]$y <- c(list("y_noMiss" = gauss_sim[[i]]$y), gauss_sim_randMiss_autoCorr_25[[i]]$y)
-}
-
-# missing at random (medium autocorrelation = .50)
-gauss_sim_randMiss_autoCorr_50 <- lapply(X = gauss_sim, FUN = function(x) 
-  list("y" = makeMissing(timeSeries = x$y, typeMissing = "random", autoCorr = .50), 
-       "sim_params" <- x$sim_params)
-)
-
-for (i in 1:length(gauss_sim_randMiss_autoCorr_50)) {
-  names(gauss_sim_randMiss_autoCorr_50[[i]]) <- c("y", "sim_params")
-  gauss_sim_randMiss_autoCorr_50[[i]]$y <- c(list("y_noMiss" = gauss_sim[[i]]$y), gauss_sim_randMiss_autoCorr_50[[i]]$y)
-}
-
-# missing at random (medium autocorrelation = .75)
-gauss_sim_randMiss_autoCorr_75 <- lapply(X = gauss_sim, FUN = function(x) 
-  list("y" = makeMissing(timeSeries = x$y, typeMissing = "random", autoCorr = .75), 
-       "sim_params" <- x$sim_params)
-)
-
-for (i in 1:length(gauss_sim_randMiss_autoCorr_75)) {
-  names(gauss_sim_randMiss_autoCorr_75[[i]]) <- c("y", "sim_params")
-  gauss_sim_randMiss_autoCorr_75[[i]]$y <- c(list("y_noMiss" = gauss_sim[[i]]$y), gauss_sim_randMiss_autoCorr_75[[i]]$y)
-}
-
-# missing at random (medium autocorrelation = .90)
-gauss_sim_randMiss_autoCorr_90 <- lapply(X = gauss_sim, FUN = function(x) 
-  list("y" = makeMissing(timeSeries = x$y, typeMissing = "random", autoCorr = .90), 
-       "sim_params" <- x$sim_params)
-)
-
-for (i in 1:length(gauss_sim_randMiss_autoCorr_90)) {
-  names(gauss_sim_randMiss_autoCorr_90[[i]]) <- c("y", "sim_params")
-  gauss_sim_randMiss_autoCorr_90[[i]]$y <- c(list("y_noMiss" = gauss_sim[[i]]$y), gauss_sim_randMiss_autoCorr_90[[i]]$y)
+for (i in 1:length(inputAutocor)) {
+  # calculate missing vectors with increasing levels of missingness
+  tempOutList <- lapply(X = gauss_sim, FUN = function(x) 
+    list("y" = makeMissing(timeSeries = x$y, typeMissing = "random", 
+                           autoCorr = inputAutocor[i]),
+         "sim_params" <- x$sim_params)
+  )
+  # name the elements of the list with the amount of missingness 
+  for (j in 1:length(tempOutList)) {
+    names(tempOutList[[j]]) <- c("y", "sim_params")
+    tempOutList[[j]]$y <- c(list("y_noMiss" = gauss_sim[[j]]$y), tempOutList[[j]]$y)
+  }
+  # rename the output list to reflect the input autocorrelation
+  assign(x = paste0("gauss_sim_randMiss_autoCorr_", 
+                    str_pad(str_extract_all(string = inputAutocor[i], pattern = "\\d+" , simplify = TRUE)[,2], width = 2, side = "right", pad = "0")) , 
+         value = tempOutList)
 }
 
 # missing in min and max of data
@@ -97,40 +61,29 @@ mdat <- read.csv('data/NWIS_MissingTSinfo_subset.csv')
 
 id <- mdat$site_name[4]
 pr <- dat %>% filter(site_name == id) %>% select(date, GPP, light, Q, GPP.upper,GPP.lower) %>% mutate(Jdate= yday(date), light.rel = light/max(light))
-gauss_real <-as.data.frame(pr)
+gauss_real <- as.data.frame(pr)
 
-# missing at random (autocorrelation = .01)
-gauss_real_randMiss_TEMP <- as.data.frame(makeMissing(timeSeries = gauss_real$GPP, typeMissing = "random", autoCorr = .01))
-names(gauss_real_randMiss_TEMP) <- paste0("GPP_",names(gauss_real_randMiss_TEMP))
+## make missing data types for increasing levels of autocorrelation
+# possible autocorrelation vector
+inputAutocor <- c(.01, .10, .20, .30, .40, .50, .60, .70, .80, .90)
 
-gauss_real_randMiss_autoCorr_01 <- cbind(gauss_real, gauss_real_randMiss_TEMP)
+for (i in 1:length(inputAutocor)) {
+  # calculate missing vectors with increasing levels of missingness
+  tempOutDf <- as.data.frame(makeMissing(timeSeries = gauss_real$GPP, 
+                                           typeMissing = "random", 
+                                           autoCorr = inputAutocor[i]))
+  
+  # name the elements of the Df with the amount of missingness 
+  names(tempOutDf) <- paste0("GPP_",names(tempOutDf))
+  tempOutDf <- cbind(gauss_real, tempOutDf)
+  
+  # rename the output list to reflect the input autocorrelation
+  assign(x = paste0("gauss_real_randMiss_autoCorr_", 
+                    str_pad(str_extract_all(string = inputAutocor[i], pattern = "\\d+" , simplify = TRUE)[,2], width = 2, side = "right", pad = "0")) ,
+         value = tempOutDf)
+}
 
-# missing at random (autocorrelation = .25)
-gauss_real_randMiss_TEMP <- as.data.frame(makeMissing(timeSeries = gauss_real$GPP, typeMissing = "random", autoCorr = .25))
-names(gauss_real_randMiss_TEMP) <- paste0("GPP_",names(gauss_real_randMiss_TEMP))
-
-gauss_real_randMiss_autoCorr_25 <- cbind(gauss_real, gauss_real_randMiss_TEMP)
-
-# missing at random (autocorrelation = .50)
-gauss_real_randMiss_TEMP <- as.data.frame(makeMissing(timeSeries = gauss_real$GPP, typeMissing = "random", autoCorr = .50))
-names(gauss_real_randMiss_TEMP) <- paste0("GPP_",names(gauss_real_randMiss_TEMP))
-
-gauss_real_randMiss_autoCorr_50 <- cbind(gauss_real, gauss_real_randMiss_TEMP)
-
-
-# missing at random (autocorrelation = .75)
-gauss_real_randMiss_TEMP <- as.data.frame(makeMissing(timeSeries = gauss_real$GPP, typeMissing = "random", autoCorr = .75))
-names(gauss_real_randMiss_TEMP) <- paste0("GPP_",names(gauss_real_randMiss_TEMP))
-
-gauss_real_randMiss_autoCorr_75 <- cbind(gauss_real, gauss_real_randMiss_TEMP)
-
-# missing at random (autocorrelation = .90)
-gauss_real_randMiss_TEMP <- as.data.frame(makeMissing(timeSeries = gauss_real$GPP, typeMissing = "random", autoCorr = .90))
-names(gauss_real_randMiss_TEMP) <- paste0("GPP_",names(gauss_real_randMiss_TEMP))
-
-gauss_real_randMiss_autoCorr_90 <- cbind(gauss_real, gauss_real_randMiss_TEMP)
-
-# missing in min and max of data
+## missing in min and max of data
 gauss_real_minMaxMiss_TEMP <- as.data.frame(makeMissing(timeSeries = gauss_real$GPP, 
                                                    typeMissing = "minMax"))
 
@@ -145,59 +98,26 @@ gauss_real_minMaxMiss <- cbind(gauss_real, gauss_real_minMaxMiss_TEMP)
 pois_sim <- readRDS("./data/ricker_0miss_datasets.rds")
 
 # make missing data types
-# missing at random (autocorrelation = .01)
-pois_sim_randMiss_autoCorr_01 <- lapply(X = pois_sim, FUN = function(x) 
-  list("y" = makeMissing(timeSeries = x$y, typeMissing = "random", autoCorr = .01), 
-       "sim_params" <- x$sim_params)
-)
 
-for (i in 1:length(pois_sim_randMiss_autoCorr_01)) {
-  names(pois_sim_randMiss_autoCorr_01[[i]]) <- c("y", "sim_params")
-  pois_sim_randMiss_autoCorr_01[[i]]$y <- c(list("y_noMiss" = pois_sim[[i]]$y), pois_sim_randMiss_autoCorr_01[[i]]$y)
-}
+## make missing data types for increasing levels of autocorrelation
+# possible autocorrelation vector
+inputAutocor <- c(.01, .10, .20, .30, .40, .50, .60, .70, .80, .90)
 
-# missing at random (autocorrelation = .25)
-pois_sim_randMiss_autoCorr_25 <- lapply(X = pois_sim, FUN = function(x) 
-  list("y" = makeMissing(timeSeries = x$y, typeMissing = "random", autoCorr = .25), 
-       "sim_params" <- x$sim_params)
-)
-
-for (i in 1:length(pois_sim_randMiss_autoCorr_25)) {
-  names(pois_sim_randMiss_autoCorr_25[[i]]) <- c("y", "sim_params")
-  pois_sim_randMiss_autoCorr_25[[i]]$y <- c(list("y_noMiss" = pois_sim[[i]]$y), pois_sim_randMiss_autoCorr_25[[i]]$y)
-}
-
-# missing at random (autocorrelation = .50)
-pois_sim_randMiss_autoCorr_50 <- lapply(X = pois_sim, FUN = function(x) 
-  list("y" = makeMissing(timeSeries = x$y, typeMissing = "random", autoCorr = .50), 
-       "sim_params" <- x$sim_params)
-)
-
-for (i in 1:length(pois_sim_randMiss_autoCorr_50)) {
-  names(pois_sim_randMiss_autoCorr_50[[i]]) <- c("y", "sim_params")
-  pois_sim_randMiss_autoCorr_50[[i]]$y <- c(list("y_noMiss" = pois_sim[[i]]$y), pois_sim_randMiss_autoCorr_50[[i]]$y)
-}
-
-# missing at random (autocorrelation = .75)
-pois_sim_randMiss_autoCorr_75 <- lapply(X = pois_sim, FUN = function(x) 
-  list("y" = makeMissing(timeSeries = x$y, typeMissing = "random", autoCorr = .75), 
-       "sim_params" <- x$sim_params)
-)
-
-for (i in 1:length(pois_sim_randMiss_autoCorr_75)) {
-  names(pois_sim_randMiss_autoCorr_75[[i]]) <- c("y", "sim_params")
-  pois_sim_randMiss_autoCorr_75[[i]]$y <- c(list("y_noMiss" = pois_sim[[i]]$y), pois_sim_randMiss_autoCorr_75[[i]]$y)
-}
-
-# missing at random (autocorrelation = .90)
-pois_sim_randMiss_autoCorr_90 <- lapply(X = pois_sim, FUN = function(x) 
-  list("y" = makeMissing(timeSeries = x$y, typeMissing = "random", autoCorr = .90), 
-       "sim_params" <- x$sim_params)
-)
-
-for (i in 1:length(pois_sim_randMiss_autoCorr_90)) {
-  names(pois_sim_randMiss_autoCorr_90[[i]]) <- c("y", "sim_params")
-  pois_sim_randMiss_autoCorr_90[[i]]$y <- c(list("y_noMiss" = pois_sim[[i]]$y), pois_sim_randMiss_autoCorr_90[[i]]$y)
+for (i in 1:length(inputAutocor)) {
+  # calculate missing vectors with increasing levels of missingness
+  tempOutList <- lapply(X = pois_sim, FUN = function(x) 
+    list("y" = makeMissing(timeSeries = x$y, typeMissing = "random", autoCorr = inputAutocor[i]), 
+         "sim_params" <- x$sim_params)
+  )
+  # name the elements of the list with the amount of missingness 
+  for (j in 1:length(tempOutList)) {
+    names(tempOutList[[j]]) <- c("y", "sim_params")
+    tempOutList[[j]]$y <- c(list("y_noMiss" = pois_sim[[j]]$y), tempOutList[[j]]$y)
+  }
+  # rename the output list to reflect the input autocorrelation
+  assign(x = paste0("pois_sim_randMiss_autoCorr_", 
+                    str_pad(str_extract_all(string = inputAutocor[i], pattern = "\\d+" , simplify = TRUE)[,2], width = 2, side = "right", pad = "0")) , 
+         value = tempOutList)
 }
 
 # missing in min and max of data
@@ -216,35 +136,25 @@ for (i in 1:length(pois_sim_minMaxMiss)) {
 pois_real <- read.csv('data/Wytham_tits.csv')
 
 ## make missing data types
-# missing at random (autocorrelation = .01)
-pois_real_randMiss_TEMP <- as.data.frame(makeMissing(timeSeries = pois_real$Broods, typeMissing = "random", autoCorr = .01))
-names(pois_real_randMiss_TEMP) <- paste0("Broods_",names(pois_real_randMiss_TEMP))
+## make missing data types for increasing levels of autocorrelation
+# possible autocorrelation vector
+inputAutocor <- c(.01, .10, .20, .30, .40, .50, .60, .70, .80, .90)
 
-pois_real_randMiss_autoCorr_01 <- cbind(pois_real, pois_real_randMiss_TEMP)
-
-# missing at random (autocorrelation = .25)
-pois_real_randMiss_TEMP <- as.data.frame(makeMissing(timeSeries = pois_real$Broods, typeMissing = "random", autoCorr = .25))
-names(pois_real_randMiss_TEMP) <- paste0("Broods_",names(pois_real_randMiss_TEMP))
-
-pois_real_randMiss_autoCorr_25 <- cbind(pois_real, pois_real_randMiss_TEMP)
-
-# missing at random (autocorrelation = .50)
-pois_real_randMiss_TEMP <- as.data.frame(makeMissing(timeSeries = pois_real$Broods, typeMissing = "random", autoCorr = .50))
-names(pois_real_randMiss_TEMP) <- paste0("Broods_",names(pois_real_randMiss_TEMP))
-
-pois_real_randMiss_autoCorr_50 <- cbind(pois_real, pois_real_randMiss_TEMP)
-
-# missing at random (autocorrelation = .75)
-pois_real_randMiss_TEMP <- as.data.frame(makeMissing(timeSeries = pois_real$Broods, typeMissing = "random", autoCorr = .75))
-names(pois_real_randMiss_TEMP) <- paste0("Broods_",names(pois_real_randMiss_TEMP))
-
-pois_real_randMiss_autoCorr_75 <- cbind(pois_real, pois_real_randMiss_TEMP)
-
-# missing at random (autocorrelation = .90)
-pois_real_randMiss_TEMP <- as.data.frame(makeMissing(timeSeries = pois_real$Broods, typeMissing = "random", autoCorr = .90))
-names(pois_real_randMiss_TEMP) <- paste0("Broods_",names(pois_real_randMiss_TEMP))
-
-pois_real_randMiss_autoCorr_90 <- cbind(pois_real, pois_real_randMiss_TEMP)
+for (i in 1:length(inputAutocor)) {
+  # calculate missing vectors with increasing levels of missingness
+  tempOutDf <- as.data.frame(makeMissing(timeSeries = pois_real$Broods, 
+                                         typeMissing = "random", 
+                                         autoCorr = inputAutocor[i]))
+  
+  # name the elements of the Df with the amount of missingness 
+  names(tempOutDf) <- paste0("Broods_",names(tempOutDf))
+  tempOutDf <- cbind(pois_real, tempOutDf)
+  
+  # rename the output list to reflect the input autocorrelation
+  assign(x = paste0("pois_real_randMiss_autoCorr_", 
+                    str_pad(str_extract_all(string = inputAutocor[i], pattern = "\\d+" , simplify = TRUE)[,2], width = 2, side = "right", pad = "0")) ,
+         value = tempOutDf)
+}
 
 # missing in min and max of data
 pois_real_minMaxMiss_TEMP <- as.data.frame(makeMissing(timeSeries = pois_real$Broods, 
@@ -270,9 +180,14 @@ if (dir.exists("./data/missingDatasets") == FALSE) {
 # highest proportion of missing data. The $sim_params element contains the 
 # parameters used to generate that simulated dataset)
 saveRDS(gauss_sim_randMiss_autoCorr_01, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_01.rds")
-saveRDS(gauss_sim_randMiss_autoCorr_25, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_25.rds")
+saveRDS(gauss_sim_randMiss_autoCorr_10, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_10.rds")
+saveRDS(gauss_sim_randMiss_autoCorr_20, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_20.rds")
+saveRDS(gauss_sim_randMiss_autoCorr_30, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_30.rds")
+saveRDS(gauss_sim_randMiss_autoCorr_40, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_40.rds")
 saveRDS(gauss_sim_randMiss_autoCorr_50, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_50.rds")
-saveRDS(gauss_sim_randMiss_autoCorr_75, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_75.rds")
+saveRDS(gauss_sim_randMiss_autoCorr_60, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_60.rds")
+saveRDS(gauss_sim_randMiss_autoCorr_70, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_70.rds")
+saveRDS(gauss_sim_randMiss_autoCorr_80, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_80.rds")
 saveRDS(gauss_sim_randMiss_autoCorr_90, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_90.rds")
 saveRDS(gauss_sim_minMaxMiss, file = "./data/missingDatasets/gauss_sim_minMaxMiss.rds")
 
@@ -283,9 +198,14 @@ saveRDS(gauss_sim_minMaxMiss, file = "./data/missingDatasets/gauss_sim_minMaxMis
 # highest proportion of missing data. The $sim_params element contains the 
 # parameters used to generate that simulated dataset)
 saveRDS(pois_sim_randMiss_autoCorr_01, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_01.rds")
-saveRDS(pois_sim_randMiss_autoCorr_25, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_25.rds")
+saveRDS(pois_sim_randMiss_autoCorr_10, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_10.rds")
+saveRDS(pois_sim_randMiss_autoCorr_20, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_20.rds")
+saveRDS(pois_sim_randMiss_autoCorr_30, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_30.rds")
+saveRDS(pois_sim_randMiss_autoCorr_40, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_40.rds")
 saveRDS(pois_sim_randMiss_autoCorr_50, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_50.rds")
-saveRDS(pois_sim_randMiss_autoCorr_75, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_75.rds")
+saveRDS(pois_sim_randMiss_autoCorr_60, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_60.rds")
+saveRDS(pois_sim_randMiss_autoCorr_70, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_70.rds")
+saveRDS(pois_sim_randMiss_autoCorr_80, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_80.rds")
 saveRDS(pois_sim_randMiss_autoCorr_90, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_90.rds")
 saveRDS(pois_sim_minMaxMiss, file = "./data/missingDatasets/pois_sim_minMaxMiss.rds")
 
@@ -293,18 +213,28 @@ saveRDS(pois_sim_minMaxMiss, file = "./data/missingDatasets/pois_sim_minMaxMiss.
 ## store real Gaussian data (a data frame with columns added for increasing 
 # amounts of missingness in the response variable)
 saveRDS(gauss_real_randMiss_autoCorr_01, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_01.rds")
-saveRDS(gauss_real_randMiss_autoCorr_25, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_25.rds")
+saveRDS(gauss_real_randMiss_autoCorr_10, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_10.rds")
+saveRDS(gauss_real_randMiss_autoCorr_20, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_20.rds")
+saveRDS(gauss_real_randMiss_autoCorr_30, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_30.rds")
+saveRDS(gauss_real_randMiss_autoCorr_40, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_40.rds")
 saveRDS(gauss_real_randMiss_autoCorr_50, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_50.rds")
-saveRDS(gauss_real_randMiss_autoCorr_75, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_75.rds")
+saveRDS(gauss_real_randMiss_autoCorr_60, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_60.rds")
+saveRDS(gauss_real_randMiss_autoCorr_70, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_70.rds")
+saveRDS(gauss_real_randMiss_autoCorr_80, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_80.rds")
 saveRDS(gauss_real_randMiss_autoCorr_90, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_90.rds")
 saveRDS(gauss_real_minMaxMiss, file = "./data/missingDatasets/gauss_real_minMaxMiss.rds")
 
 ## store real Poisson data (a data frame with columns added for increasing 
 # amounts of missingness in the response variable)
 saveRDS(pois_real_randMiss_autoCorr_01, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_01.rds")
-saveRDS(pois_real_randMiss_autoCorr_25, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_25.rds")
+saveRDS(pois_real_randMiss_autoCorr_10, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_10.rds")
+saveRDS(pois_real_randMiss_autoCorr_20, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_20.rds")
+saveRDS(pois_real_randMiss_autoCorr_30, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_30.rds")
+saveRDS(pois_real_randMiss_autoCorr_40, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_40.rds")
 saveRDS(pois_real_randMiss_autoCorr_50, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_50.rds")
-saveRDS(pois_real_randMiss_autoCorr_75, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_75.rds")
+saveRDS(pois_real_randMiss_autoCorr_60, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_60.rds")
+saveRDS(pois_real_randMiss_autoCorr_70, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_70.rds")
+saveRDS(pois_real_randMiss_autoCorr_80, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_80.rds")
 saveRDS(pois_real_randMiss_autoCorr_90, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_90.rds")
 saveRDS(pois_real_minMaxMiss, file = "./data/missingDatasets/pois_real_minMaxMiss.rds")
 
