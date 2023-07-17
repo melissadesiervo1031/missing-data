@@ -59,7 +59,7 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       
       # first row of transition matrix
       # determines 0 -> 0 and 0 -> 1
-       M[1, ] <- c(1 - (1 - autoCorr_f)*p, (1 - autoCorr_f)*p)
+      M[1, ] <- c(1 - (1 - autoCorr_f)*p, (1 - autoCorr_f)*p)
       
       # find second row of matrix
       # determines 1 -> 0 and 1 -> 1
@@ -87,10 +87,24 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
         p_t <- M[X[t - 1], ]
         X[t] <- which(rmultinom(1, size = 1, prob = p_t) == 1)
       }
-      ## is X only 0s? 
+      ## is X only 1s? 
       if (sum(X != 1) == 0) {
         while (sum(X != 1) == 0) {
           # if yes, redo the process again until you get at least one '1'
+          # generate series of states
+          X <- vector(mode = "double", length = n)
+          X[1] <- 2 # always start with an observed value
+          
+          for(t in 2:n){
+            p_t <- M[X[t - 1], ]
+            X[t] <- which(rmultinom(1, size = 1, prob = p_t) == 1)
+          }
+        }
+      }
+      ## is X only 2s? 
+      if (sum(X != 2) == 0) {
+        while (sum(X != 2) == 0) {
+          # if yes, redo the process again until you get at least one '2'
           # generate series of states
           X <- vector(mode = "double", length = n)
           X[1] <- 2 # always start with an observed value
@@ -106,7 +120,55 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       missingVec <- X - 1
       
       # ## calculate the actual autocorrelation of the time series in this iteration (with a time lag of 1)
-      # acf(x = missingVec, plot = FALSE, lag.max = 1)[1]
+      actualAutoCorr <- acf(x = missingVec, plot = FALSE, lag.max = 1)$acf[,,1][2]
+      
+      actualAutoCorr_while <- actualAutoCorr
+        while (actualAutoCorr_while < 0) {
+          # generate series of states
+          X <- vector(mode = "double", length = n)
+          X[1] <- 2 # always start with an observed value
+          
+          for(t in 2:n){
+            p_t <- M[X[t - 1], ]
+            X[t] <- which(rmultinom(1, size = 1, prob = p_t) == 1)
+          }
+          ## is X only 1s? 
+          if (sum(X != 1) == 0) {
+            while (sum(X != 1) == 0) {
+              # if yes, redo the process again until you get at least one '1'
+              # generate series of states
+              X <- vector(mode = "double", length = n)
+              X[1] <- 2 # always start with an observed value
+              
+              for(t in 2:n){
+                p_t <- M[X[t - 1], ]
+                X[t] <- which(rmultinom(1, size = 1, prob = p_t) == 1)
+              }
+            }
+          }
+          ## is X only 2s? 
+          if (sum(X != 2) == 0) {
+            while (sum(X != 2) == 0) {
+              # if yes, redo the process again until you get at least one '2'
+              # generate series of states
+              X <- vector(mode = "double", length = n)
+              X[1] <- 2 # always start with an observed value
+              
+              for(t in 2:n){
+                p_t <- M[X[t - 1], ]
+                X[t] <- which(rmultinom(1, size = 1, prob = p_t) == 1)
+              }
+            }
+          }
+          
+          
+          # now change to 0s and 1s
+          missingVec <- X - 1
+          
+          # ## calculate the actual autocorrelation of the time series in this iteration (with a time lag of 1)
+          actualAutoCorr_while <- acf(x = missingVec, plot = FALSE, lag.max = 1)$acf[,,1][2]
+          
+        }
       
       # ## quick checks:
       # # average size of 'chunks' of missing data
@@ -180,16 +242,16 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
 # stored in a list and named `y`. The parameters used to simulate the data are 
 # stored in a sublist called `sim_params` and include `r`, the intrinsic growth 
 # rate, and `alpha`, the intraspecific competition coefficient.
-ricker <- readRDS("./data/ricker_0miss_datasets.rds")
-
-## testing with a subset of the ricker data
-# for missing at random (chunk size = 1)
-makeMissing(timeSeries = ricker[[1]]$y, typeMissing = "random", propMiss = c(.5, .05), autoCorr = .3)
-# for missing at random but autocorrelated (chunk size = 3)
-makeMissing(timeSeries = ricker[[1]]$y, typeMissing = "random", propMiss = c(.5, .05))
-
-## testing w/ all of the ricker data list
-lapply(X = ricker, FUN = function(X) makeMissing(timeSeries = X$y, typeMissing = "random", chunkSize = 1))
+# ricker <- readRDS("./data/ricker_0miss_datasets.rds")
+# 
+# ## testing with a subset of the ricker data
+# # for missing at random (chunk size = 1)
+# makeMissing(timeSeries = ricker[[1]]$y, typeMissing = "random", propMiss = c(.5, .05), autoCorr = .003)
+# # for missing at random but autocorrelated (chunk size = 3)
+# makeMissing(timeSeries = ricker[[1]]$y, typeMissing = "random", propMiss = c(.5, .05))
+# 
+# ## testing w/ all of the ricker data list
+# lapply(X = ricker, FUN = function(X) makeMissing(timeSeries = X$y, typeMissing = "random", chunkSize = 1))
 
 
 # # Testing for MCAR vs MNAR ------------------------------------------------
