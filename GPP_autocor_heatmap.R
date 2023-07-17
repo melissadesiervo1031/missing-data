@@ -11,6 +11,7 @@ library(nlme)
 library(tidyverse)
 library(lubridate)
 library(here)
+library(viridis)
 
 #####Source code for the ARIMA functions, just Kalman filter for now ###
 
@@ -19,16 +20,28 @@ source(here::here("Functions/Arima_Kalman_function.R"))
 ### Read in MAR datasets with different levels of autocorrellation ##
 
 gauss_sim_MAR_cor_01_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss_autoCorr_01.rds")
-gauss_sim_MAR_cor_25_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss_autoCorr_25.rds")
+gauss_sim_MAR_cor_10_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss_autoCorr_10.rds")
+gauss_sim_MAR_cor_20_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss_autoCorr_20.rds")
+gauss_sim_MAR_cor_30_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss_autoCorr_30.rds")
+gauss_sim_MAR_cor_40_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss_autoCorr_40.rds")
 gauss_sim_MAR_cor_50_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss_autoCorr_50.rds")
+gauss_sim_MAR_cor_60_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss_autoCorr_60.rds")
+gauss_sim_MAR_cor_70_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss_autoCorr_70.rds")
+gauss_sim_MAR_cor_80_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss_autoCorr_80.rds")
 gauss_sim_MAR_cor_90_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss_autoCorr_90.rds")
 
 
 ##pull out the first of each one ##
 
 gauss_sim_MAR_cor_01_1<- gauss_sim_MAR_cor_01_datasets [[1]]
-gauss_sim_MAR_cor_25_1<- gauss_sim_MAR_cor_25_datasets [[1]]
+gauss_sim_MAR_cor_10_1<- gauss_sim_MAR_cor_10_datasets [[1]]
+gauss_sim_MAR_cor_20_1<- gauss_sim_MAR_cor_20_datasets [[1]]
+gauss_sim_MAR_cor_30_1<- gauss_sim_MAR_cor_30_datasets [[1]]
+gauss_sim_MAR_cor_40_1<- gauss_sim_MAR_cor_40_datasets [[1]]
 gauss_sim_MAR_cor_50_1<- gauss_sim_MAR_cor_50_datasets [[1]]
+gauss_sim_MAR_cor_60_1<- gauss_sim_MAR_cor_60_datasets [[1]]
+gauss_sim_MAR_cor_70_1<- gauss_sim_MAR_cor_70_datasets [[1]]
+gauss_sim_MAR_cor_80_1<- gauss_sim_MAR_cor_80_datasets [[1]]
 gauss_sim_MAR_cor_90_1<- gauss_sim_MAR_cor_90_datasets [[1]]
 
 ### true estimates without missing data ##
@@ -47,11 +60,33 @@ trueestdf <- data.frame (param = c("ar1", "intercept", "light", "discharge"), re
 arima_kalman_MAR_cor_01<- fit_arima_Kalman(gauss_sim_MAR_cor_01_1$y,gauss_sim_MAR_cor_01_1$sim_params)
 names(arima_kalman_MAR_cor_01) <- names(gauss_sim_MAR_cor_01_1[["y"]]) #names for bookeeping#
 
-arima_kalman_MAR_cor_25<- fit_arima_Kalman(gauss_sim_MAR_cor_25_1$y,gauss_sim_MAR_cor_25_1$sim_params)
-names(arima_kalman_MAR_cor_25) <- names(gauss_sim_MAR_cor_25_1[["y"]]) #names for bookeeping#
+arima_kalman_MAR_cor_10<- fit_arima_Kalman(gauss_sim_MAR_cor_10_1$y,gauss_sim_MAR_cor_10_1$sim_params)
+names(arima_kalman_MAR_cor_10) <- names(gauss_sim_MAR_cor_10_1[["y"]]) #names for bookeeping#
+
+arima_kalman_MAR_cor_20<- fit_arima_Kalman(gauss_sim_MAR_cor_20_1$y,gauss_sim_MAR_cor_20_1$sim_params)
+names(arima_kalman_MAR_cor_20) <- names(gauss_sim_MAR_cor_20_1[["y"]]) #names for bookeeping#
+
+arima_kalman_MAR_cor_30<- fit_arima_Kalman(gauss_sim_MAR_cor_30_1$y,gauss_sim_MAR_cor_30_1$sim_params)
+names(arima_kalman_MAR_cor_30) <- names(gauss_sim_MAR_cor_30_1[["y"]]) #names for bookeeping#
+
+arima_kalman_MAR_cor_40<- fit_arima_Kalman(gauss_sim_MAR_cor_40_1$y,gauss_sim_MAR_cor_40_1$sim_params)
+names(arima_kalman_MAR_cor_40) <- names(gauss_sim_MAR_cor_40_1[["y"]]) #names for bookeeping#
 
 arima_kalman_MAR_cor_50<- fit_arima_Kalman(gauss_sim_MAR_cor_50_1$y,gauss_sim_MAR_cor_50_1$sim_params)
 names(arima_kalman_MAR_cor_50) <- names(gauss_sim_MAR_cor_50_1[["y"]]) #names for bookeeping#
+
+
+arima_kalman_MAR_cor_60<- fit_arima_Kalman(gauss_sim_MAR_cor_60_1$y,gauss_sim_MAR_cor_60_1$sim_params)
+names(arima_kalman_MAR_cor_60) <- names(gauss_sim_MAR_cor_60_1[["y"]]) #names for bookeeping#
+
+
+arima_kalman_MAR_cor_70<- fit_arima_Kalman(gauss_sim_MAR_cor_70_1$y,gauss_sim_MAR_cor_70_1$sim_params)
+names(arima_kalman_MAR_cor_70) <- names(gauss_sim_MAR_cor_70_1[["y"]]) #names for bookeeping#
+
+
+arima_kalman_MAR_cor_80<- fit_arima_Kalman(gauss_sim_MAR_cor_80_1$y,gauss_sim_MAR_cor_80_1$sim_params)
+names(arima_kalman_MAR_cor_80) <- names(gauss_sim_MAR_cor_80_1[["y"]]) #names for bookeeping#
+
 
 arima_kalman_MAR_cor_90<- fit_arima_Kalman(gauss_sim_MAR_cor_90_1$y,gauss_sim_MAR_cor_90_1$sim_params)
 names(arima_kalman_MAR_cor_90) <- names(gauss_sim_MAR_cor_90_1[["y"]]) #names for bookeeping#
@@ -68,15 +103,49 @@ arima_kalman_MAR_cor_01_errordf<- lapply(arima_kalman_MAR_cor_01_error, function
 kalman_MAR_cor_01_paramdf <- map_df(arima_kalman_MAR_cor_01_paramdf, ~as.data.frame(.x), .id="missingprop_autocor")
 kalman_MAR_cor_01_errordf <- map_df(arima_kalman_MAR_cor_01_errordf, ~as.data.frame(.x), .id="missingprop_autocor")
 
-#25#
-arima_kalman_MAR_cor_25_param<-purrr::map(arima_kalman_MAR_cor_25 , ~.["arima_pars"])
-arima_kalman_MAR_cor_25_error<-purrr::map(arima_kalman_MAR_cor_25 , ~.["arima_errors"])
+#10#
+arima_kalman_MAR_cor_10_param<-purrr::map(arima_kalman_MAR_cor_10 , ~.["arima_pars"])
+arima_kalman_MAR_cor_10_error<-purrr::map(arima_kalman_MAR_cor_10 , ~.["arima_errors"])
 
-arima_kalman_MAR_cor_25_paramdf <- lapply(arima_kalman_MAR_cor_25_param, function(x) as.data.frame(do.call(rbind, x)))
-arima_kalman_MAR_cor_25_errordf<- lapply(arima_kalman_MAR_cor_25_error, function(x) as.data.frame(do.call(rbind, x)))
+arima_kalman_MAR_cor_10_paramdf <- lapply(arima_kalman_MAR_cor_10_param, function(x) as.data.frame(do.call(rbind, x)))
+arima_kalman_MAR_cor_10_errordf<- lapply(arima_kalman_MAR_cor_10_error, function(x) as.data.frame(do.call(rbind, x)))
 
-kalman_MAR_cor_25_paramdf <- map_df(arima_kalman_MAR_cor_25_paramdf, ~as.data.frame(.x), .id="missingprop_autocor")
-kalman_MAR_cor_25_errordf <- map_df(arima_kalman_MAR_cor_25_errordf, ~as.data.frame(.x), .id="missingprop_autocor")
+kalman_MAR_cor_10_paramdf <- map_df(arima_kalman_MAR_cor_10_paramdf, ~as.data.frame(.x), .id="missingprop_autocor")
+kalman_MAR_cor_10_errordf <- map_df(arima_kalman_MAR_cor_10_errordf, ~as.data.frame(.x), .id="missingprop_autocor")
+
+
+#20#
+arima_kalman_MAR_cor_20_param<-purrr::map(arima_kalman_MAR_cor_20 , ~.["arima_pars"])
+arima_kalman_MAR_cor_20_error<-purrr::map(arima_kalman_MAR_cor_20 , ~.["arima_errors"])
+
+arima_kalman_MAR_cor_20_paramdf <- lapply(arima_kalman_MAR_cor_20_param, function(x) as.data.frame(do.call(rbind, x)))
+arima_kalman_MAR_cor_20_errordf<- lapply(arima_kalman_MAR_cor_20_error, function(x) as.data.frame(do.call(rbind, x)))
+
+kalman_MAR_cor_20_paramdf <- map_df(arima_kalman_MAR_cor_20_paramdf, ~as.data.frame(.x), .id="missingprop_autocor")
+kalman_MAR_cor_20_errordf <- map_df(arima_kalman_MAR_cor_20_errordf, ~as.data.frame(.x), .id="missingprop_autocor")
+
+
+#30#
+arima_kalman_MAR_cor_30_param<-purrr::map(arima_kalman_MAR_cor_30 , ~.["arima_pars"])
+arima_kalman_MAR_cor_30_error<-purrr::map(arima_kalman_MAR_cor_30 , ~.["arima_errors"])
+
+arima_kalman_MAR_cor_30_paramdf <- lapply(arima_kalman_MAR_cor_30_param, function(x) as.data.frame(do.call(rbind, x)))
+arima_kalman_MAR_cor_30_errordf<- lapply(arima_kalman_MAR_cor_30_error, function(x) as.data.frame(do.call(rbind, x)))
+
+kalman_MAR_cor_30_paramdf <- map_df(arima_kalman_MAR_cor_30_paramdf, ~as.data.frame(.x), .id="missingprop_autocor")
+kalman_MAR_cor_30_errordf <- map_df(arima_kalman_MAR_cor_30_errordf, ~as.data.frame(.x), .id="missingprop_autocor")
+
+
+#40#
+arima_kalman_MAR_cor_40_param<-purrr::map(arima_kalman_MAR_cor_40 , ~.["arima_pars"])
+arima_kalman_MAR_cor_40_error<-purrr::map(arima_kalman_MAR_cor_40 , ~.["arima_errors"])
+
+arima_kalman_MAR_cor_40_paramdf <- lapply(arima_kalman_MAR_cor_40_param, function(x) as.data.frame(do.call(rbind, x)))
+arima_kalman_MAR_cor_40_errordf<- lapply(arima_kalman_MAR_cor_40_error, function(x) as.data.frame(do.call(rbind, x)))
+
+kalman_MAR_cor_40_paramdf <- map_df(arima_kalman_MAR_cor_40_paramdf, ~as.data.frame(.x), .id="missingprop_autocor")
+kalman_MAR_cor_40_errordf <- map_df(arima_kalman_MAR_cor_40_errordf, ~as.data.frame(.x), .id="missingprop_autocor")
+
 
 #50$
 arima_kalman_MAR_cor_50_param<-purrr::map(arima_kalman_MAR_cor_50 , ~.["arima_pars"])
@@ -87,6 +156,36 @@ arima_kalman_MAR_cor_50_errordf<- lapply(arima_kalman_MAR_cor_50_error, function
 
 kalman_MAR_cor_50_paramdf <- map_df(arima_kalman_MAR_cor_50_paramdf, ~as.data.frame(.x), .id="missingprop_autocor")
 kalman_MAR_cor_50_errordf <- map_df(arima_kalman_MAR_cor_50_errordf, ~as.data.frame(.x), .id="missingprop_autocor")
+
+#60$
+arima_kalman_MAR_cor_60_param<-purrr::map(arima_kalman_MAR_cor_60 , ~.["arima_pars"])
+arima_kalman_MAR_cor_60_error<-purrr::map(arima_kalman_MAR_cor_60 , ~.["arima_errors"])
+
+arima_kalman_MAR_cor_60_paramdf <- lapply(arima_kalman_MAR_cor_60_param, function(x) as.data.frame(do.call(rbind, x)))
+arima_kalman_MAR_cor_60_errordf<- lapply(arima_kalman_MAR_cor_60_error, function(x) as.data.frame(do.call(rbind, x)))
+
+kalman_MAR_cor_60_paramdf <- map_df(arima_kalman_MAR_cor_60_paramdf, ~as.data.frame(.x), .id="missingprop_autocor")
+kalman_MAR_cor_60_errordf <- map_df(arima_kalman_MAR_cor_60_errordf, ~as.data.frame(.x), .id="missingprop_autocor")
+
+#70$
+arima_kalman_MAR_cor_70_param<-purrr::map(arima_kalman_MAR_cor_70 , ~.["arima_pars"])
+arima_kalman_MAR_cor_70_error<-purrr::map(arima_kalman_MAR_cor_70 , ~.["arima_errors"])
+
+arima_kalman_MAR_cor_70_paramdf <- lapply(arima_kalman_MAR_cor_70_param, function(x) as.data.frame(do.call(rbind, x)))
+arima_kalman_MAR_cor_70_errordf<- lapply(arima_kalman_MAR_cor_70_error, function(x) as.data.frame(do.call(rbind, x)))
+
+kalman_MAR_cor_70_paramdf <- map_df(arima_kalman_MAR_cor_70_paramdf, ~as.data.frame(.x), .id="missingprop_autocor")
+kalman_MAR_cor_70_errordf <- map_df(arima_kalman_MAR_cor_70_errordf, ~as.data.frame(.x), .id="missingprop_autocor")
+
+#80$
+arima_kalman_MAR_cor_80_param<-purrr::map(arima_kalman_MAR_cor_80 , ~.["arima_pars"])
+arima_kalman_MAR_cor_80_error<-purrr::map(arima_kalman_MAR_cor_80 , ~.["arima_errors"])
+
+arima_kalman_MAR_cor_80_paramdf <- lapply(arima_kalman_MAR_cor_80_param, function(x) as.data.frame(do.call(rbind, x)))
+arima_kalman_MAR_cor_80_errordf<- lapply(arima_kalman_MAR_cor_80_error, function(x) as.data.frame(do.call(rbind, x)))
+
+kalman_MAR_cor_80_paramdf <- map_df(arima_kalman_MAR_cor_80_paramdf, ~as.data.frame(.x), .id="missingprop_autocor")
+kalman_MAR_cor_80_errordf <- map_df(arima_kalman_MAR_cor_80_errordf, ~as.data.frame(.x), .id="missingprop_autocor")
 
 #90#
 arima_kalman_MAR_cor_90_param<-purrr::map(arima_kalman_MAR_cor_90 , ~.["arima_pars"])
@@ -100,7 +199,7 @@ kalman_MAR_cor_90_errordf <- map_df(arima_kalman_MAR_cor_90_errordf, ~as.data.fr
 
 ### rbind all the dataframes ## 
 
-kalman_MAR_allcor_paramdf<-rbind(kalman_MAR_cor_01_paramdf, kalman_MAR_cor_25_paramdf, kalman_MAR_cor_50_paramdf, kalman_MAR_cor_90_paramdf)
+kalman_MAR_allcor_paramdf<-rbind(kalman_MAR_cor_01_paramdf, kalman_MAR_cor_10_paramdf, kalman_MAR_cor_20_paramdf, kalman_MAR_cor_30_paramdf, kalman_MAR_cor_40_paramdf, kalman_MAR_cor_50_paramdf, kalman_MAR_cor_60_paramdf,kalman_MAR_cor_70_paramdf,kalman_MAR_cor_80_paramdf,kalman_MAR_cor_90_paramdf)
 
 rownames(kalman_MAR_allcor_paramdf) <- NULL
 
@@ -133,8 +232,8 @@ mytheme<- theme_bw()+ theme(axis.line.x= element_line(colour = "black", size=0.3
 
 ####make all figures like this one####
 
-heat_kalman<-ggplot(paramkalmanlong3, aes(x=missingprop, y=autocorr, fill=abserror)) + 
-  geom_tile() + 
+heat_kalman<-ggplot(paramkalmanlong3, aes(x=missingprop, y=autocorr)) + 
+  geom_tile(aes(fill=abserror), size=5) + 
   facet_wrap(~param)+
   scale_fill_viridis(begin=1, end=0)+
   xlab("Proportion missing")+
