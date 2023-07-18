@@ -18,8 +18,9 @@ source("Functions/missing_data_functions.R")
 #### Read in the missing dataframes that Alice S. made #####
 ###### Pull out the first in 1000 nested lists for this code ### (Eventually loop over all the lists)
 
+##MAR low autocor#
 
-gauss_sim_MAR_datasets <- readRDS(here("data/Missingdatasets/gauss_sim_randMiss.rds"))
+gauss_sim_MAR_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss_autoCorr_01.rds")
 
 
 ##For nested list of GPP datasets with increasing MAR data add back in the covariates## 

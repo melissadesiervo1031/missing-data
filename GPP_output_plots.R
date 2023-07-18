@@ -14,7 +14,8 @@ library(lubridate)
 source("functions/missing_data_functions.R")
 
 
-########## Run code for ARIMA methods over GPP 1 simulated dataset w/ increasing missingness (both MAR and MNAR) #####
+########## Run code for ARIMA methods over GPP 1 simulated dataset w/ increasing missingness
+## 3 diffnet types (MAR low auto, MAR high auto, and MNAR) #####
 
 ## ARIMA method 1: Drop NAs ###
 
@@ -39,22 +40,18 @@ source("Model Runs/MI_ARIMA.R")
 
 source("Functions/model_fitting.R")
 
-
-gauss_sim_MAR_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss.rds")
-GPP_sim_MAR<- gauss_sim_MAR_datasets [[1]]
-
-brms_fit_MAR <- fit_brms_model(GPP_sim_MAR$y,
-                            GPP_sim_MAR$sim_params,
-                            include_missing = FALSE)
+source("Model Runs/DA_BRMS_GPP.R") ## COMPUTER CRASHES WHEN i RUN THIS ALL AT ONCE ##
 
 
-############# MISSING COMPLETELY AT RANDOM (MCAR)#########################################
+
+
+############# MISSING at RANDOM (MAR)#########################################
 
 
 #### Read in the missing dataframes that Alice S. made #####
 ###### Pull out the first in 1000 nested lists for this code ### (Eventually loop over all the lists)
 
-gauss_sim_MAR_datasets <- readRDS(here("data/Missingdatasets/gauss_sim_randMiss.rds"))
+gauss_sim_MAR_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss_autoCorr_10.rds")
 
 
 ## no missing###
@@ -115,27 +112,13 @@ paramallARIMA<-rbind(paramdroplong2, paramMIlong2, paramNAlong2)
 #### plotting ARIMA AND DATA AUGMENTATION (STAN) TOGETHER ###
 
 
-#########BRMS OUTPUT#############
-
-bpars<-brms_fit_MAR$brms_pars
-
-brmsparamdf <- map_df(bpars, ~as.data.frame(.x), .id="missingprop") %>%
-  mutate(parameter = case_when(parameter == 'ar[1]'~ 'phi',
-                               TRUE ~ parameter))
-## fix names of params ##
-
-missingprop<-sort(rep(seq(0.00, 0.95, by=0.05), times=5))
-
-brmsparamdf2<-brmsparamdf %>% mutate(type="Data Augmentation: STAN")  %>% mutate(param=brmsparamdf$parameter) %>% mutate(value=brmsparamdf$mean)%>% mutate(SE=brmsparamdf$sd) %>% select(type, param, value, SE) 
-
-brmsparamdf2$param <- str_replace(brmsparamdf2$param, "b_Intercept", "intercept")
-brmsparamdf2$param <- str_replace(brmsparamdf2$param, "b_light", "light")
-brmsparamdf2$param <- str_replace(brmsparamdf2$param, "b_discharge", "discharge")
-
-brmsparamdf3<-cbind(missingprop, brmsparamdf2)
-
 ##########arima output#############
 
+#combine all the arima outputs ##
+
+paramallARIMA<-rbind(paramdroplong2,paramNAlong2,paramMIlong2)
+
+paramallARIMA<-paramallARIMA %>% select(type, param, value, SE, missingprop,autocorr)
 
 ## change AR 1 to be phi ##
 
@@ -151,7 +134,7 @@ paramallARIMA2$type <- str_replace(paramallARIMA2$type, "Kalman filter", "Kalman
 
 #### add ARIMA and STAN dataframes together ###
 
-paramallARIMASTAN<-rbind(paramallARIMA2, brmsparamdf3)
+paramallARIMASTAN<-rbind(paramallARIMA2, brmsparamdf2)
 
 ## drop sdp for comparison with arima ###
 paramallARIMASTAN2<- paramallARIMASTAN %>% filter(param != "sigma" ) 
@@ -175,6 +158,26 @@ arimastanMAR<-ggplot(data=paramallARIMASTAN2, aes(x=as.numeric(missingprop), y=v
 pdf(file = "Figures/MARcomparison.pdf",width = 8, height = 5)
 arimastanMAR
 dev.off()
+
+
+### different version of the same figure ##
+
+arimastanMAR2<-ggplot(data=paramallARIMASTAN2, aes(x=as.numeric(missingprop), y=value, color=type))+
+  facet_wrap(~factor(param, levels=c("intercept", "phi", "light", "discharge"),exclude = NA),nrow=4, scales="free_y")+
+  geom_hline(data=trueestdf2, aes(yintercept=value), colour="gray")+
+  #geom_hline(data=arimaestdf, aes(yintercept=value), colour="light blue")+
+  geom_point(size=1, position = position_dodge(width=0.02))+
+  geom_errorbar(aes(ymin=value-SE, ymax=value+SE), size=0.3, position = position_dodge(width=0.02))+
+  theme_bw()+
+  xlab("Percent of Missing Data (Missing at Random)")+
+  ylab("Parameter estimate")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 6))+ggtitle("MAR low autocorrelation (~0.10)")
+
+
+pdf(file = "Figures/MARcomparison2.pdf",width = 8, height = 5)
+arimastanMAR2
+dev.off()
+
+
 
 
 ################################ MISSING NOT AT RANDOM (MNAR) ##########################
@@ -216,79 +219,4 @@ arimaestdf <- data.frame (param = c("ar1", "intercept", "light", "discharge"), v
 
 
 gauss_sim_MNAR_datasets <- readRDS(here("data/Missingdatasets/gauss_sim_minMaxMiss.rds"))
-
-## run the BRMS on the list of datasets with increasing missingness##
-
-GPP_sim_MNAR<- gauss_sim_MNAR_datasets [[1]]
-
-brms_fit_MNAR <- fit_brms_model(GPP_sim_MNAR$y,
-                                GPP_sim_MNAR$sim_params,
-                               include_missing = FALSE)
-
-
-bparsMNAR<-brms_fit_MNAR$brms_pars
-
-brmsparamdfMNAR <- map_df(bparsMNAR, ~as.data.frame(.x), .id="missingprop") %>%
-  mutate(parameter = case_when(parameter == 'ar[1]'~ 'phi',
-                               TRUE ~ parameter))
-## fix names of params ##
-
-missingprop<-sort(rep(seq(0.00, 0.95, by=0.05), times=5))
-
-brmsparamdfMNAR2<-brmsparamdfMNAR %>% mutate(type="Data Augmentation: STAN")  %>% mutate(param=brmsparamdfMNAR$parameter) %>% mutate(value=brmsparamdfMNAR$mean)%>% mutate(SE=brmsparamdfMNAR$sd) %>% select(type, param, value, SE) 
-
-brmsparamdfMNAR2$param <- str_replace(brmsparamdfMNAR2$param, "b_Intercept", "intercept")
-brmsparamdfMNAR2$param <- str_replace(brmsparamdfMNAR2$param, "b_light", "light")
-brmsparamdfMNAR2$param <- str_replace(brmsparamdfMNAR2$param, "b_discharge", "discharge")
-
-brmsparamdfMNAR3<-cbind(missingprop, brmsparamdfMNAR2)
-
-
-
-## combine all the ARIMA output and change AR 1 to be phi ##
-
-paramdroplongMNAR2
-paramMIlongMNAR2
-paramNAlongMNAR2 
-
-paramallARIMAMNAR<-rbind(paramdroplongMNAR2, paramMIlongMNAR2, paramNAlongMNAR2)
-
-
-paramallARIMAMNAR2<-paramallARIMAMNAR
-
-paramallARIMAMNAR2$param <- str_replace(paramallARIMAMNAR2$param, "ar1", "phi")
-
-## distinguish between arima and stan ###
-
-paramallARIMAMNAR2$type <- str_replace(paramallARIMAMNAR2$type, "Data Deletion", "Data Deletion: Arima")
-paramallARIMAMNAR2$type <- str_replace(paramallARIMAMNAR2$type, "Multiple imputations", "Multiple imputations: Arima")
-paramallARIMAMNAR2$type <- str_replace(paramallARIMAMNAR2$type, "Kalman filter", "Kalman filter: Arima (default)")
-
-#### add ARIMA and STAN dataframes together ###
-
-paramallARIMASTANMNAR<-rbind(paramallARIMAMNAR2, brmsparamdfMNAR3)
-
-## drop sdp for comparison with arima ###
-paramallARIMASTANMNAR2<- paramallARIMASTANMNAR %>% filter(param != "sigma" ) 
-
-trueestdf2 <- data.frame (param = c("phi", "intercept", "light", "discharge"), value = c(realphi, realbetas))
-
-arimastanMNAR<-ggplot(data=paramallARIMASTANMNAR2, aes(x=as.numeric(missingprop), y=value))+
-  facet_grid(~factor(param, levels=c("intercept", "phi", "light", "discharge"),exclude = NA)~ type, scales="free_y")+
-  geom_hline(data=trueestdf2, aes(yintercept=value), colour="salmon")+
-  #geom_hline(data=arimaestdf, aes(yintercept=value), colour="light blue")+
-  geom_point(size=1)+
-  geom_errorbar(aes(ymin=value-SE, ymax=value+SE), size=0.3)+
-  theme_bw()+
-  xlab("Percent of Missing Data (Missing NOT at Random)")+
-  ylab("Parameter estimate")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 6))
-
-
-pdf(file = "Figures/MNARcomparison.pdf",width = 8, height = 5)
-arimastanMNAR
-dev.off()
-
-
-
-
 
