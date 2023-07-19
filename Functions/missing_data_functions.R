@@ -30,12 +30,12 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
   } else {    
     autoCorr_f <- autoCorr  
   }    
-
+  
   ## if you want to generate missing data in chunks (randomly spaced)  
   if (typeMissing == "random") {      
-     ## loop through values of "propMissing_f"
-     for (i in 1:length(propMiss_f)) {
-
+    ## loop through values of "propMissing_f"
+    for (i in 1:length(propMiss_f)) {
+      
       n <- length(timeSeries)
       
       # declare transition matrix
@@ -64,7 +64,7 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       # find second row of matrix
       # determines 1 -> 0 and 1 -> 1
       M[2,] <- c((1 - autoCorr_f)*(1-p), autoCorr_f + (1 - autoCorr_f)*p)
-
+      
       # check that there are no negative or >1 probabilities in the transition matrix 
       # (i.e. not a feasible combination of chunk size and desired proportion of missingness)
       if (sum(M > 1) > 0 | sum(M < 0) > 0) {
@@ -123,52 +123,52 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       actualAutoCorr <- acf(x = missingVec, plot = FALSE, lag.max = 1)$acf[,,1][2]
       
       actualAutoCorr_while <- actualAutoCorr
-        while (actualAutoCorr_while < 0) {
-          # generate series of states
-          X <- vector(mode = "double", length = n)
-          X[1] <- 2 # always start with an observed value
-          
-          for(t in 2:n){
-            p_t <- M[X[t - 1], ]
-            X[t] <- which(rmultinom(1, size = 1, prob = p_t) == 1)
-          }
-          ## is X only 1s? 
-          if (sum(X != 1) == 0) {
-            while (sum(X != 1) == 0) {
-              # if yes, redo the process again until you get at least one '1'
-              # generate series of states
-              X <- vector(mode = "double", length = n)
-              X[1] <- 2 # always start with an observed value
-              
-              for(t in 2:n){
-                p_t <- M[X[t - 1], ]
-                X[t] <- which(rmultinom(1, size = 1, prob = p_t) == 1)
-              }
-            }
-          }
-          ## is X only 2s? 
-          if (sum(X != 2) == 0) {
-            while (sum(X != 2) == 0) {
-              # if yes, redo the process again until you get at least one '2'
-              # generate series of states
-              X <- vector(mode = "double", length = n)
-              X[1] <- 2 # always start with an observed value
-              
-              for(t in 2:n){
-                p_t <- M[X[t - 1], ]
-                X[t] <- which(rmultinom(1, size = 1, prob = p_t) == 1)
-              }
-            }
-          }
-          
-          
-          # now change to 0s and 1s
-          missingVec <- X - 1
-          
-          # ## calculate the actual autocorrelation of the time series in this iteration (with a time lag of 1)
-          actualAutoCorr_while <- acf(x = missingVec, plot = FALSE, lag.max = 1)$acf[,,1][2]
-          
+      while (actualAutoCorr_while < 0) {
+        # generate series of states
+        X <- vector(mode = "double", length = n)
+        X[1] <- 2 # always start with an observed value
+        
+        for(t in 2:n){
+          p_t <- M[X[t - 1], ]
+          X[t] <- which(rmultinom(1, size = 1, prob = p_t) == 1)
         }
+        ## is X only 1s? 
+        if (sum(X != 1) == 0) {
+          while (sum(X != 1) == 0) {
+            # if yes, redo the process again until you get at least one '1'
+            # generate series of states
+            X <- vector(mode = "double", length = n)
+            X[1] <- 2 # always start with an observed value
+            
+            for(t in 2:n){
+              p_t <- M[X[t - 1], ]
+              X[t] <- which(rmultinom(1, size = 1, prob = p_t) == 1)
+            }
+          }
+        }
+        ## is X only 2s? 
+        if (sum(X != 2) == 0) {
+          while (sum(X != 2) == 0) {
+            # if yes, redo the process again until you get at least one '2'
+            # generate series of states
+            X <- vector(mode = "double", length = n)
+            X[1] <- 2 # always start with an observed value
+            
+            for(t in 2:n){
+              p_t <- M[X[t - 1], ]
+              X[t] <- which(rmultinom(1, size = 1, prob = p_t) == 1)
+            }
+          }
+        }
+        
+        
+        # now change to 0s and 1s
+        missingVec <- X - 1
+        
+        # ## calculate the actual autocorrelation of the time series in this iteration (with a time lag of 1)
+        actualAutoCorr_while <- acf(x = missingVec, plot = FALSE, lag.max = 1)$acf[,,1][2]
+        
+      }
       
       # ## quick checks:
       # # average size of 'chunks' of missing data
@@ -181,7 +181,7 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       # 
       # remove the "0" values in the timeSeries string
       missingDat_temp <- replace(timeSeries, list = which(missingVec == 0), values = NA)
-   
+      
       ## store the results
       if (i == 1) {        
         missingDat_list <- list(missingDat_temp) 
@@ -190,9 +190,9 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       }     
       # add a name w/ the true proportion of missing and the true autocorrelation value for a lag of 1
       names(missingDat_list)[i] <- paste0("propMissAct_",  
-                                       round(sum(is.na(missingDat_list[[i]]))/length(missingDat_list[[i]]),2),
-                                       "_autoCorr_",
-                                       round(acf(x = missingVec, plot = FALSE, lag.max = 1)$acf[,,1][2],2)
+                                          round(sum(is.na(missingDat_list[[i]]))/length(missingDat_list[[i]]),2),
+                                          "_autoCorr_",
+                                          round(acf(x = missingVec, plot = FALSE, lag.max = 1)$acf[,,1][2],2)
       )
       
     }
@@ -218,13 +218,13 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
                                                  which(timeSeries > qnorm(1-X/2, mean = mean(timeSeries), sd = sd(timeSeries)))),
                                         
                                         values = NA))    
-
     
-      names(missingDat_list) <- paste0("propMissAct_",  
-                                       lapply(X = missingDat_list, 
-                                              FUN = function(x) round(sum(is.na(x))/length(x),2)))
-                                       }    
-
+    
+    names(missingDat_list) <- paste0("propMissAct_",  
+                                     lapply(X = missingDat_list, 
+                                            FUN = function(x) round(sum(is.na(x))/length(x),2)))
+  }    
+  
   return(missingDat_list)
 }
 
