@@ -156,3 +156,8 @@ paramNAlongMNAR <- gather(modelNAdfMNAR, param, value, ar1:discharge, factor_key
 paramNASElongMNAR <- gather(modelNASEdfMNAR, param, SE, ar1:discharge, factor_key=TRUE)
 
 paramNAlongMNAR2<-merge(paramNAlongMNAR, paramNASElongMNAR)
+
+
+### combine MAR MAR and MNAR into one ###
+
+paramKalmanall<-rbind(paramNAlong2,paramNAlong_high2 , paramNAlongMNAR2)
