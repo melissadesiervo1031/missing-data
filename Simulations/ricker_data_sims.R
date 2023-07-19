@@ -34,7 +34,7 @@ ricker_sim <- function(n, r, alpha, N0){
   params <- purrr::map(
     1:nsims,
     ~ list(
-      r = runif(1, max = log(2)),
+      r = runif(1, min = 0.1, max = log(2)),
       alpha = runif(1, min = 0.001, 0.01),
       N0 = rpois(1, lambda = 20)
     )
@@ -53,6 +53,42 @@ ricker_sim <- function(n, r, alpha, N0){
       sim_params = .x
     )
   )
+  
+# check for cases in which the population went extinct
+  extincts <- which(
+    map_dbl(
+      sims,
+      ~ sum(.x$y == 0)
+    ) > 0
+  )
+  
+# try again until we have a full dataset
+  while(length(extincts) > 0){
+    
+    for(s in extincts){
+      new_pars_s <- list(
+        r = runif(1, min = 0.1, max = log(2)),
+        alpha = runif(1, min = 0.001, 0.01),
+        N0 = rpois(1, lambda = 20)
+      )
+      sims[[s]] <- list(
+        y = ricker_sim(
+          n = n,
+          r = new_pars_s$r,
+          alpha = new_pars_s$alpha,
+          N0 = new_pars_s$N0
+        ),
+        sim_params = new_pars_s
+      )
+    }
+    
+    extincts <- which(
+      map_dbl(
+        sims,
+        ~ sum(.x$y == 0)
+      ) > 0
+    )
+  }
   
   
 ##### Save data #####
