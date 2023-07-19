@@ -137,3 +137,7 @@ paramMISElongMNAR <- gather(avglSEdfMNAR2, param, SE, ar1:discharge, factor_key=
 
 paramMIlongMNAR2<-merge(paramMIlongMNAR,paramMISElongMNAR)
 
+
+#combine MAR, MAR, MNAR into one ###
+
+paramMIall<-rbind(paramMIlongMNAR2, paramMIlong_high2, paramMIlong2)
