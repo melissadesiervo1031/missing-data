@@ -153,3 +153,8 @@ paramdropSElongMNAR <- gather(modeldropSEdfMNAR, param, SE, ar1:discharge, facto
 
 paramdroplongMNAR2<-merge(paramdroplongMNAR, paramdropSElongMNAR)
 
+
+### combine all three MAR, MAR, MNAR versions into 1 ###
+
+
+paramdropall<-rbind(paramdroplong2,paramdroplong_high2, paramdroplongMNAR2)
