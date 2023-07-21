@@ -21,13 +21,13 @@ gausSim <- data.frame("y" = gausSim[[1]]$y,
                       "time" = 1:length(gausSim[[1]]$y))
 
 # get 40% missing completely at random
-gausSim$y_lowAuto_40Miss <- as.vector(unlist(makeMissing(timeSeries = gausSim$y, typeMissing = "random", propMiss = .4, autoCorr = .01)))
+gausSim$y_lowAuto_40Miss <- as.vector(unlist(makeMissing(timeSeries = gausSim$y, typeMissing = "random", propMiss = .4, autoCorr = 0)))
 
 # get 40% missing in highly autocorrelated chunks
 gausSim$y_highAuto_40miss <- as.vector(unlist(makeMissing(timeSeries = gausSim$y, typeMissing = "random", propMiss = .4, autoCorr = .9)))
 
 # get 10% missing completely at random
-gausSim$y_lowAuto_10Miss <- as.vector(unlist(makeMissing(timeSeries = gausSim$y, typeMissing = "random", propMiss = .1, autoCorr = .01)))
+gausSim$y_lowAuto_10Miss <- as.vector(unlist(makeMissing(timeSeries = gausSim$y, typeMissing = "random", propMiss = .1, autoCorr = 0)))
 
 # get 10% missing in highly autocorrelated chunks
 gausSim$y_highAuto_10miss <- as.vector(unlist(makeMissing(timeSeries = gausSim$y, typeMissing = "random", propMiss = .1, autoCorr = .9)))
@@ -47,16 +47,16 @@ gausSim <- gausSim %>%
                names_to = "MissingnessType")
 # fix names
 gausSim[gausSim$MissingnessType == "y", "MissingnessType"] <- "A: No Missing Data"
-gausSim[gausSim$MissingnessType == "y_lowAuto_40Miss", "MissingnessType"] <- "D: MAR: 40% missing, .01 autocorr."
-gausSim[gausSim$MissingnessType == "y_lowAuto_10Miss", "MissingnessType"] <- "B: MAR: 10% missing, .01 autocorr."
+gausSim[gausSim$MissingnessType == "y_lowAuto_40Miss", "MissingnessType"] <- "D: MAR: 40% missing, 0 autocorr."
+gausSim[gausSim$MissingnessType == "y_lowAuto_10Miss", "MissingnessType"] <- "B: MAR: 10% missing, 0 autocorr."
 gausSim[gausSim$MissingnessType == "y_highAuto_10miss", "MissingnessType"] <- "C: MAR: 10% missing, .9 autocorr."
 gausSim[gausSim$MissingnessType == "y_highAuto_40miss", "MissingnessType"] <- "E: MAR: 40% missing, .9 autocorr."
 gausSim[gausSim$MissingnessType == "y_minMaxMiss_10", "MissingnessType"] <- "F: MNAR: 10% missing"
 gausSim[gausSim$MissingnessType == "y_minMaxMiss_40", "MissingnessType"] <- "G: MNAR: 40% missing"
 
 gausSim$MissingnessType <- factor(gausSim$MissingnessType, 
-                                      levels = c("A: No Missing Data", "B: MAR: 10% missing, .01 autocorr.", "C: MAR: 10% missing, .9 autocorr.",
-                                                 "D: MAR: 40% missing, .01 autocorr.", "E: MAR: 40% missing, .9 autocorr.", "F: MNAR: 10% missing", "G: MNAR: 40% missing"),
+                                      levels = c("A: No Missing Data", "B: MAR: 10% missing, 0 autocorr.", "C: MAR: 10% missing, .9 autocorr.",
+                                                 "D: MAR: 40% missing, 0 autocorr.", "E: MAR: 40% missing, .9 autocorr.", "F: MNAR: 10% missing", "G: MNAR: 40% missing"),
                                       ordered = TRUE)
 # make histograms like Dusty made (looking at histogram of values in the missing
 # data time series vs. expected distribution from the AR1 process)
