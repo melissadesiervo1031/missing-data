@@ -56,7 +56,7 @@ paramNAlong <- gather(modelNAdf, param, value, ar1:discharge, factor_key=TRUE)
 
 paramNASElong <- gather(modelNASEdf, param, SE, ar1:discharge, factor_key=TRUE)
 
-paramNAlong2<-merge(paramNAlong, paramNASElong)
+paramNAlong2<-merge(paramNAlong, paramNASElong) # dim = 64 X 9 ##
 
 
 
