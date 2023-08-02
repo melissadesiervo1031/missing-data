@@ -21,7 +21,7 @@ gauss_sim <- readRDS("./data/gauss_ar1_0miss_datasets.rds")
 
 ## make missing data types for increasing levels of autocorrelation
 # possible autocorrelation vector
-inputAutocor <- c(.01, .10, .20, .30, .40, .50, .60, .70, .80, .90)
+inputAutocor <- c(.0, .10, .20, .30, .40, .50, .60, .70, .80, .90)
 
 for (i in 1:length(inputAutocor)) {
   # calculate missing vectors with increasing levels of missingness
@@ -65,7 +65,7 @@ gauss_real <- as.data.frame(pr)
 
 ## make missing data types for increasing levels of autocorrelation
 # possible autocorrelation vector
-inputAutocor <- c(.01, .10, .20, .30, .40, .50, .60, .70, .80, .90)
+inputAutocor <- c(.0, .10, .20, .30, .40, .50, .60, .70, .80, .90)
 
 for (i in 1:length(inputAutocor)) {
   # calculate missing vectors with increasing levels of missingness
@@ -101,7 +101,7 @@ pois_sim <- readRDS("./data/ricker_0miss_datasets.rds")
 
 ## make missing data types for increasing levels of autocorrelation
 # possible autocorrelation vector
-inputAutocor <- c(.01, .10, .20, .30, .40, .50, .60, .70, .80, .90)
+inputAutocor <- c(.0, .10, .20, .30, .40, .50, .60, .70, .80, .90)
 
 for (i in 1:length(inputAutocor)) {
   # calculate missing vectors with increasing levels of missingness
@@ -138,7 +138,7 @@ pois_real <- read.csv('data/Wytham_tits.csv')
 ## make missing data types
 ## make missing data types for increasing levels of autocorrelation
 # possible autocorrelation vector
-inputAutocor <- c(.01, .10, .20, .30, .40, .50, .60, .70, .80, .90)
+inputAutocor <- c(.0, .10, .20, .30, .40, .50, .60, .70, .80, .90)
 
 for (i in 1:length(inputAutocor)) {
   # calculate missing vectors with increasing levels of missingness
@@ -179,7 +179,7 @@ if (dir.exists("./data/missingDatasets") == FALSE) {
 # elements that have the response variable ranging from no missing data to the 
 # highest proportion of missing data. The $sim_params element contains the 
 # parameters used to generate that simulated dataset)
-saveRDS(gauss_sim_randMiss_autoCorr_01, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_01.rds")
+saveRDS(gauss_sim_randMiss_autoCorr_0, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_0.rds")
 saveRDS(gauss_sim_randMiss_autoCorr_10, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_10.rds")
 saveRDS(gauss_sim_randMiss_autoCorr_20, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_20.rds")
 saveRDS(gauss_sim_randMiss_autoCorr_30, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_30.rds")
@@ -197,7 +197,7 @@ saveRDS(gauss_sim_minMaxMiss, file = "./data/missingDatasets/gauss_sim_minMaxMis
 # elements that have the response variable ranging from no missing data to the 
 # highest proportion of missing data. The $sim_params element contains the 
 # parameters used to generate that simulated dataset)
-saveRDS(pois_sim_randMiss_autoCorr_01, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_01.rds")
+saveRDS(pois_sim_randMiss_autoCorr_0, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_0.rds")
 saveRDS(pois_sim_randMiss_autoCorr_10, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_10.rds")
 saveRDS(pois_sim_randMiss_autoCorr_20, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_20.rds")
 saveRDS(pois_sim_randMiss_autoCorr_30, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_30.rds")
@@ -212,7 +212,7 @@ saveRDS(pois_sim_minMaxMiss, file = "./data/missingDatasets/pois_sim_minMaxMiss.
 
 ## store real Gaussian data (a data frame with columns added for increasing 
 # amounts of missingness in the response variable)
-saveRDS(gauss_real_randMiss_autoCorr_01, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_01.rds")
+saveRDS(gauss_real_randMiss_autoCorr_0, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_0.rds")
 saveRDS(gauss_real_randMiss_autoCorr_10, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_10.rds")
 saveRDS(gauss_real_randMiss_autoCorr_20, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_20.rds")
 saveRDS(gauss_real_randMiss_autoCorr_30, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_30.rds")
@@ -226,7 +226,7 @@ saveRDS(gauss_real_minMaxMiss, file = "./data/missingDatasets/gauss_real_minMaxM
 
 ## store real Poisson data (a data frame with columns added for increasing 
 # amounts of missingness in the response variable)
-saveRDS(pois_real_randMiss_autoCorr_01, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_01.rds")
+saveRDS(pois_real_randMiss_autoCorr_0, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_0.rds")
 saveRDS(pois_real_randMiss_autoCorr_10, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_10.rds")
 saveRDS(pois_real_randMiss_autoCorr_20, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_20.rds")
 saveRDS(pois_real_randMiss_autoCorr_30, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_30.rds")
