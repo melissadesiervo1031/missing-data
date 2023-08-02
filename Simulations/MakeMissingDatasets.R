@@ -289,14 +289,15 @@ gauss_sim_randMiss_B <- c(gauss_sim_randMiss_autoCorr_50,
 
 # Remove the y_no miss from all nested lists (Amelia doesn't like NO missing values) 
 # for first chunk of data
-test <- gauss_sim_randMiss_A
-
+#test <- gauss_sim_randMiss_A
+test <- vector(mode = "list", length = 5000)
 for (i in 1:length(gauss_sim_randMiss_A)) {
   # remove the "y_noMiss" sub_list
-  test[[i]] <- gauss_sim_randMiss_A[[i]]$y[2:16]
-  
+  test[[i]]$y <- gauss_sim_randMiss_A[[i]]$y[2:16]
+  test[[i]]$sim_params$X <- gauss_sim_randMiss_A[[i]]$sim$X
 }
-
+# rename w/ accurate names
+names(test) <- names(gauss_sim_randMiss_A)
 gauss_sim_randMiss_A <- test
 
 # for second chunk of data
@@ -304,10 +305,11 @@ test <- gauss_sim_randMiss_B
 
 for (i in 1:length(gauss_sim_randMiss_B)) {
   # remove the "y_noMiss" sub_list
-  test[[i]] <- gauss_sim_randMiss_B[[i]]$y[2:16]
-  
+  test[[i]]$y <- gauss_sim_randMiss_B[[i]]$y[2:16]
+  test[[i]]$sim_params$X <- gauss_sim_randMiss_B[[i]]$sim$X
 }
-
+# rename w/ accurate names
+names(test) <- names(gauss_sim_randMiss_B)
 gauss_sim_randMiss_B <- test
 
 # pull out param values from the simulation (sim_pars) and stick them in the identifier 
