@@ -1,11 +1,11 @@
 #!/bin/bash -l
-#SBATCH --job-name modelruns_arima_MARautocorB
+#SBATCH --job-name modelruns_arima_MARautocorAAA
 #SBATCH --time=06:00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=astears@uwyo.edu
 #SBATCH --account=modelscape
-#SBATCH --output=modelruns_arima_MARautocor_B_ex01_%A.out
-#SBATCH --array=0-4999
+#SBATCH --output=modelruns_arima_MARautocor_AAA_ex01_%A.out
+#SBATCH --array=0-3207
 
 echo "SLURM_JOB_ID:" $SLURM_JOB_ID
 echo "SLURM_JOB_NAME:" $SLURM_JOB_NAME
