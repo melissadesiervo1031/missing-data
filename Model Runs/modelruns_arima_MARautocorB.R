@@ -17,12 +17,12 @@ CurSim <- as.numeric(CurSim)
 CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
 
 ## read in the autocor_01 list ##
-  
-gauss_sim_randMiss_autoCorr_01 <- readRDS("/project/modelscape/users/astears/gauss_sim_randMiss_AA.rds")
+
+gauss_sim_randMiss_autoCorr_01 <- readRDS("/project/modelscape/users/astears/gauss_sim_randMiss_B.rds")
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
-OutFile <- paste("gauss_sim_randMiss_modResults_AA/", CurSim, "arimavals.csv", sep = "")
+OutFile <- paste("gauss_sim_randMiss_modResults_B/", CurSim, "arimavals.csv", sep = "")
 
 #########################################################################################
 ### MY ARIMA FUNCTIONS #####
@@ -51,7 +51,7 @@ fit_arima_dropmissing <- function(sim_list, sim_pars){
     names(arimacoefsdrop) <- c("ar1", "intercept", "xreg1", "xreg2")
     arimasesdrop<-sqrt(diag(vcov(modeldrop)))
     names(arimasesdrop) <- c("ar1", "intercept", "xreg1", "xreg2")
-        list(arimacoefsdrop=arimacoefsdrop, arimasesdrop=arimasesdrop)
+    list(arimacoefsdrop=arimacoefsdrop, arimasesdrop=arimasesdrop)
     
     return(list(arima_pars = arimacoefsdrop,
                 arima_errors = arimasesdrop,
@@ -71,7 +71,7 @@ fit_arima_Kalman <- function(sim_list, sim_pars){
   
   ## fit ARIMA with the missing values as NAS . Applies KALMAN FILTER###
   
- 
+  
   ArimaoutputNAs <- lapply(seq_along(simmissingdf), function(j) {
     xreg1<-simmissingdf [[j]][["light"]]
     xreg2<-simmissingdf [[j]][["discharge"]]
@@ -134,7 +134,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum){
     modelerrorlistsim[[name1]] <- aa
   }
   
-
+  
   ### Averages the models together back to 1 model per missing data prop ##
   
   listcoefsessim<-mapply(function(X,Y) {
