@@ -45,17 +45,21 @@ PineRiverlowauto <- readRDS("data/Missingdatasets/gauss_real_randMiss_autoCorr_1
 
 PineRiverlowauto_list<-as.list(PineRiverlowauto[,9:23])
 
-Arimanomissing_PineRiver=arima(PineRiverlowauto$GPP, order = c(1,0,0), xreg = X)
+Xlowauto = PineRiverlowauto[,3:4]
+
+### First solve for paramater estimates with no missing data using ARIMA ####
+
+Arimanomissing_PineRiver=arima(PineRiverlowauto$GPP, order = c(1,0,0), xreg = Xlowauto)
 
 PineRivercoef<-Arimanomissing_PineRiver[["coef"]]
 
 phi=PineRivercoef[1]
 
-betas=PineRivercoef[2:4]
+beta=PineRivercoef[2:4]
 
 X = matrix(c(rep(1, times=length(PineRiverlowauto$date)), PineRiverlowauto$light.rel,  PineRiverlowauto$Q), ncol = 3)
 
-sim_pars_PR = list(phi=phi, betas=betas, X=X)
+sim_pars_PR = list(phi=phi, beta=beta, X=X)
 
 #drop #
 
@@ -67,10 +71,14 @@ Kalman_pineriver_lowauto<- fit_arima_Kalman(PineRiverlowauto_list, sim_pars=sim_
 
 #MI#
 
-MI_pineriver_lowauto<- fit_arima_MI(PineRiverlowauto_list, sim_pars=sim_pars_PR)
+MIsimpars<-sim_pars_PR[["X"]]
 
-# not working #
+MI_pineriver_lowauto<- fit_arima_MI(PineRiverlowauto_list, sim_pars=sim_pars_PR, imputationsnum=5)
 
+
+#data augmentation# 
+
+brms_pineriver_lowauto <- fit_brms_model(PineRiverlowauto_list, sim_pars_PR, include_missing = FALSE)
 
 
 ##ran them seperately and saved .csv. combining them all together back in here #
