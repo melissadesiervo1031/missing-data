@@ -18,11 +18,11 @@ CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
 
 ## read in the autocor_01 list ##
 
-gauss_sim_randMiss_autoCorr_01 <- readRDS("/project/modelscape/users/astears/gauss_sim_randMiss_B.rds")
+gauss_sim_randMiss_autoCorr_01 <- readRDS("/project/modelscape/users/astears/gauss_sim_randMiss_AAA.rds")
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
-OutFile <- paste("gauss_sim_randMiss_modResults_B/", CurSim, "arimavals.csv", sep = "")
+OutFile <- paste("gauss_sim_randMiss_modResults_AAA/", CurSim, "arimavals.csv", sep = "")
 
 #########################################################################################
 ### MY ARIMA FUNCTIONS #####
@@ -270,7 +270,21 @@ Output <- matrix(data=NA, nrow=nrow(paramarimaall), ncol=ncol(paramarimaall))
 # Save the results of the current script's simulation to the appropriate column of output
 Output<- paramarimaall
 
-Output2<-cbind(CurSim, Output)
+# add in the "simulation number" for this iteration (which is stored in the name of the data list element)
+simName <- str_sub(string = names(gauss_sim_randMiss_autoCorr_01[CurSim]), 
+        start = str_locate_all(
+          pattern = "_", string  = names(gauss_sim_randMiss_autoCorr_01[CurSim])
+          )[[1]][1,1] + 4,
+        end = str_locate_all(
+          pattern = "_", string  = names(gauss_sim_randMiss_autoCorr_01[CurSim])
+        )[[1]][2,1]-1
+        )
+
+
+
+# add all the output data together
+Output2<-cbind(CurSim, simName, Output)
+
 
 
 # Write the output to the folder which will contain all output files as separate csv
