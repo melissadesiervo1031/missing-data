@@ -49,7 +49,6 @@ ss_missing data.stan
 fake_turb.csv
 ss_missing data.stan
 full_sim_day_amelia.RDS
-*.RDS
 *.jpeg
 *.jpg
 *.tiff
@@ -97,3 +96,6 @@ mcelreath_miss_ss.stan
 ss.stan
 GPPstanmissing.RData
 .DS_Store
+data/missingDatasets/forBeartooth/gauss_sim_randMiss_A.rds
+data/missingDatasets/forBeartooth/gauss_sim_randMiss_B.rds
+
