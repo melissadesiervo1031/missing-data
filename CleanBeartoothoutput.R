@@ -73,7 +73,7 @@ STAN_MNAR<- read_csv("data/model_results/00_combined_gauss_sim_minMaxMiss.csv", 
 
       STAN_all_withest<-merge(STAN_all_2, gauss_sim_param_long, by=c("SimNumber", "parameter"))
       
-      STAN_all_withest1<-STAN_all_withest %>% select(run_no, SimNumber,missingness, type, missingprop_autocor, value=mean, error=sd, realestimate)
+      STAN_all_withest1<-STAN_all_withest %>% select(run_no, SimNumber,missingness, type, missingprop_autocor, parameter, value=mean, error=sd, realestimate)
       
       STAN_all_withest1$value<-as.numeric(STAN_all_withest1$value)
       STAN_all_withest1$error<-as.numeric(STAN_all_withest1$error)
@@ -109,7 +109,7 @@ STAN_MNAR<- read_csv("data/model_results/00_combined_gauss_sim_minMaxMiss.csv", 
       
       ARIMA_all_withest<-merge(Arima_all, Arima_realest_long, by=c("SimNumber", "parameter"))
 
-      ARIMA_all_withest2<-ARIMA_all_withest %>% select(run_no, SimNumber, missingness, type, missingprop_autocor, value, error, realestimate)
+      ARIMA_all_withest2<-ARIMA_all_withest %>% select(run_no, SimNumber, missingness, type, missingprop_autocor, parameter, value, error, realestimate)
       
       
       
