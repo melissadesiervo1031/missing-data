@@ -22,6 +22,7 @@ params <- readRDS("./data/missingDatasets/forBeartooth/gauss_sim_params.rds")
 names(params) <- c("SimNumber", "phi_sim", "beta1_sim", "beta2_sim", "beta3_sim")
 
 outData_A_final <- left_join(outData_A, params, by = c("simName" = "SimNumber"))
+saveRDS(outData_A_final, file = "./data/BeartoothOutputData/gaussSim_MAR_A_arimaOut.rds")
 
 # # iterations that ran
 # fileNumbers <- data.frame("iteration" = sort(as.numeric(str_extract(string = fileNames_A, pattern = "[0-9]*"))),
