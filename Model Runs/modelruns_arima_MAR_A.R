@@ -1,7 +1,7 @@
 # Load packages ## 
 #make sure these are already in the folder on supercomputer where I need them ##
 
-.libPaths("/pfs/tc1/project/modelscape/users/mdesierv")
+.libPaths("/pfs/tc1/home/astears/R/x86_64-pc-linux-gnu-library/4.2")
 
 library(tidyverse)
 #library(forecast) ## it hates this package...run with lowercase arima# 
@@ -17,12 +17,12 @@ CurSim <- as.numeric(CurSim)
 CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
 
 ## read in the autocor_01 list ##
-  
-gauss_sim_randMiss_autoCorr_01 <- readRDS("/project/modelscape/users/astears/gauss_sim_randMiss_AA.rds")
+
+gauss_sim_randMiss_autoCorr_01 <- readRDS("/project/modelscape/users/astears/gauss_sim_randMiss_A.rds")
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
-OutFile <- paste("gauss_sim_randMiss_modResults_AA/", CurSim, "arimavals.csv", sep = "")
+OutFile <- paste("gauss_sim_randMiss_modResults_A/", CurSim, "arimavals.csv", sep = "")
 
 #########################################################################################
 ### MY ARIMA FUNCTIONS #####
@@ -51,7 +51,7 @@ fit_arima_dropmissing <- function(sim_list, sim_pars){
     names(arimacoefsdrop) <- c("ar1", "intercept", "xreg1", "xreg2")
     arimasesdrop<-sqrt(diag(vcov(modeldrop)))
     names(arimasesdrop) <- c("ar1", "intercept", "xreg1", "xreg2")
-        list(arimacoefsdrop=arimacoefsdrop, arimasesdrop=arimasesdrop)
+    list(arimacoefsdrop=arimacoefsdrop, arimasesdrop=arimasesdrop)
     
     return(list(arima_pars = arimacoefsdrop,
                 arima_errors = arimasesdrop,
@@ -71,7 +71,7 @@ fit_arima_Kalman <- function(sim_list, sim_pars){
   
   ## fit ARIMA with the missing values as NAS . Applies KALMAN FILTER###
   
- 
+  
   ArimaoutputNAs <- lapply(seq_along(simmissingdf), function(j) {
     xreg1<-simmissingdf [[j]][["light"]]
     xreg2<-simmissingdf [[j]][["discharge"]]
@@ -129,25 +129,24 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum){
       a[[name]] <- arimacoefs
       aa[[name]]<-arimases
     }
-    name1 <- names(amelias11sim)[[i]]
-    modelparamlistsim[[name1]] <- a
-    modelerrorlistsim[[name1]] <- aa
+    #name1 <- names(amelias11sim)[[i]]
+    modelparamlistsim[[i]] <- a
+    modelerrorlistsim[[i]] <- aa
   }
   
-
+  
   ### Averages the models together back to 1 model per missing data prop ##
   
   listcoefsessim<-mapply(function(X,Y) {
     list(mi.meld(data.frame(X), data.frame(Y), byrow=FALSE))
   }, X=modelparamlistsim, Y=modelerrorlistsim)
+  # rename coef list
+  names(listcoefsessim) <- names(amelias11sim)
   
   return(list(paramlistsim<-map(listcoefsessim , ~.["q.mi"]),
               selistsim<-map(listcoefsessim , ~.["se.mi"])))
   
 }
-
-
-
 
 
 #####################################################
@@ -181,8 +180,8 @@ paramdroplong <- gather(modeldropdf, param, value, ar1:discharge, factor_key=TRU
 
 paramdropSElong <- gather(modeldropSEdf, param, SE, ar1:discharge, factor_key=TRUE)
 
-paramdroplong2<-merge(paramdroplong, paramdropSElong)
-
+paramdroplong2<- cbind(paramdroplong, paramdropSElong$SE)
+names(paramdroplong2) <- c(names(paramdroplong), "SE")
 
 
 #####################################################
@@ -219,8 +218,8 @@ paramNAlong <- gather(modelNAdf, param, value, ar1:discharge, factor_key=TRUE)
 
 paramNASElong <- gather(modelNASEdf, param, SE, ar1:discharge, factor_key=TRUE)
 
-paramNAlong2<-merge(paramNAlong, paramNASElong)
-
+paramNAlong2<-cbind(paramNAlong, paramNASElong$SE)
+names(paramNAlong2) <- c(names(paramNAlong), "SE")
 
 #######################################################################################################
 
@@ -229,7 +228,7 @@ paramNAlong2<-merge(paramNAlong, paramNASElong)
 #### MODEL RUN MULTIPLE IMPUTATIONS  ##############
 #########################################################
 
-arima_mi_MAR<- fit_arima_MI(gauss_sim_randMiss_autoCorr_01[[CurSim]]$y,gauss_sim_randMiss_autoCorr_01[[CurSim]]$sim_params, imputationsnum=5)
+arima_mi_MAR <-  fit_arima_MI(gauss_sim_randMiss_autoCorr_01[[CurSim]]$y,gauss_sim_randMiss_autoCorr_01[[CurSim]]$sim_params, imputationsnum=5)
 
 ##pulls out parameters and ses ##
 
@@ -250,7 +249,8 @@ paramMIlong <- gather(avgparamdf2, param, value, ar1:discharge, factor_key=TRUE)
 
 paramMISElong <- gather(avglSEdf2, param, SE, ar1:discharge, factor_key=TRUE)
 
-paramMIlong2<-merge(paramMIlong,paramMISElong)
+paramMIlong2<-cbind(paramMIlong,paramMISElong$SE)
+names(paramMIlong2) <- c(names(paramMIlong), "SE")
 
 #############################################################################################################
 
@@ -270,7 +270,21 @@ Output <- matrix(data=NA, nrow=nrow(paramarimaall), ncol=ncol(paramarimaall))
 # Save the results of the current script's simulation to the appropriate column of output
 Output<- paramarimaall
 
-Output2<-cbind(CurSim, Output)
+# add in the "simulation number" for this iteration (which is stored in the name of the data list element)
+simName <- str_sub(string = names(gauss_sim_randMiss_autoCorr_01[CurSim]), 
+        start = str_locate_all(
+          pattern = "_", string  = names(gauss_sim_randMiss_autoCorr_01[CurSim])
+          )[[1]][1,1] + 4,
+        end = str_locate_all(
+          pattern = "_", string  = names(gauss_sim_randMiss_autoCorr_01[CurSim])
+        )[[1]][2,1]-1
+        )
+
+
+
+# add all the output data together
+Output2<-cbind(CurSim, simName, Output)
+
 
 
 # Write the output to the folder which will contain all output files as separate csv
