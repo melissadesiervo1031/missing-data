@@ -91,6 +91,9 @@ STAN_MNAR<- read_csv("data/model_results/00_combined_gauss_sim_minMaxMiss.csv", 
       
       Arima_all<-rbind(Arima_MAR_A1, Arima_MNAR1)
       
+      Arima_all$parameter <- str_replace(Arima_all$parameter, "ar1", "phi")
+      
+      
       ### NEED TO GET THE MNAR ONES TOO...BUT JUST THIS FOR NOW IS OKAY ###
       
       # real param #      
@@ -127,7 +130,7 @@ Arimastan_output_all2<-separate(Arimastan_output_all, missingprop_autocor, into 
 Arimastan_output_all2$missingprop<-as.numeric(str_extract(Arimastan_output_all2$missingprop1, "\\d+\\.*\\d*"))
 Arimastan_output_all2$autocorr<-as.numeric(str_extract(Arimastan_output_all2$autocorr1, "\\d+\\.*\\d*"))
 
-Arimastan_output_all3<-Arimastan_output_all2 %>% mutate(diff=realestimate-value, diffsquared=diff^2) %>% select(run_no, SimNumber, missingness, type, missingprop, autocorr, value, error, realestimate, diff, diffsquared)
+Arimastan_output_all3<-Arimastan_output_all2 %>% mutate(diff=realestimate-value, diffsquared=diff^2) %>% select(run_no, SimNumber, missingness, type, missingprop, autocorr,parameter, value, error, realestimate, diff, diffsquared)
 
 ## write a csv for making the figure ###
 
