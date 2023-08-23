@@ -64,3 +64,29 @@ for (i in 1:length(fileNames_B)) {
   }
 }
 
+
+# for MNAR arima output ---------------------------------------------------
+
+
+# read in the group of output files (stored outside of the Git)
+fileNames_MNAR <- list.files("../BeartoothOutputs/gauss_sim_minMax_modResults/")
+
+for (i in 1:length(fileNames_MNAR)) {
+  assign(x = "temp", 
+         value = read.csv(paste0("../BeartoothOutputs/gauss_sim_minMax_modResults/",fileNames_MNAR[i])))
+  
+  if (i == 1){
+    outData_MNAR <- temp
+  } else {
+    outData_MNAR <- rbind(outData_MNAR, temp)
+  }
+}
+
+
+## add back in parameter info
+params <- readRDS("./data/missingDatasets/forBeartooth/gauss_sim_params.rds")
+names(params) <- c("SimNumber", "phi_sim", "beta1_sim", "beta2_sim", "beta3_sim")
+
+outData_MNAR_final <- left_join(outData_MNAR, params, by = c("CurSim" = "SimNumber"))
+saveRDS(outData_MNAR_final, file = "./data/BeartoothOutputData/gaussSim_MNAR_arimaOut.rds")
+
