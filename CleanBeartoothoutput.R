@@ -85,6 +85,12 @@ STAN_MNAR<- read_csv("data/model_results/00_combined_gauss_sim_minMaxMiss.csv", 
       
       Arima_MAR_A1<-Arima_MAR_A %>% select (run_no=CurSim, SimNumber=simName, missingness, type, parameter=param, missingprop_autocor, value, error=SE) 
       
+      Arima_MNAR <- readRDS("data/BeartoothOutputData/gaussSim_MNAR_arimaOut.rds")
+      
+      Arima_MNAR1<-Arima_MNAR %>% select (run_no=CurSim, SimNumber=CurSim, missingness, type, parameter=param, missingprop_autocor, value, error=SE) 
+      
+      Arima_all<-rbind(Arima_MAR_A1, Arima_MNAR1)
+      
       ### NEED TO GET THE MNAR ONES TOO...BUT JUST THIS FOR NOW IS OKAY ###
       
       # real param #      
@@ -101,9 +107,12 @@ STAN_MNAR<- read_csv("data/model_results/00_combined_gauss_sim_minMaxMiss.csv", 
       
       ## merge the output with the real est ##
       
-      ARIMA_all_withest<-merge(Arima_MAR_A1, Arima_realest_long, by=c("SimNumber", "parameter"))
+      ARIMA_all_withest<-merge(Arima_all, Arima_realest_long, by=c("SimNumber", "parameter"))
 
       ARIMA_all_withest2<-ARIMA_all_withest %>% select(run_no, SimNumber, missingness, type, missingprop_autocor, value, error, realestimate)
+      
+      
+      
       
 ### MERGE THE STAN AND ARIMA OUTPUT!!! #####
       
