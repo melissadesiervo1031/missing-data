@@ -47,8 +47,8 @@ fit_arima_dropmissing <- function(sim_list, sim_pars){
     xreg1<-sim_missing_list_drop [[j]][["light"]]
     xreg2<-sim_missing_list_drop [[j]][["discharge"]]
     modeldrop <- arima(sim_missing_list_drop [[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2))
-    arimacoefsdrop<-modeldrop$coef
-    names(arimacoefsdrop) <- c("ar1", "intercept", "xreg1", "xreg2")
+    arimacoefsdrop<-c(modeldrop$coef, modeldrop$sigma2)
+    names(arimacoefsdrop) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
     arimasesdrop<-sqrt(diag(vcov(modeldrop)))
     names(arimasesdrop) <- c("ar1", "intercept", "xreg1", "xreg2")
     list(arimacoefsdrop=arimacoefsdrop, arimasesdrop=arimasesdrop)
@@ -76,8 +76,8 @@ fit_arima_Kalman <- function(sim_list, sim_pars){
     xreg1<-simmissingdf [[j]][["light"]]
     xreg2<-simmissingdf [[j]][["discharge"]]
     modelNAs <- arima(simmissingdf[[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2))
-    arimacoefsNAs<-modelNAs$coef
-    names(arimacoefsNAs) <- c("ar1", "intercept", "xreg1", "xreg2")
+    arimacoefsNAs <- c(modelNAs$coef, modelNAs$sigma2)
+    names(arimacoefsNAs) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
     arimasesNAs<-sqrt(diag(vcov(modelNAs)))
     names(arimasesNAs) <- c("ar1", "intercept", "xreg1", "xreg2")
     list(arimacoefsNAs=arimacoefsNAs, arimasesNAs=arimasesNAs)
@@ -121,8 +121,8 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum){
       xreg1<-amelias11sim [[i]][[j]][["light"]]
       xreg2<-amelias11sim [[i]][[j]][["discharge"]]
       tempobj=arima(amelias11sim[[i]][[j]]$GPP, order = c(1,0,0), xreg = matrix(c(xreg1, xreg2), ncol = 2))
-      arimacoefs<-tempobj$coef
-      names(arimacoefs) <- c("ar1", "intercept", "xreg1", "xreg2")
+      arimacoefs<-c(tempobj$coef, tempobj$sigma2)
+      names(arimacoefs) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
       arimases<-sqrt(diag(vcov(tempobj)))
       names(arimases) <- c("ar1", "intercept", "xreg1", "xreg2")
       name <- paste('imp',seq_along((amelias11sim)[[i]])[[j]],sep='')
@@ -139,12 +139,31 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum){
   
   listcoefsessim<-mapply(function(X,Y) {
     list(mi.meld(data.frame(X), data.frame(Y), byrow=FALSE))
-  }, X=modelparamlistsim, Y=modelerrorlistsim)
+  }, X=lapply(modelparamlistsim, function(x) lapply(x, function (x) x[1:4])), 
+  Y=modelerrorlistsim)
   # rename coef list
   names(listcoefsessim) <- names(amelias11sim)
   
-  return(list(paramlistsim<-map(listcoefsessim , ~.["q.mi"]),
-              selistsim<-map(listcoefsessim , ~.["se.mi"])))
+  # put the mean sigma for each imputation back into the listcoefsessim list
+  sigmas_temp <- sapply(modelparamlistsim, function(x) lapply(x, function(x) x[5]))
+  sigmas <- apply(sigmas_temp, MARGIN = 2, function(x) mean(as.numeric(x), na.rm = TRUE))
+  
+  # make return values
+  #paramlistsim <- map(listcoefsessim , ~.["q.mi"])
+
+  paramlistsim <- lapply(seq(1:15), function(x) 
+    matrix(c(listcoefsessim[[x]]$q.mi, sigmas[x]),
+           nrow = 1, byrow = TRUE, 
+           dimnames = 
+             list(c(NULL),c("ar1", "intercept", "xreg1", "xreg2", "sigma")))
+  )
+  names(paramlistsim) <- names(listcoefsessim)
+  
+  selistsim <- lapply(listcoefsessim, function(x) x$se.mi)
+  
+  return(list(paramlistsim, 
+              selistsim
+              ))
   
 }
 
@@ -170,18 +189,19 @@ modeldropSElist2 <- lapply(modeldropSElist, function(x) as.data.frame(do.call(rb
 modeldropparamdf <- map_df(modeldropparamlist2, ~as.data.frame(.x), .id="missingprop_autocor")
 modeldropSEdf <- map_df(modeldropSElist2, ~as.data.frame(.x), .id="missingprop_autocor")
 
-modeldropdf<-modeldropparamdf  %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2) %>%  select(missingprop_autocor, ar1, intercept, light, discharge)  %>% mutate(missingness="MAR") %>% mutate(type="Data Deletion")
+modeldropdf<-modeldropparamdf  %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2) %>%  select(missingprop_autocor, ar1, intercept, light, discharge, sigma)  %>% mutate(missingness="MAR") %>% mutate(type="Data Deletion")
 
 modeldropSEdf<-modeldropSEdf  %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2)%>%   select(missingprop_autocor, ar1, intercept, light, discharge) %>% mutate(missingness="MAR") %>% mutate(type="Data Deletion")
 
 ## long form ##
 
-paramdroplong <- gather(modeldropdf, param, value, ar1:discharge, factor_key=TRUE)
-
+paramdroplong <- gather(modeldropdf, param, value, ar1:sigma, factor_key=TRUE)
+paramdroplong$missingnessVersion <- rep.int(c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O"), times = 5)
+  
 paramdropSElong <- gather(modeldropSEdf, param, SE, ar1:discharge, factor_key=TRUE)
+paramdropSElong$missingnessVersion <- rep.int(c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O"), times = 4)
 
-paramdroplong2<- cbind(paramdroplong, paramdropSElong$SE)
-names(paramdroplong2) <- c(names(paramdroplong), "SE")
+paramdroplong2 <- full_join(paramdroplong, paramdropSElong)
 
 
 #####################################################
@@ -207,19 +227,20 @@ modelNAparamdf <- map_df(modelNAparamlist2, ~as.data.frame(.x), .id="missingprop
 modelNASEdf <- map_df(modelNASElist2, ~as.data.frame(.x), .id="missingprop_autocor")
 
 
-modelNAdf<-modelNAparamdf  %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2) %>% select(missingprop_autocor, ar1, intercept, light, discharge) %>% mutate(missingness="MAR") %>% mutate(type="Kalman filter")
+modelNAdf<-modelNAparamdf  %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2) %>% select(missingprop_autocor, ar1, intercept, light, discharge, sigma) %>% mutate(missingness="MAR") %>% mutate(type="Kalman filter")
 
 modelNASEdf<-modelNASEdf  %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2) %>% select(missingprop_autocor, ar1, intercept, light, discharge) %>% mutate(missingness="MAR") %>% mutate(type="Kalman filter")
 
 
 ## long form ##
 
-paramNAlong <- gather(modelNAdf, param, value, ar1:discharge, factor_key=TRUE)
+paramNAlong <- gather(modelNAdf, param, value, ar1:sigma, factor_key=TRUE)
+paramNAlong$missingnessVersion <- rep.int(c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O"), times = 5)
 
 paramNASElong <- gather(modelNASEdf, param, SE, ar1:discharge, factor_key=TRUE)
+paramNASElong$missingnessVersion <- rep.int(c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O"), times = 4)
 
-paramNAlong2<-cbind(paramNAlong, paramNASElong$SE)
-names(paramNAlong2) <- c(names(paramNAlong), "SE")
+paramNAlong2<-full_join(paramNAlong, paramNASElong)
 
 #######################################################################################################
 
@@ -240,17 +261,23 @@ avgparamdf <- map_df(paramlistsim, ~as.data.frame(.x), .id="missingprop_autocor"
 avglSEdf <- map_df(selistsim, ~as.data.frame(.x), .id="missingprop_autocor")
 
 
-avgparamdf2<-avgparamdf %>% dplyr::rename(ar1=q.mi.ar1, intercept=q.mi.intercept, light=q.mi.xreg1, discharge=q.mi.xreg2) %>%  select(missingprop_autocor,  ar1, intercept, light, discharge)  %>% mutate(missingness="MAR") %>% mutate(type="Multiple imputations")
+avgparamdf2 <- avgparamdf %>% 
+  dplyr::rename(light=xreg1, discharge=xreg2) %>%  
+  select(missingprop_autocor,  ar1, intercept, light, discharge, sigma)  %>% 
+  mutate(missingness="MAR") %>% mutate(type="Multiple imputations")
 
-avglSEdf2<-avglSEdf  %>% dplyr::rename(ar1=se.mi.ar1, intercept=se.mi.intercept, light=se.mi.xreg1, discharge=se.mi.xreg2) %>%  select(missingprop_autocor,  ar1, intercept, light, discharge)   %>% mutate(missingness="MAR") %>% mutate(type="Multiple imputations")
+avglSEdf2 <-avglSEdf  %>% dplyr::rename(light=xreg1, discharge=xreg2) %>%  
+  select(missingprop_autocor,  ar1, intercept, light, discharge)   %>% 
+  mutate(missingness="MAR") %>% mutate(type="Multiple imputations")
 
 
-paramMIlong <- gather(avgparamdf2, param, value, ar1:discharge, factor_key=TRUE)
+paramMIlong <- gather(avgparamdf2, param, value, ar1:sigma, factor_key=TRUE)
+paramMIlong$missingnessVersion <- rep.int(c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O"), times = 5)
 
 paramMISElong <- gather(avglSEdf2, param, SE, ar1:discharge, factor_key=TRUE)
+paramMISElong$missingnessVersion <- rep.int(c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O"), times = 4)
 
-paramMIlong2<-cbind(paramMIlong,paramMISElong$SE)
-names(paramMIlong2) <- c(names(paramMIlong), "SE")
+paramMIlong2 <-full_join(paramMIlong,paramMISElong)
 
 #############################################################################################################
 
