@@ -5,11 +5,11 @@
 #/////////////////////
 
 # read in first group of output files (stored outside of the Git)
-fileNames_A <- list.files("../BeartoothOutputs/gauss_sim_randMiss_modResults_A_NEWOLD//")
+fileNames_A <- list.files("../BeartoothOutputs/gauss_sim_MAR_arima_modResults_A/")
 
 for (i in 1:length(fileNames_A)) {
   assign(x = "temp", 
-         value = read.csv(paste0("../BeartoothOutputs/gauss_sim_randMiss_modResults_A_NEWOLD/",fileNames_A[i])))
+         value = read.csv(paste0("../BeartoothOutputs/gauss_sim_MAR_arima_modResults_A/",fileNames_A[i])))
   if (i == 1){
     outData_A <- temp
   } else {
@@ -24,38 +24,12 @@ names(params) <- c("SimNumber", "phi_sim", "beta1_sim", "beta2_sim", "beta3_sim"
 outData_A_final <- left_join(outData_A, params, by = c("simName" = "SimNumber"))
 saveRDS(outData_A_final, file = "./data/BeartoothOutputData/gaussSim_MAR_A_arimaOut.rds")
 
-# # iterations that ran
-# fileNumbers <- data.frame("iteration" = sort(as.numeric(str_extract(string = fileNames_A, pattern = "[0-9]*"))),
-#                           "source" = "BeartoothIndex")
-# 
-# allNumbers <- data.frame("iteration" = as.numeric(1:5000),
-#                          "source" = "actualIndex")
-# 
-# test <- full_join(fileNumbers, allNumbers, by = "iteration")
-# # get missing iterations
-# missingIterations <- test[is.na(test$source.x),"iteration"]
-
-# read in second group of output files (stored outside of the Git)
-fileNames_AA <- list.files("../BeartoothOutputs/gauss_sim_randMiss_modResults_AA/")
-
-for (i in 1:length(fileNames_AA)) {
-  assign(x = "temp", 
-         value = read.csv(paste0("../BeartoothOutputs/gauss_sim_randMiss_modResults_AA/",fileNames_AA[i])))
-  
-  if (i == 1){
-    outData_AA <- temp
-  } else {
-    outData_AA <- rbind(outData_AA, temp)
-  }
-}
-
-
 # read in the group of output files (stored outside of the Git)
-fileNames_B <- list.files("../BeartoothOutputs/gauss_sim_randMiss_modResults_B/")
+fileNames_B <- list.files("../BeartoothOutputs/gauss_sim_MAR_arima_modResults_B/")
 
 for (i in 1:length(fileNames_B)) {
   assign(x = "temp", 
-         value = read.csv(paste0("../BeartoothOutputs/gauss_sim_randMiss_modResults_B/",fileNames_B[i])))
+         value = read.csv(paste0("../BeartoothOutputs/gauss_sim_MAR_arima_modResults_B/",fileNames_B[i])))
   
   if (i == 1){
     outData_B <- temp
@@ -64,16 +38,24 @@ for (i in 1:length(fileNames_B)) {
   }
 }
 
+## add back in parameter info
+params <- readRDS("./data/missingDatasets/forBeartooth/gauss_sim_params.rds")
+names(params) <- c("SimNumber", "phi_sim", "beta1_sim", "beta2_sim", "beta3_sim")
+
+outData_B_final <- left_join(outData_B, params, by = c("simName" = "SimNumber"))
+saveRDS(outData_B_final, file = "./data/BeartoothOutputData/gaussSim_MAR_B_arimaOut.rds")
+
+
 
 # for MNAR arima output ---------------------------------------------------
 
 
 # read in the group of output files (stored outside of the Git)
-fileNames_MNAR <- list.files("../BeartoothOutputs/gauss_sim_minMax_modResults/")
+fileNames_MNAR <- list.files("../BeartoothOutputs/gauss_sim_MNAR_arima_modResults/")
 
 for (i in 1:length(fileNames_MNAR)) {
   assign(x = "temp", 
-         value = read.csv(paste0("../BeartoothOutputs/gauss_sim_minMax_modResults/",fileNames_MNAR[i])))
+         value = read.csv(paste0("../BeartoothOutputs/gauss_sim_MNAR_arima_modResults/",fileNames_MNAR[i])))
   
   if (i == 1){
     outData_MNAR <- temp
