@@ -65,8 +65,27 @@ dat <- read.csv('./data/NWIS_MissingTS_subset.csv')
 mdat <- read.csv('data/NWIS_MissingTSinfo_subset.csv')
 
 id <- mdat$site_name[4]
-pr <- dat %>% filter(site_name == id) %>% select(date, GPP, light, Q, GPP.upper,GPP.lower) %>% mutate(Jdate= yday(date), light.rel = light/max(light))
+pr <- dat %>% filter(site_name == id) %>% select(date, GPP, light, Q, GPP.upper,GPP.lower) %>% 
+  mutate(Jdate= yday(date), light.rel = light/max(light))
 gauss_real <- as.data.frame(pr)
+# make date correct format
+gauss_real$date <- as.Date(gauss_real$date, tz = "UTC")
+
+# add in rows for truly missing days
+# make a sequence of all dates over the span of data collection ## 2012 was a leap year!! 
+allDates <- seq(ymd('2012-01-01'), ymd('2012-12-31'), by='1 day')
+# use this df to add NAs to the real data at the correct dates
+missingDates <- allDates[!(allDates%in% gauss_real$date)]
+gauss_real <- rbind(gauss_real, 
+      data.frame("date" = missingDates,
+                 "GPP" = NA, 
+                 "light" = NA, 
+                 "Q" = NA, 
+                 "GPP.upper" = NA, 
+                 "GPP.lower" = NA, 
+                 "Jdate" = NA, 
+                 "light.rel" = NA))
+gauss_real <- gauss_real[order(gauss_real$date),]
 
 ## make missing data types for increasing levels of autocorrelation
 # possible autocorrelation vector
@@ -94,14 +113,52 @@ for (i in 1:length(inputAutocor)) {
   }
 }
 
+# put all of the data into one list
+autcorVector <- c(0, 10, 20, 30, 40, 50, 60, 70, 80, 90)
+gauss_real_randMiss_list <- vector(mode = "list", length = 10) 
+names(gauss_real_randMiss_list) <- paste0("gauss_real_randMiss_autoCor_", autcorVector)
+for (i in 1:length(inputAutocor)) {
+  # get the correct autocorrelation/missing data data.frame
+  tempDF <- get(x = paste0("gauss_real_randMiss_autoCorr_", autcorVector[i]))
+  # change into a list element
+  gauss_real_randMiss_list[[i]]$y <- tempDF %>% 
+    rename_with(~ str_replace(string = names(tempDF), pattern = "GPP_", replacement = "")) %>% 
+    rename("y" = "GPP" ) %>% 
+    select(-date, -light, -Q, -GPP.upper, -GPP.lower, -Jdate, -light.rel) %>% 
+    as.list()
+  gauss_real_randMiss_list[[i]]$sim_params$date <- tempDF %>% 
+    select(date)
+  gauss_real_randMiss_list[[i]]$sim_params$light <- tempDF %>% 
+    select(light)
+  gauss_real_randMiss_list[[i]]$sim_params$light.rel <- tempDF %>% 
+    select(light.rel)
+  gauss_real_randMiss_list[[i]]$sim_params$Q <- tempDF %>% 
+    select(Q)
+}
+
+gauss_real_randMiss <- gauss_real_randMiss_list
+
 ## missing in min and max of data
 gauss_real_minMaxMiss_TEMP <- as.data.frame(makeMissing(timeSeries = gauss_real$GPP, 
                                                    typeMissing = "minMax"))
 
 
-names(gauss_real_minMaxMiss_TEMP) <- paste0("GPP_",names(gauss_real_minMaxMiss_TEMP))
+#names(gauss_real_minMaxMiss_TEMP) <- paste0("GPP_",names(gauss_real_minMaxMiss_TEMP))
 
 gauss_real_minMaxMiss <- cbind(gauss_real, gauss_real_minMaxMiss_TEMP)
+
+# change "broods" to "y" in the data.frame
+names(gauss_real_minMaxMiss)[2] <- "y" 
+
+# transform into a list (for consistency w/ simulated data)
+gauss_real_minMaxMiss_list <- vector(mode = "list", length = 1) 
+gauss_real_minMaxMiss_list[[1]]$y <- as.list(gauss_real_minMaxMiss[c(2,9:ncol(gauss_real_minMaxMiss))])
+gauss_real_minMaxMiss_list[[1]]$sim_params$date <- gauss_real_minMaxMiss$date 
+gauss_real_minMaxMiss_list[[1]]$sim_params$light <- gauss_real_minMaxMiss$light
+gauss_real_minMaxMiss_list[[1]]$sim_params$light.rel <- gauss_real_minMaxMiss$light.rel
+gauss_real_minMaxMiss_list[[1]]$sim_params$Q <- gauss_real_minMaxMiss$Q
+
+gauss_real_minMaxMiss <- gauss_real_minMaxMiss_list
 
 
 # Poisson Simulated Data --------------------------------------------------
@@ -177,7 +234,24 @@ for (i in 1:length(inputAutocor)) {
   }
 }
 
-# missing in min and max of data
+# put all of the data into one list
+autcorVector <- c(0, 10, 20, 30, 40, 50, 60, 70, 80, 90)
+pois_real_randMiss_list <- vector(mode = "list", length = 10) 
+names(pois_real_randMiss_list) <- paste0("pois_real_randMiss_autoCor_", autcorVector)
+for (i in 1:length(inputAutocor)) {
+  # get the correct autocorrelation/missing data data.frame
+  tempDF <- get(x = paste0("pois_real_randMiss_autoCorr_", autcorVector[i]))
+  # change into a list element
+  pois_real_randMiss_list[[i]]$y <- tempDF %>% 
+    rename_with(~ str_replace(string = names(tempDF), pattern = "Broods_", replacement = "")) %>% 
+    rename("y" = "Broods" ) %>% 
+    select(-Year) %>% 
+    as.list()
+  pois_real_randMiss_list[[i]]$sim_params <- NA
+}
+pois_real_randMiss <- pois_real_randMiss_list
+
+## missing in min and max of data
 pois_real_minMaxMiss_TEMP <- as.data.frame(makeMissing(timeSeries = pois_real$Broods, 
                                                         typeMissing = "minMax"))
 
@@ -186,6 +260,16 @@ names(pois_real_minMaxMiss_TEMP) <- paste0("Broods_",names(pois_real_minMaxMiss_
 
 pois_real_minMaxMiss <- cbind(pois_real, pois_real_minMaxMiss_TEMP)
 
+# change "broods" to "y" in the data.frame
+names(pois_real_minMaxMiss) <- str_replace(string = names(pois_real_minMaxMiss), pattern = "Broods_", replacement = "")
+names(pois_real_minMaxMiss)[2] <- "y" 
+  
+# transform into a list (for consistency w/ simulated data)
+pois_real_minMaxMiss_list <- vector(mode = "list", length = 1) 
+pois_real_minMaxMiss_list[[1]]$y <- as.list(pois_real_minMaxMiss[2:ncol(pois_real_minMaxMiss)])
+pois_real_minMaxMiss_list[[1]]$sim_params <- NA
+
+pois_real_minMaxMiss <- pois_real_minMaxMiss_list
 
 # Store missing data  -----------------------------------------------------
 # all datasets will be stored in "data/missingDatasets/"
@@ -194,71 +278,6 @@ pois_real_minMaxMiss <- cbind(pois_real, pois_real_minMaxMiss_TEMP)
 if (dir.exists("./data/missingDatasets") == FALSE) {
   dir.create("./data/missingDatasets")
 }
-
-## store simulated Gaussian data (are stored in a list, each elemnt of the list 
-# is a simulation run. Within each simulation run, the $y element contains 16 
-# elements that have the response variable ranging from no missing data to the 
-# highest proportion of missing data. The $sim_params element contains the 
-# parameters used to generate that simulated dataset)
-saveRDS(gauss_sim_randMiss_autoCorr_0, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_0.rds")
-saveRDS(gauss_sim_randMiss_autoCorr_10, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_10.rds")
-saveRDS(gauss_sim_randMiss_autoCorr_20, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_20.rds")
-saveRDS(gauss_sim_randMiss_autoCorr_30, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_30.rds")
-saveRDS(gauss_sim_randMiss_autoCorr_40, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_40.rds")
-saveRDS(gauss_sim_randMiss_autoCorr_50, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_50.rds")
-saveRDS(gauss_sim_randMiss_autoCorr_60, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_60.rds")
-saveRDS(gauss_sim_randMiss_autoCorr_70, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_70.rds")
-saveRDS(gauss_sim_randMiss_autoCorr_80, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_80.rds")
-saveRDS(gauss_sim_randMiss_autoCorr_90, file = "./data/missingDatasets/gauss_sim_randMiss_autoCorr_90.rds")
-saveRDS(gauss_sim_minMaxMiss, file = "./data/missingDatasets/gauss_sim_minMaxMiss.rds")
-
-
-## store simulated Poisson data (are stored in a list, each elemnt of the list 
-# is a simulation run. Within each simulation run, the $y element contains 16 
-# elements that have the response variable ranging from no missing data to the 
-# highest proportion of missing data. The $sim_params element contains the 
-# parameters used to generate that simulated dataset)
-saveRDS(pois_sim_randMiss_autoCorr_0, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_0.rds")
-saveRDS(pois_sim_randMiss_autoCorr_10, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_10.rds")
-saveRDS(pois_sim_randMiss_autoCorr_20, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_20.rds")
-saveRDS(pois_sim_randMiss_autoCorr_30, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_30.rds")
-saveRDS(pois_sim_randMiss_autoCorr_40, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_40.rds")
-saveRDS(pois_sim_randMiss_autoCorr_50, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_50.rds")
-saveRDS(pois_sim_randMiss_autoCorr_60, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_60.rds")
-saveRDS(pois_sim_randMiss_autoCorr_70, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_70.rds")
-saveRDS(pois_sim_randMiss_autoCorr_80, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_80.rds")
-saveRDS(pois_sim_randMiss_autoCorr_90, file = "./data/missingDatasets/pois_sim_randMiss_autoCorr_90.rds")
-saveRDS(pois_sim_minMaxMiss, file = "./data/missingDatasets/pois_sim_minMaxMiss.rds")
-
-
-## store real Gaussian data (a data frame with columns added for increasing 
-# amounts of missingness in the response variable)
-saveRDS(gauss_real_randMiss_autoCorr_0, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_0.rds")
-saveRDS(gauss_real_randMiss_autoCorr_10, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_10.rds")
-saveRDS(gauss_real_randMiss_autoCorr_20, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_20.rds")
-saveRDS(gauss_real_randMiss_autoCorr_30, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_30.rds")
-saveRDS(gauss_real_randMiss_autoCorr_40, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_40.rds")
-saveRDS(gauss_real_randMiss_autoCorr_50, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_50.rds")
-saveRDS(gauss_real_randMiss_autoCorr_60, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_60.rds")
-saveRDS(gauss_real_randMiss_autoCorr_70, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_70.rds")
-saveRDS(gauss_real_randMiss_autoCorr_80, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_80.rds")
-saveRDS(gauss_real_randMiss_autoCorr_90, file = "./data/missingDatasets/gauss_real_randMiss_autoCorr_90.rds")
-saveRDS(gauss_real_minMaxMiss, file = "./data/missingDatasets/gauss_real_minMaxMiss.rds")
-
-## store real Poisson data (a data frame with columns added for increasing 
-# amounts of missingness in the response variable)
-saveRDS(pois_real_randMiss_autoCorr_0, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_0.rds")
-saveRDS(pois_real_randMiss_autoCorr_10, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_10.rds")
-saveRDS(pois_real_randMiss_autoCorr_20, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_20.rds")
-saveRDS(pois_real_randMiss_autoCorr_30, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_30.rds")
-saveRDS(pois_real_randMiss_autoCorr_40, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_40.rds")
-saveRDS(pois_real_randMiss_autoCorr_50, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_50.rds")
-saveRDS(pois_real_randMiss_autoCorr_60, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_60.rds")
-saveRDS(pois_real_randMiss_autoCorr_70, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_70.rds")
-saveRDS(pois_real_randMiss_autoCorr_80, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_80.rds")
-saveRDS(pois_real_randMiss_autoCorr_90, file = "./data/missingDatasets/pois_real_randMiss_autoCorr_90.rds")
-saveRDS(pois_real_minMaxMiss, file = "./data/missingDatasets/pois_real_minMaxMiss.rds")
-
 
 # prepare datastes for Beartooth runs -------------------------------------
 
@@ -333,19 +352,115 @@ for (i in 1:length(gauss_sim)) {
   gauss_sim_params[i,"beta3"] <- gauss_sim[[i]]$sim_params$beta[3]
 }
 
-# save missing datasets for Beartooth -------------------------------------
-# if it doesn't exist, make a folder to hold the datasets
-if (dir.exists("./data/missingDatasets/forBeartooth") == FALSE) {
-  dir.create("./data/missingDatasets/forBeartooth")
+
+## do the same for the Ricker data
+
+## bind missing datasets (pois sim) into sets of 5000 nested lists, rather than 1000
+# for each "pois_sim" list, name the sublist for each simulation
+names(pois_sim_randMiss_autoCorr_0) <- paste0("pois_sim",1:1000, "_randMiss_autoCorr_0")
+names(pois_sim_randMiss_autoCorr_10) <- paste0("pois_sim",1:1000, "_randMiss_autoCorr_10")
+names(pois_sim_randMiss_autoCorr_20) <- paste0("pois_sim",1:1000, "_randMiss_autoCorr_20")
+names(pois_sim_randMiss_autoCorr_30) <- paste0("pois_sim",1:1000, "_randMiss_autoCorr_30")
+names(pois_sim_randMiss_autoCorr_40) <- paste0("pois_sim",1:1000, "_randMiss_autoCorr_40")
+names(pois_sim_randMiss_autoCorr_50) <- paste0("pois_sim",1:1000, "_randMiss_autoCorr_50")
+names(pois_sim_randMiss_autoCorr_60) <- paste0("pois_sim",1:1000, "_randMiss_autoCorr_60")
+names(pois_sim_randMiss_autoCorr_70) <- paste0("pois_sim",1:1000, "_randMiss_autoCorr_70")
+names(pois_sim_randMiss_autoCorr_80) <- paste0("pois_sim",1:1000, "_randMiss_autoCorr_80")
+names(pois_sim_randMiss_autoCorr_90) <- paste0("pois_sim",1:1000, "_randMiss_autoCorr_90")
+
+pois_sim_randMiss_A <- c(pois_sim_randMiss_autoCorr_0, 
+                          pois_sim_randMiss_autoCorr_10,
+                          pois_sim_randMiss_autoCorr_20,
+                          pois_sim_randMiss_autoCorr_30,
+                          pois_sim_randMiss_autoCorr_40
+)
+pois_sim_randMiss_B <- c(pois_sim_randMiss_autoCorr_50,
+                          pois_sim_randMiss_autoCorr_60,
+                          pois_sim_randMiss_autoCorr_70,
+                          pois_sim_randMiss_autoCorr_80,
+                          pois_sim_randMiss_autoCorr_90)
+
+# Remove the y_no miss from all nested lists (Amelia doesn't like NO missing values) 
+# for first chunk of data
+#test <- pois_sim_randMiss_A
+test <- vector(mode = "list", length = 5000)
+for (i in 1:length(pois_sim_randMiss_A)) {
+  # remove the "y_noMiss" sub_list
+  test[[i]]$y <- pois_sim_randMiss_A[[i]]$y[2:16]
+  test[[i]]$sim_params$X <- pois_sim_randMiss_A[[i]]$sim$X
+}
+# rename w/ accurate names
+names(test) <- names(pois_sim_randMiss_A)
+pois_sim_randMiss_A <- test
+
+# for second chunk of data
+test <- pois_sim_randMiss_B
+
+for (i in 1:length(pois_sim_randMiss_B)) {
+  # remove the "y_noMiss" sub_list
+  test[[i]]$y <- pois_sim_randMiss_B[[i]]$y[2:16]
+  test[[i]]$sim_params$X <- pois_sim_randMiss_B[[i]]$sim$X
+}
+# rename w/ accurate names
+names(test) <- names(pois_sim_randMiss_B)
+pois_sim_randMiss_B <- test
+
+# pull out param values from the simulation (sim_pars) and stick them in the identifier 
+# along w/ missing prop and autocor? (If that's a pain, just a separate file that has 
+# all 5000 simulations and their associated parameters would be helpful. We should only 
+# have 1000 unique sets of simulation parameters) 
+
+pois_sim_params <- data.frame(
+  "SimNumber" = vector(mode = "integer", length = 1000),
+  "r" = vector(mode = "double", length = 1000),
+  "alpha" = vector(mode = "double", length = 1000), 
+  "N0" = vector(mode = "double", length = 1000)
+)
+
+for (i in 1:length(pois_sim)) {
+  pois_sim_params[i, "SimNumber"] <- i
+  pois_sim_params[i,"r"] <- pois_sim[[i]]$sim_params$r
+  pois_sim_params[i,"alpha"] <- pois_sim[[i]]$sim_params$alpha
+  pois_sim_params[i,"N0"] <- pois_sim[[i]]$sim_params$N0
 }
 
-## store simulated Gaussian data (are stored in a list, each elemnt of the list 
+# save missing datasets for Beartooth -------------------------------------
+## store simulated Poisson data (are stored in a list, each element of the list 
 # is a simulation run. Within each simulation run, the $y element contains 15 
 # elements that have the response variable ranging from the lowest amount of 
 # missing data to the highest proportion of missing data. 
-saveRDS(gauss_sim_randMiss_A, file = "./data/missingDatasets/forBeartooth/gauss_sim_randMiss_A.rds")
-saveRDS(gauss_sim_randMiss_B, file = "./data/missingDatasets/forBeartooth/gauss_sim_randMiss_B.rds")
+saveRDS(pois_sim_randMiss_A, file = "./data/missingDatasets/pois_sim_randMiss_A.rds")
+saveRDS(pois_sim_randMiss_B, file = "./data/missingDatasets/pois_sim_randMiss_B.rds")
 
 ## save a data.frame that has the parameters used to run each simulation (1000 
 # rows, each corresponding to a simulation run)
-saveRDS(gauss_sim_params, file = "./data/missingDatasets/forBeartooth/gauss_sim_params.rds")
+saveRDS(pois_sim_params, file = "./data/missingDatasets/pois_sim_params.rds")
+
+## save poisson simulated MNAR data
+saveRDS(pois_sim_minMaxMiss, file = "./data/missingDatasets/pois_sim_MinMaxMiss.rds")
+
+## save poisson real MNAR data
+saveRDS(pois_real_minMaxMiss, file = "./data/missingDatasets/pois_real_MinMaxMiss.rds")
+## save poisson real MAR data
+saveRDS(pois_real_randMiss, file = "./data/missingDatasets/pois_real_randMiss.rds")
+
+
+
+## store simulated Gaussian data (are stored in a list, each element of the list 
+# is a simulation run. Within each simulation run, the $y element contains 15 
+# elements that have the response variable ranging from the lowest amount of 
+# missing data to the highest proportion of missing data. 
+saveRDS(gauss_sim_randMiss_A, file = "./data/missingDatasets/gauss_sim_randMiss_A.rds")
+saveRDS(gauss_sim_randMiss_B, file = "./data/missingDatasets/gauss_sim_randMiss_B.rds")
+
+## save a data.frame that has the parameters used to run each simulation (1000 
+# rows, each corresponding to a simulation run)
+saveRDS(gauss_sim_params, file = "./data/missingDatasets/gauss_sim_params.rds")
+
+## save gaussian simulated MNAR data
+saveRDS(gauss_sim_minMaxMiss, file = "./data/missingDatasets/gauss_sim_MinMaxMiss.rds")
+
+## save gaussian real MNAR data
+saveRDS(gauss_real_minMaxMiss, file = "./data/missingDatasets/gauss_real_MinMaxMiss.rds")
+## save gaussian real MAR data
+saveRDS(gauss_real_randMiss, file = "./data/missingDatasets/gauss_real_randMiss.rds")
