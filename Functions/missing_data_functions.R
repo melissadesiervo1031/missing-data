@@ -32,7 +32,7 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
   }    
   
   ## if you want to generate missing data in chunks (randomly spaced)  
-  if (typeMissing == "random") {      
+  if (typeMissing == "random") {       
     ## loop through values of "propMissing_f"
     for (i in 1:length(propMiss_f)) {
       
@@ -214,8 +214,8 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
                               FUN = function(X)
                                 replace(timeSeries,    
                                         # get the indices of the timeSeries values above or below the cutoff values,  
-                                        list = c(which(timeSeries < qnorm(X/2, mean = mean(timeSeries), sd = sd(timeSeries))),
-                                                 which(timeSeries > qnorm(1-X/2, mean = mean(timeSeries), sd = sd(timeSeries)))),
+                                        list = c(which(timeSeries < qnorm(X/2, mean = mean(timeSeries, na.rm = TRUE), sd = sd(timeSeries, na.rm = TRUE))),
+                                                 which(timeSeries > qnorm(1-X/2, mean = mean(timeSeries, na.rm = TRUE), sd = sd(timeSeries, na.rm = TRUE)))),
                                         
                                         values = NA))    
     
