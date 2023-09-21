@@ -12,7 +12,7 @@ library(Amelia)
 
 fit_arima_MI <- function(sim_list, sim_pars, imputationsnum){
   
-  days<-seq(1, 365)
+  days<-seq(1, length(sim_list[[1]]))
   
   simmissingdf <-lapply(X = sim_list, 
                         FUN = function(X) cbind.data.frame(days= days,
@@ -62,7 +62,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum){
 
 
 #example code using this function:
-#gauss_sim_MAR_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss.rds")
+#gauss_sim_MAR_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss_autoCorr_0.rds")
 #GPP_sim_MAR<- gauss_sim_MAR_datasets [[1]]
 
 #arima_MI <- fit_arima_MI(GPP_sim_MAR$y,GPP_sim_MAR$sim_params, imputationsnum=5)
