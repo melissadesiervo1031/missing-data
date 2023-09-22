@@ -4,7 +4,7 @@
 # missing observations, using EM
 ####################################################
 
-
+source("Functions/ricker_count_likelihood_functions.R")
 
 #' Fitting the Ricker population model to count data
 #' 
@@ -55,7 +55,7 @@ ricker_EM <- function(y, init_theta, fam = "poisson", tol = 1e-5, max_iter = 50)
       beta <- theta
     }
     if(fam == "neg_binom"){
-      beta <- theta[p]
+      beta <- theta[-p]
       phi <- theta[p]
     }
     
@@ -103,13 +103,11 @@ ricker_EM <- function(y, init_theta, fam = "poisson", tol = 1e-5, max_iter = 50)
   
   # compute final values for the return list
   theta_star <- as.double(Theta[nrow(Theta), ])
-  V <- solve(fit_s$hessian)
   convergence <- as.numeric(s == max_iter)
   
   return(list(
     theta = theta_star,
     Theta = Theta,
-    V_c = V,
     z_s = z_s,
     convergence = convergence
   ))
@@ -117,3 +115,65 @@ ricker_EM <- function(y, init_theta, fam = "poisson", tol = 1e-5, max_iter = 50)
 }
 
 
+
+#' Wrapper to fit a Ricker count model to data using the EM algorithm
+#' 
+#' This function is a wrapper to fit the stochastic Ricker model with
+#' either Poisson or Negative Binomial error distribution and missing observations
+#' encoded as NAs.
+#'
+#' @param y Vector of population counts, with NA in the place of missing observations.
+#' @param fam Error family. Can be either c("poisson", "neg_binom").
+#' @param ... Additional arguments passed to the EM algorithm, such as initial values 
+#' (init_theta = c()) or maximum iterations before stopping (max_iter = 50).
+#'
+#' @return List of intrinsic growth factor and intra-specific competitive effect estimates,
+#' standard errors, and 95% confidence limits. The standard errors are not available using the
+#' EM algorithm, so \code{se = NA; lower = NA; upper = NA}. 
+#'
+#' @examples
+#' 
+#' y <- readRDS("data/missingDatasets/pois_sim_randMiss_A.rds")[[1]]$y[[1]]
+#' fit_ricker_EM(y)
+#' 
+fit_ricker_EM <- function(y, fam = "poisson", ...){
+  
+  init_theta <- c(0.5, -0.01)
+  if(fam == "neg_binom"){
+    init_theta <- c(init_theta, 10)
+  }
+  
+  args <- list(
+    y = y,
+    fam = fam,
+    init_theta = init_theta,
+    tol = 1e-5, 
+    max_iter = 50
+  )
+  
+  args2 <- list(...)
+  if(length(args2) > 0){
+    args[names(args2)] <- args2
+  }
+  
+  fit <- do.call(ricker_EM, args = args)
+  
+  if(fam == "neg_binom"){
+    parnames <- c("r", "alpha", "psi")
+    estims <- fit$theta * c(1, -1, 1)
+    names(estims) <- parnames
+  }
+  if(fam == "poisson"){
+    parnames <- c("r, alpha")
+    estims <- fit$theta * c(1, -1)
+    names(estims) <- parnames
+  }
+  
+  return(list(
+    estim = estims,
+    se = NA,
+    lower = NA,
+    upper = NA
+  ))
+  
+}
