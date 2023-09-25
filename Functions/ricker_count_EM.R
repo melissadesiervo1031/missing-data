@@ -137,7 +137,13 @@ ricker_EM <- function(y, init_theta, fam = "poisson", tol = 1e-5, max_iter = 50)
 #' fit_ricker_EM(y)
 #' 
 fit_ricker_EM <- function(y, fam = "poisson", ...){
-  
+  # quick check
+  if(sum(is.infinite(y)) > 0){
+    stop("Failed. Infinite population size found.")
+  }
+  if(sum(is.nan(y)) > 0){
+    stop("Failed. NaN found. Missing values must be coded as NA.")
+  }
   init_theta <- c(0.5, -0.01)
   if(fam == "neg_binom"){
     init_theta <- c(init_theta, 10)
@@ -164,7 +170,7 @@ fit_ricker_EM <- function(y, fam = "poisson", ...){
     names(estims) <- parnames
   }
   if(fam == "poisson"){
-    parnames <- c("r, alpha")
+    parnames <- c("r", "alpha")
     estims <- fit$theta * c(1, -1)
     names(estims) <- parnames
   }
