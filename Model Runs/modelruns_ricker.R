@@ -124,6 +124,8 @@ if(is.na(in_args[5])){
   )
 }
 
+system.time({
+
 # make cluster for parallel computing
 cl <- parallel::makeCluster(as.numeric(in_args[3]))
 
@@ -157,6 +159,7 @@ results <- cbind(
   as_tibble(pars_complete),
   as_tibble(results_list)
 )
+})
 
 # save results to file
 saveRDS(results, file = here(in_args[4]))
