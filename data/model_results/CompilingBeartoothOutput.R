@@ -150,6 +150,6 @@ outData_MNAR_brms <- outData_MNAR_brms %>%
 ## combine all of the model results for gaussian simulated data
 outData_gauss_sim <- rbind(outData_MAR_arima, outData_MNAR_arima, outData_MAR_brms, outData_MNAR_brms)
 
-write.csv(outData_gauss_sim, file = "./data/model_results/gauss_sim_ModelResults.csv", row.names = FALSE)
+saveRDS(outData_gauss_sim, file = "./data/model_results/gauss_sim_ModelResults.rds")
 
 
