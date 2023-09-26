@@ -143,8 +143,6 @@ outData_MNAR_brms <- outData_MNAR_brms %>%
          "discharge_sim" = "beta3_sim")
 
 
-
-
 # save model outputs ------------------------------------------------------
 
 ## combine all of the model results for gaussian simulated data
