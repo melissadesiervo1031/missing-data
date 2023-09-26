@@ -24,7 +24,7 @@ gauss_real_randMiss <- readRDS("/project/modelscape/users/astears/gauss_real_ran
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
-OutFile <- paste("gauss_real_randMiss_modResults/", CurSim, "arimavals.csv", sep = "")
+OutFile <- paste("./gauss_real_MAR_arima_modResults/", CurSim, "arimavals.csv", sep = "")
 
 # Drop missing + arima function ---------------------------------------------------
 
@@ -273,18 +273,8 @@ Output <- matrix(data=NA, nrow=nrow(paramarimaall), ncol=ncol(paramarimaall))
 # Save the results of the current script's simulation to the appropriate column of output
 Output<- paramarimaall
 
-# add in the "simulation number" for this iteration (which is stored in the name of the data list element)
-simName <- str_sub(string = names(gauss_real_randMiss[CurSim]), 
-        start = str_locate_all(
-          pattern = "_", string  = names(gauss_real_randMiss[CurSim])
-          )[[1]][1,1] + 4,
-        end = str_locate_all(
-          pattern = "_", string  = names(gauss_real_randMiss[CurSim])
-        )[[1]][2,1]-1
-        )
-
 # add all the output data together
-Output2<-cbind(CurSim, simName, Output)
+Output2<-cbind(CurSim,Output)
 
 # Write the output to the folder which will contain all output files as separate csv
 #    files with a single line of data.
