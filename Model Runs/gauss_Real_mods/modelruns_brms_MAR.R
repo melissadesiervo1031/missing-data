@@ -1,8 +1,7 @@
 # Load packages ## 
 #make sure these are already in the folder on supercomputer where I need them ##
 
-# .libPaths("/pfs/tc1/project/modelscape/users/mdesierv")
-setwd('/project/modelscape/users/acarte26/missing-data/')
+.libPaths("/pfs/tc1/home/astears/R/x86_64-pc-linux-gnu-library/4.2")
 
 library(tidyverse)
 library(brms)
@@ -18,12 +17,12 @@ CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
 
 ## read in the autocor_01 list ##
   
-# gauss_sim_randMiss_autoCorr_01 <- readRDS("data/missingDatasets/forBeartooth/gauss_sim_randMiss_A.rds")
-gauss_sim_randMiss_autoCorr_01 <- readRDS("/project/modelscape/users/acarte26/missing-data/data/gauss_sim_randMiss_A.rds")
+#gauss_real_randMiss <- readRDS("data/missingDatasets/gauss_real_randMiss.rds")
+gauss_real_randMiss <- readRDS("/project/modelscape/users/astears/gauss_real_randMiss.rds")
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
-OutFile <- paste0("gauss_sim_randMiss_modResults_A/", CurSim, "brmsvals.csv")
+OutFile <- paste0("gauss_real_MAR_brms_modelResults/", CurSim, "brmsvals.csv")
 
 #########################################################################################
 ### MY ARIMA FUNCTIONS #####
@@ -33,12 +32,12 @@ fit_brms_model <- function(sim_list, sim_pars,
                            iter = 4000, include_missing = FALSE){
   simmissingdf <-lapply(X = sim_list, 
                         FUN = function(X) cbind.data.frame(GPP = X, 
-                                                           light = sim_pars$X[,2], 
-                                                           discharge = sim_pars$X[,3]))
+                                                           light = sim_pars$light, 
+                                                             discharge = sim_pars$Q))
   
   
   # Make the model formula and priors
-  bform <- brms::bf(GPP | mi() ~ light + discharge + ar(p = 1))
+  bform <- brms::bf(GPP | mi() ~ light + Q + ar(p = 1))
   bprior <- c(prior(uniform(0,1), class = 'ar', lb = 0, ub = 1),
               prior(normal(0,5), class = 'b'))
   
@@ -80,8 +79,8 @@ fit_brms_model <- function(sim_list, sim_pars,
 #### MODEL RUN ARIMA DROP ##############
 #########################################################
 
-brms_MAR <- fit_brms_model(sim_list = gauss_sim_randMiss_autoCorr_01[[CurSim]]$y,
-                           sim_pars = gauss_sim_randMiss_autoCorr_01[[CurSim]]$sim_params)
+brms_MAR <- fit_brms_model(sim_list = gauss_real_randMiss[[CurSim]]$y,
+                           sim_pars = gauss_real_randMiss[[CurSim]]$sim_params)
 
 
 ########### formatting for figure #############
