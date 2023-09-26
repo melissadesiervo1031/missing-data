@@ -14,14 +14,12 @@ CurSim <- commandArgs(trailingOnly = TRUE) #Look at command line arguments only 
 CurSim <- as.numeric(CurSim)
 CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
 
-## read in the autocor_01 list ##
-
-# gauss_sim_MinMaxMiss <- readRDS("data/missingDatasets/forBeartooth/gauss_sim_randMiss_A.rds")
-gauss_sim_MNAR <- readRDS("/project/modelscape/users/astears/gauss_sim_MinMaxMiss.rds")
+## read in the data ##
+gauss_real_MNAR<- readRDS("./data/missingDatasets/gauss_real_MinMaxMiss.rds")
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
-OutFile <- paste0("gauss_sim_MNAR_modResults/", CurSim, "brmsvals.csv")
+OutFile <- paste0("./data/model_results/gauss_real_MinMaxMiss_brms_modResults.csv")
 
 #########################################################################################
 ### MY ARIMA FUNCTIONS #####
@@ -31,8 +29,8 @@ fit_brms_model <- function(sim_list, sim_pars,
                            iter = 4000, include_missing = FALSE){
   simmissingdf <-lapply(X = sim_list, 
                         FUN = function(X) cbind.data.frame(GPP = X, 
-                                                           light = sim_pars$X[,2], 
-                                                           discharge = sim_pars$X[,3]))
+                                                           light = sim_pars$light, 
+                                                           discharge = sim_pars$Q))
   
   
   # Make the model formula and priors
@@ -78,8 +76,8 @@ fit_brms_model <- function(sim_list, sim_pars,
 #### MODEL RUN ARIMA DROP ##############
 #########################################################
 
-brms_MNAR <- fit_brms_model(sim_list = gauss_sim_MNAR[[CurSim]]$y,
-                           sim_pars = gauss_sim_MNAR[[CurSim]]$sim_params)
+brms_MNAR <- fit_brms_model(sim_list = gauss_real_MNAR[[CurSim]]$y,
+                           sim_pars = gauss_real_MNAR[[CurSim]]$sim_params)
 
 
 ########### formatting for figure #############
