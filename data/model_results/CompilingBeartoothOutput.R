@@ -150,4 +150,54 @@ outData_gauss_sim <- rbind(outData_MAR_arima, outData_MNAR_arima, outData_MAR_br
 
 saveRDS(outData_gauss_sim, file = "./data/model_results/gauss_sim_ModelResults.rds")
 
+# gauss_real_MAR_arima models ----------------------------------------------
+# read in output file
+gauss_real_MAR_arima <- read.csv("./data/model_results/gauss_real_MAR_arima.csv")
 
+## combine A and B into one d.f and remove unnecessary columns
+outData_real_MAR_arima <- gauss_real_MAR_arima %>% 
+  select(-CurSim, -missingnessVersion) %>% 
+  mutate("2.5%" = NA, "50%" = NA, "97.5%" = NA) %>% 
+  select("missingprop_autocor", "missingness", "type", "param", "value", "SE", "2.5%", "50%", "97.5%") %>% 
+  mutate(param = replace(param, param == "ar1", "phi"))
+
+# gauss_real_MNAR_arima models ---------------------------------------------------
+gauss_real_MNAR_arima <- read.csv("./data/model_results/gauss_real_MNAR_arima.csv")
+
+# change curSim to "simNumber" (the same thing)
+outData_real_MNAR_arima <- gauss_real_MNAR_arima %>% 
+  select( -missingnessVersion) %>% 
+  mutate("2.5%" = NA, "50%" = NA, "97.5%" = NA) %>% 
+  select("missingprop_autocor", "missingness", "type", "param", "value", "SE", "2.5%", "50%", "97.5%") %>%  
+  mutate(param = replace(param, param == "ar1", "phi")) 
+
+#  gauss_sim_MAR_brms models ----------------------------------------------
+gauss_real_MAR_brms <- read.csv("./data/model_results/gauss_real_MAR_brms_results.csv")
+
+# combine together
+outData_real_MAR_brms <- gauss_real_MAR_brms %>% 
+  rename("param" = "parameter", "value" = "mean", "SE" = "sd", "2.5%" = "X2.5.", "50%" = "X50.", "97.5%" = "X97.5.") %>% 
+  select("missingprop_autocor", "missingness", "type", "param", "value", "SE", "2.5%", "50%", "97.5%") %>% 
+  filter( missingness != "missingness") %>%  # remove rows that have column names (??)
+  mutate(param = replace(param, param == "b_Intercept", "intercept")) %>% 
+  mutate(param = replace(param, param == "b_light", "light")) %>% 
+  mutate(param = replace(param, param == "b_Q", "discharge")) 
+
+# gauss_real_MNAR_brms models ----------------------------------------------
+gauss_real_MNAR_brms <- read.csv("./data/model_results/gauss_real_MNAR_brms_modresults.csv")
+
+# combine together
+outData_real_MNAR_brms <- gauss_real_MNAR_brms %>% 
+  rename("param" = "parameter", "value" = "mean", "SE" = "sd", "2.5%" = "X2.5.", "50%" = "X50.", "97.5%" = "X97.5.") %>% 
+  select("missingprop_autocor", "missingness", "type", "param", "value", "SE", "2.5%", "50%", "97.5%") %>% 
+  filter( missingness != "missingness") %>%  # remove rows that have column names (??)
+  mutate(param = replace(param, param == "b_Intercept", "intercept")) %>% 
+  mutate(param = replace(param, param == "b_light", "light")) %>% 
+  mutate(param = replace(param, param == "b_Q", "discharge")) 
+
+# save model outputs ------------------------------------------------------
+
+## combine all of the model results for gaussian real data
+outData_gauss_real <- rbind(outData_real_MAR_arima, outData_real_MNAR_arima, outData_real_MAR_brms, outData_real_MNAR_brms)
+
+saveRDS(outData_gauss_real, file = "./data/model_results/gauss_real_ModelResults.rds")
