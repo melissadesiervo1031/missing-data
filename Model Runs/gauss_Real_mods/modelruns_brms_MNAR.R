@@ -19,7 +19,7 @@ gauss_real_MNAR<- readRDS("./data/missingDatasets/gauss_real_MinMaxMiss.rds")
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
-OutFile <- paste0("./data/model_results/gauss_real_MinMaxMiss_brms_modResults.csv")
+OutFile <- paste0("./data/model_results/gauss_real_MNAR_brms_modResults.csv")
 
 #########################################################################################
 ### MY ARIMA FUNCTIONS #####
