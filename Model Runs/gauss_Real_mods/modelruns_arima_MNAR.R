@@ -9,7 +9,7 @@ gauss_real_MinMaxMiss <- readRDS("./data/missingDatasets/gauss_real_MinMaxMiss.r
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
-OutFile <- paste("./data/model_results/gauss_real_MinMaxMiss_arima.csv")
+OutFile <- paste("./data/model_results/gauss_real_MNAR_arima.csv")
 
 CurSim <- 1
 
