@@ -155,13 +155,15 @@ MH_Gibbs_DA <- function(theta_init, dat, fill_rng, lp, q_rng, q_lpdf, burnin, it
   # preserve names
   colnames(theta_samps) <- names(theta_init)
   theta_samps[1, ] <- theta_init
-  lp_samps <- vector(length = S, mode = "double")
-  lp_samps[1] <- lp(theta_init, dat)
-  accept <- vector(mode = "double", S)
   
   # tracker for incomplete data
   y_samps <- matrix(nrow = S, ncol = length(dat$y))
   y_samps[1, ] <- fill_rng(theta_init, dat)
+  
+  # compute initial log probability
+  lp_samps <- vector(length = S, mode = "double")
+  lp_samps[1] <- lp(theta_init, dat, y_samps[1, ])
+  accept <- vector(mode = "double", S)
   
   for(s in 2:S){
     
@@ -232,105 +234,44 @@ fit_ricker_DA <- function(
     stepsize <- prior_pars / 5
   }
   priors_list <- split(unname(prior_pars), names(prior_pars))
-  n <- length(y)
-  S <- samples + burnin
-  miss_ids <- which(is.na(y))
-  n_miss <- length(miss_ids)
   
   # create internal function to compute the log-probability
-  compute_lp <- function(param_list, dat_list, fam = "poisson"){
-    
-    result <- with(c(param_list, dat_list), {
-      r <- theta["r"]
-      alpha <- exp(theta["lalpha"])
-      lp <- -ricker_count_neg_ll(theta = c(r, alpha), y = y, X = Xmm) +
+  compute_lp <- function(params, dat_list, y_full = NULL, family = fam){
+    if(is.null(y_full)){
+      y_full <- dat$y
+    }
+    dat <- c(dat, list(y_full = y_full))
+    result <- with(c(param, dat_list), {
+      r <- params["r"]
+      lalpha <- params["lalpha"]
+      alpha <- exp(lalpha)
+      lp <- -ricker_count_neg_ll(theta = c(r, alpha), y = y_full, X = Xmm, fam = family) +
         trunc_norm_lpdf(r, sd = sd_r, a = 0) + 
-        dnorm(theta["lalpha"], mean = m_lalpha, sd = sd_lalpha, log = T)
+        dlnorm(alpha, mean = m_lalpha, sd = sd_lalpha, log = T)
       lp
     })
     return(result)
   }
-  
-  # generate parameter objects
-  params <- list(
-    r = vector(mode = "double", length = S),
-    lalpha = vector(mode = "double", length = S)
-  )
   
   # create model matrix
   Xmm <- cbind(
     rep(1, n), y
   )
   
-  # initial values
-  params$r[1] <- trunc_norm_rng(sd = prior_pars["sd_r"], a = 0)
-  params$alpha[1] <- rnorm(sd = prior_pars["sd_alpha"], b = 0)
+  # compile data
+  dat <- c(
+    list(
+      y = y,
+      Xmm = Xmm
+    ),
+    priors_list
+  )
   
-  
-  ### Gibbs sampler ###
-  param_mat <- do.call(cbind, params)
-  P <- ncol(param_mat)
-  u <- matrix(runif(S * ncol(param_mat)), nrow = S, ncol = ncol(param_mat))
-  lp <- vector(mode = "double", length = S)
-  
-  # first the case with no missing data
-  if(n_miss == 0){
-    
-    dat_list <- list(y = y, Xmm = Xmm)
-    
-    # initialize log-probability
-    lp_current <- compute_lp(
-      param_list = c(list(
-        theta = param_mat[1, ]
-      ), priors_list),
-      dat_list = dat_list
-    )
-    
-    
-    # step the gibbs sampler forward
-    for(s in 2:S){
-      
-      pvec_s <- param_mat[s - 1, ]
-      prop_vec <- pvec_s
-      for(p in 1:P){
-        
-        # proposal steps
-        if(p == 1){
-          prop_vec[p] <- exp(log(pvec_s[p]) + rnorm(1) * stepsize[p])
-        }
-        if(p == 2){
-          prop_vec[p] <- -exp(log(-pvec_s[p]) + rnorm(1) * stepsize[p])
-        }
-        
-        # log probability of proposal
-        lp_sp <- compute_lp(
-          param_list = c(list(
-            theta = prop_vec 
-          ), priors_list),
-          dat_list = dat_list
-        )
-        
-        # if log probability of proposal is greater than that of
-        # the previous step, accept, otherwise accept with probability
-        # equal to the ratio
-        if(lp_sp > lp_current){
-          lp_current <- lp_sp
-          pvec_s[p] <- prop_vec[p]
-        } else if(exp(lp_sp - lp_current) > u[s, p]){
-          lp_current <- lp_sp
-          pvec_s[p] <- prop_vec[p]
-        }
-      }
-      
-      param_mat[s, ] <- pvec_s
-      lp[s] <- lp_current
-      
-    }
-  } else{ ### Now the case with missing data ###
-    
-    
+  prop_miss <- mean(is.na(y))
+  if(prop_miss == 0){
     
   }
+      
   
   if(fam == "neg_binom"){
     post_samps <- cbind(
