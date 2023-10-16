@@ -208,7 +208,9 @@ MH_Gibbs_DA <- function(theta_init, dat, fill_rng, lp, q_rng, q_lpdf, burnin, it
 
 
 
-#' Fit a Ricker population growth model with (potentially) missing data
+
+
+#' Fit a Bayesian Ricker population growth model with (potentially) missing data
 #'
 #' @param y A vector of counts with NA's in place of any missing data
 #' @param fam Character of either \code(c("poisson", "neg_binom"))
@@ -241,7 +243,7 @@ fit_ricker_DA <- function(
       y_full <- dat$y
     }
     dat <- c(dat, list(y_full = y_full))
-    result <- with(c(param, dat_list), {
+    result <- with(c(params, dat_list), {
       r <- params["r"]
       lalpha <- params["lalpha"]
       alpha <- exp(lalpha)
