@@ -147,7 +147,7 @@ fit_ricker_drop <- function(y, fam = "poisson"){
   
   y <- y[complete.cases(y)]
   
-  if(length(y) < 2){
+  if(length(y) < 3){
     return(list(
       NA,
       reason = "missingness limit"
