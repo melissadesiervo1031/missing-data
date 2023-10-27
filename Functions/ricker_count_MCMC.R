@@ -178,6 +178,9 @@ MH_Gibbs_DA <- function(theta_init, dat, fill_rng, lp, q_rng, q_lpdf, burnin, it
 #' @param burnin Number of samples to use as warmup.
 #' @param priors_list Named list defining the priors for \eqn{r} and \eqn{\alpha}
 #' @param nthin Number of steps between samples that actually get returned.
+#' @param return_y Logical to indicate whether to return the posterior samples of the missing
+#' observations. This will return posterior modes and credible intervals for all observations,
+#' so the observed observations will simply be what was observed with no variance.
 #'
 #' @return A list of posterior estimates, sds, and CredIs
 #'
@@ -186,17 +189,53 @@ fit_ricker_DA <- function(
     chains = 4, 
     samples = 1000, burnin = 1000,
     priors_list, stepsize = NULL,
-    nthin = 1
+    nthin = 1, return_y = FALSE
 ){
   require(parallel)
-  if(is.null(stepsize)){
-    stepsize <- 0.05
-  }
   
   if(fam == "neg_binom"){
     stop(
       "Implementation of Negative Binomial model is still in the works."
     )
+  }
+  
+  # Check for population extinction
+  if(any(y==0,na.rm=T)){
+    warning("population extinction caused a divide by zero problem, returning NA")
+    return(list(
+      NA,
+      cause = "population extinction"
+    ))
+  }
+  
+  # Check for NaN
+  if(any(is.nan(y),na.rm=T)){
+    warning("NaN found, recode missing data as NA, returning NA")
+    return(list(
+      NA,
+      reason = "NaN found"
+    ))
+  }
+  
+  # Check for Inf
+  if(any(is.infinite(y),na.rm=T)){
+    warning("infinite population detected, recheck data returning NA")
+    return(list(
+      NA,
+      reason = "population explosion"
+    ))
+  }
+  
+  # remove starting NAs
+  if(is.na(y[1])){
+    warning("Removing starting NAs...")
+    start <- min(which(!is.na(y)))
+    y <- y[start:length(y)]
+  }
+  
+  # set default stepsize
+  if(is.null(stepsize)){
+    stepsize <- 0.1
   }
   
   # create internal function to compute the log-probability
