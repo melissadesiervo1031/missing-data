@@ -192,7 +192,6 @@ fit_ricker_DA <- function(
     nthin = 1, return_y = FALSE
 ){
   require(parallel)
-  
   if(fam == "neg_binom"){
     stop(
       "Implementation of Negative Binomial model is still in the works."
@@ -312,12 +311,18 @@ fit_ricker_DA <- function(
   names(theta_init) <- c("r", "lalpha")
   
   prop_miss <- mean(is.na(y))
+
   if(prop_miss == 0 & fam == "poisson"){
-    
+    force(ls(envir = environment()))
     cl <- parallel::makeCluster(chains)
-    parallel::clusterExport(
+    parallel::clusterEvalQ(
       cl,
-      as.list(ls())
+      {flist <- list.files(
+        here::here("Functions/"),
+        pattern = "ricker",
+        full.names = T
+      );
+      lapply(flist, source)}
     )
     post_samps <- parallel::clusterCall(
       cl,
@@ -335,12 +340,18 @@ fit_ricker_DA <- function(
   }
   
   if(prop_miss > 0 & fam == "poisson"){
-    
+    force(ls(envir = environment()))
     cl <- parallel::makeCluster(chains)
-    parallel::clusterExport(
+    parallel::clusterEvalQ(
       cl,
-      as.list(ls())
+      {flist <- list.files(
+        here::here("Functions/"),
+        pattern = "ricker",
+        full.names = T
+      );
+      lapply(flist, source)}
     )
+    
     post_samps <- parallel::clusterCall(
       cl,
       MH_Gibbs_DA,
