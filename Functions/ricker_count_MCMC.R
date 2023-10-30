@@ -1,56 +1,14 @@
 
-
-
-#' Generate truncated-normal random variates
+#' Compute the mode of an empirical distribution
 #'
-#' @param n Number of samples to draw
-#' @param mu Location parameter for the normal distribution
-#' @param sd Standard deviation of the half-normal distribution
-#' @param a Lower bound
-#' @param b Upper bound
+#' @param x Vector of samples from the target distribution.
 #'
-#' @return Vector of n half-normal random variates
+#' @return The mode of the empirical distribution.
 #' 
-trunc_norm_rng <- function(n = 1, mu = 0, sd = 1, a = -Inf, b = Inf){
-  
-  l <- pnorm((a - mu) / sd)
-  u <- pnorm((b - mu) / sd)
-  
-  q <- runif(n = n, min = l, max = u)
-  return(
-    qnorm(q) * sd
-  )
-  
+posterior_mode <- function(x){
+  d <- density(x)
+  return(d$x[which.max(d$y)])
 }
-
-
-
-
-
-
-#' Log-pdf of the truncated-normal distribution
-#'
-#' @param x 
-#' @param a Lower bound
-#' @param b Upper bound
-#' @param sigma Standard deviation of the half-normal
-#'
-#' @return Real scalar or vector
-#' 
-trunc_norm_lpdf <- function(x, mu = 0, sd = 1, a = -Inf, b = Inf){
-  
-  if(x < a | x > b){
-    return(log(0))
-  } else{
-    return(
-      -log(sd) + dnorm((x - mu) / sd, log = T) - log(
-        pnorm((b - mu) / sd) - pnorm((a - mu) / sd)
-      )
-    )
-  }
-  
-}
-
 
 
 
@@ -208,18 +166,21 @@ MH_Gibbs_DA <- function(theta_init, dat, fill_rng, lp, q_rng, q_lpdf, burnin, it
 
 
 
-#' Fit a Ricker population growth model with (potentially) missing data
+
+
+#' Fit a Bayesian Ricker population growth model with (potentially) missing data
 #'
 #' @param y A vector of counts with NA's in place of any missing data
 #' @param fam Character of either \code(c("poisson", "neg_binom"))
-#' @param stan_mod Optional. Can supply a compiled stan model (MUCH FASTER FOR APPLYING
-#' TO MANY DATASETS AT ONE) or can be left NULL and the function will compile the
-#' model internally based on \code{fam}.
-#' @param X Optional covariate matrix (SHOULD NOT INCLUDE Y OR AN INTERCEPT)
-#' @param cores Number of cores to use during sampling
-#' @param chains Number of HMC chains
+#' @param chains Number of MCMC chains to run in parallel. Each will generate \code{samples}
+#' samples from the posterior.
 #' @param samples Number of posterior samples to keep from each chain
-#' @param ... Additional arguments to pass to the \code{control()} for STAN
+#' @param burnin Number of samples to use as warmup.
+#' @param priors_list Named list defining the priors for \eqn{r} and \eqn{\alpha}
+#' @param nthin Number of steps between samples that actually get returned.
+#' @param return_y Logical to indicate whether to return the posterior samples of the missing
+#' observations. This will return posterior modes and credible intervals for all observations,
+#' so the observed observations will simply be what was observed with no variance.
 #'
 #' @return A list of posterior estimates, sds, and CredIs
 #'
@@ -227,68 +188,221 @@ fit_ricker_DA <- function(
     y, fam = "poisson", 
     chains = 4, 
     samples = 1000, burnin = 1000,
-    prior_pars, stepsize = NULL
+    priors_list, stepsize = NULL,
+    nthin = 1, return_y = FALSE
 ){
-  
-  if(is.null(stepsize)){
-    stepsize <- prior_pars / 5
+  require(parallel)
+  if(fam == "neg_binom"){
+    stop(
+      "Implementation of Negative Binomial model is still in the works."
+    )
   }
-  priors_list <- split(unname(prior_pars), names(prior_pars))
+  
+  # Check for population extinction
+  if(any(y==0,na.rm=T)){
+    warning("population extinction caused a divide by zero problem, returning NA")
+    return(list(
+      NA,
+      cause = "population extinction"
+    ))
+  }
+  
+  # Check for NaN
+  if(any(is.nan(y),na.rm=T)){
+    warning("NaN found, recode missing data as NA, returning NA")
+    return(list(
+      NA,
+      reason = "NaN found"
+    ))
+  }
+  
+  # Check for Inf
+  if(any(is.infinite(y),na.rm=T)){
+    warning("infinite population detected, recheck data returning NA")
+    return(list(
+      NA,
+      reason = "population explosion"
+    ))
+  }
+  
+  # remove starting NAs
+  if(is.na(y[1])){
+    warning("Removing starting NAs...")
+    start <- min(which(!is.na(y)))
+    y <- y[start:length(y)]
+  }
+  
+  # set default stepsize
+  if(is.null(stepsize)){
+    stepsize <- 0.1
+  }
   
   # create internal function to compute the log-probability
-  compute_lp <- function(params, dat_list, y_full = NULL, family = fam){
+  compute_lp <- function(theta, dat, y_full = NULL, family = fam){
     if(is.null(y_full)){
       y_full <- dat$y
     }
-    dat <- c(dat, list(y_full = y_full))
-    result <- with(c(param, dat_list), {
-      r <- params["r"]
-      lalpha <- params["lalpha"]
-      alpha <- exp(lalpha)
-      lp <- -ricker_count_neg_ll(theta = c(r, alpha), y = y_full, X = Xmm, fam = family) +
-        trunc_norm_lpdf(r, sd = sd_r, a = 0) + 
-        dlnorm(alpha, mean = m_lalpha, sd = sd_lalpha, log = T)
-      lp
-    })
-    return(result)
+    r <- theta["r"]
+    alpha <- -exp(theta["lalpha"])
+    Xmm <- cbind(
+      rep(1, length(y_full)),
+      y_full
+    )
+    lp <- -ricker_count_neg_ll(theta = c(r, alpha), y = y_full, X = Xmm, fam = family) +
+      dnorm(r, mean = dat$m_r, sd = dat$sd_r, log = T) + 
+      dnorm(theta["lalpha"], mean = dat$m_lalpha, sd = dat$sd_lalpha, log = T)
+    return(unname(lp))
   }
   
-  # create model matrix
-  Xmm <- cbind(
-    rep(1, n), y
-  )
+  # function to "fill in" the missing data based on current values of params
+  fill_rng <- function(theta, dat, family = fam){
+    y <- dat$y
+    n <- length(y)
+    y_full <- vector("double", length = n)
+    y_full[1] <- y[1]
+    for(t in 2:n){
+      if(is.na(y[t])){
+        mu_t <- ricker_step(
+          theta = c(theta["r"], -exp(theta["lalpha"])), 
+          Nt = y_full[t-1]
+        )
+        if(family == "poisson"){
+          y_full[t] <- rpois(1, mu_t)
+        }
+        if(family == "neg_binom"){
+          y_full[t] <- rnbinom(1, size = exp(theta["lpsi"]), mu = mu_t)
+        }
+      } else{
+        y_full[t] <- y[t]
+      }
+    }
+    # replace zeros (sort of hacky!!!)
+    y_full[y_full == 0] <- 1
+    return(y_full)
+  }
+  
+  # define proposal distribution
+  q_rng <- function(theta, sd = stepsize){
+    p <- length(theta)
+    theta_prop <- rnorm(p, mean = theta, sd = stepsize)
+    names(theta_prop) <- names(theta)
+    return(theta_prop)
+  }
+  
+  # define proposal density
+  q_lpdf <- function(prop, theta_s, sd = stepsize){
+    sum(dnorm(prop, mean = theta_s, sd = sd, log = T))
+  }
+  
+  # generate some useful variables
+  n <- length(y)
+  p <- 2
   
   # compile data
   dat <- c(
     list(
-      y = y,
-      Xmm = Xmm
+      y = y
     ),
     priors_list
   )
   
-  prop_miss <- mean(is.na(y))
-  if(prop_miss == 0){
-    
-  }
-      
+  # initialize
+  theta_init <- runif(p, -2, 2)
+  names(theta_init) <- c("r", "lalpha")
   
-  if(fam == "neg_binom"){
-    post_samps <- cbind(
-      post_samps,
-      as.data.frame(rstan::extract(mfit, pars = c("psi")))
+  prop_miss <- mean(is.na(y))
+
+  if(prop_miss == 0 & fam == "poisson"){
+    force(ls(envir = environment()))
+    cl <- parallel::makeCluster(chains)
+    parallel::clusterEvalQ(
+      cl,
+      {flist <- list.files(
+        here::here("Functions/"),
+        pattern = "ricker",
+        full.names = T
+      );
+      lapply(flist, source)}
     )
+    post_samps <- parallel::clusterCall(
+      cl,
+      MH_block_sample,
+      theta_init = theta_init,
+      dat = dat,
+      lp = compute_lp,
+      q_rng = q_rng,
+      q_lpdf = q_lpdf,
+      burnin = burnin,
+      iter = samples,
+      nthin = nthin
+    )
+    parallel::stopCluster(cl)
+  }
+  
+  if(prop_miss > 0 & fam == "poisson"){
+    force(ls(envir = environment()))
+    cl <- parallel::makeCluster(chains)
+    parallel::clusterEvalQ(
+      cl,
+      {flist <- list.files(
+        here::here("Functions/"),
+        pattern = "ricker",
+        full.names = T
+      );
+      lapply(flist, source)}
+    )
+    
+    post_samps <- parallel::clusterCall(
+      cl,
+      MH_Gibbs_DA,
+      theta_init = theta_init,
+      dat = dat,
+      lp = compute_lp,
+      fill_rng = fill_rng,
+      q_rng = q_rng,
+      q_lpdf = q_lpdf,
+      burnin = burnin,
+      iter = samples,
+      nthin = nthin
+    )
+    parallel::stopCluster(cl)
+    
+  } 
+  
+  # create posterior samps of r and alpha
+  theta_samps <- Reduce(
+    rbind,
+    lapply(post_samps, function(x){
+      x$theta
+    })
+  )
+  theta_samps[,2] <- exp(theta_samps[,2])
+  colnames(theta_samps) <- c("r", "alpha")
+  
+  # if we want to return posterior estims for missing obs
+  if(isTRUE(return_y)){
+    y_samps <- Reduce(
+      rbind,
+      lapply(post_samps, function(x){
+        x$y
+      })
+    )
+    theta_samps <- cbind(
+      theta_samps, y_samps
+    )
+    colnames(theta_samps)[3:ncol(theta_samps)] <- 
+      paste0("y", 1:n)
   }
   
   # return summaries
   return(
     list(
-      bayes_estim = apply(post_samps, 2, mean),
-      post_mode = apply(post_samps, 2, post_mode),
-      sd = apply(post_samps, 2, sd),
-      l95 = apply(post_samps, 2, quantile, probs = 0.025),
-      u95 = apply(post_samps, 2, quantile, probs = 0.975)
+      estim = apply(theta_samps, 2, posterior_mode),
+      se = apply(theta_samps, 2, sd),
+      lower = apply(theta_samps, 2, quantile, probs = 0.025),
+      upper = apply(theta_samps, 2, quantile, probs = 0.975)
     )
   )
   
 }
+
