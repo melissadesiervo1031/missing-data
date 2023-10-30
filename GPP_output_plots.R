@@ -6,7 +6,6 @@ library(Amelia)
 library(forecast)
 library(xts)
 library(nlme)
-library(tidyverse)
 library(lubridate)
 
 
@@ -83,7 +82,7 @@ gauss_sim_Means <- gauss_sim_figDat %>%
             sd_paramDiff = sd(paramDiff_stnd)) %>% 
   rename("meanAmtMiss" = 'round(amtMiss, digits = 1)')
 
-# make figure 
+# make figure of parameter recovery for ALL models--very busy
 ggplot(data = gauss_sim_figDat[gauss_sim_figDat$simName %in% c(1:100), ], aes()) + 
   facet_grid(~factor(param, levels = c("intercept", "phi", "light", "discharge")) 
              ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR")), scales="free_y") + 
@@ -96,12 +95,13 @@ ggplot(data = gauss_sim_figDat[gauss_sim_figDat$simName %in% c(1:100), ], aes())
   theme(legend.title=element_blank())+
   ylab("standardized parameter estimate [(model param - sim param)/sim param]")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))
 
-ggplot(data = gauss_sim_Means, aes(x = meanAmtMiss, y = mean_paramDiff)) +
+# figure of means for each model type and level of missingness  + 1 SD
+gauss_sim_MeansFig <- ggplot(data = gauss_sim_Means, aes(x = meanAmtMiss, y = mean_paramDiff)) +
   facet_grid(~factor(param, levels = c("intercept", "phi", "light", "discharge")) 
-                                                               ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR")), scales="free_y") + 
+                                                               ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR"))) + 
   geom_hline(aes(yintercept = 0), colour = "grey") + 
-  geom_errorbar(aes(ymin=mean_paramDiff - sd_paramDiff, ymax=mean_paramDiff + sd_paramDiff, color = as.factor(type)), 
-                size=0.3, width=0, position = position_dodge(width=0.03))+
+  #geom_errorbar(aes(ymin=mean_paramDiff - sd_paramDiff, ymax=mean_paramDiff + sd_paramDiff, color = as.factor(type)), 
+                #size=0.3, width=0, position = position_dodge(width=0.03))+
   #geom_ribbon(aes(ymin = mean_paramDiff - sd_paramDiff, ymax = mean_paramDiff + sd_paramDiff, color = as.factor(type), fill = as.factor(type)), alpha = .1) +
   geom_line(aes(color = as.factor(type)), position = position_dodge(width=0.03)) + 
   geom_point(aes(color = as.factor(type)), alpha = .8, position = position_dodge(width=0.03)) +
@@ -114,6 +114,18 @@ ggplot(data = gauss_sim_Means, aes(x = meanAmtMiss, y = mean_paramDiff)) +
 
 
 
+ggplot(data = gauss_sim_figDat[gauss_sim_figDat$simName %in% c(1:100), ], aes()) + 
+  facet_grid(~factor(param, levels = c("intercept", "phi", "light", "discharge")) 
+             ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR")), scales="free_y") + 
+  geom_hline(aes(yintercept = 0), colour = "grey") + 
+  #geom_point(aes(x = amtMiss, y = paramDiff_stnd, color = as.factor(type)), alpha = .3) +
+  geom_violin(aes(x = as.factor(round(amtMiss,1)), y = paramDiff_stnd, fill = type, color = type), trim = FALSE) + 
+  theme_classic() +
+  xlab("Proportion of missing data")+ 
+  theme(legend.position="top")+
+  theme(legend.title=element_blank())+
+  ylab("standardized parameter estimate [(model param - sim param)/sim param]")+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))
 
 
 allmethodsGPP<-ggplot(data=paramallARIMASTAN3, aes(x=as.numeric(missingprop), y=value, color=type))+
@@ -128,7 +140,7 @@ allmethodsGPP<-ggplot(data=paramallARIMASTAN3, aes(x=as.numeric(missingprop), y=
 
 
 
-
-
-####
-
+#### save results
+pdf(file = "./figures/parameterRecovery_sim_Guassian_means.pdf")
+gauss_sim_MeansFig
+dev.off()

@@ -41,7 +41,10 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       # declare transition matrix
       M <- matrix(nrow = 2, ncol = 2)
       
-      # populate transition matrix based on Gharib et al. 2014 ("Characterization of Markov-Bernoulli geometric distribution related to random sums")
+      # populate transition matrix based on Gharib et al. 2014 ("Characterization 
+      # of Markov-Bernoulli geometric distribution related to random sums")
+      # 0 = not missing, 1 = missing
+      
       #         X_i+1
       #          0                 1
       #          ______________________
@@ -53,9 +56,8 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       p <- 1-propMiss_f[i]
       
       ## rho is the correlation coefficient between values at times t and t+1
-      # 0 indicates maximum negative autocorrelation
+      # 0 indicates no autocorrelation
       # 1 indicates the maximum positive autocorrelation
-      # 0.5 indicates no autocorrelation
       
       # first row of transition matrix
       # determines 0 -> 0 and 0 -> 1
