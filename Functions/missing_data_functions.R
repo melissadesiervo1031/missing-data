@@ -242,16 +242,16 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
 # stored in a list and named `y`. The parameters used to simulate the data are 
 # stored in a sublist called `sim_params` and include `r`, the intrinsic growth 
 # rate, and `alpha`, the intraspecific competition coefficient.
-ricker <- readRDS("./data/ricker_0miss_datasets.rds")
+# ricker <- readRDS("./data/ricker_0miss_datasets.rds")
+# # 
+# ## testing with a subset of the ricker data
+# # for missing at random (chunk size = 1)
+# makeMissing(timeSeries = ricker[[1]]$y, typeMissing = "random", propMiss = c(.5, .05), autoCorr = .003)
+# # for missing at random but autocorrelated (chunk size = 3)
+# makeMissing(timeSeries = ricker[[1]]$y, typeMissing = "random", propMiss = c(.5, .05))
 # 
-## testing with a subset of the ricker data
-# for missing at random (chunk size = 1)
-makeMissing(timeSeries = ricker[[1]]$y, typeMissing = "random", propMiss = c(.5, .05), autoCorr = .003)
-# for missing at random but autocorrelated (chunk size = 3)
-makeMissing(timeSeries = ricker[[1]]$y, typeMissing = "random", propMiss = c(.5, .05))
-
-## testing w/ all of the ricker data list
-lapply(X = ricker, FUN = function(X) makeMissing(timeSeries = X$y, typeMissing = "random", chunkSize = 1))
+# ## testing w/ all of the ricker data list
+# lapply(X = ricker, FUN = function(X) makeMissing(timeSeries = X$y, typeMissing = "random", chunkSize = 1))
 
 
 
