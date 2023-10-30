@@ -87,6 +87,7 @@ gauss_real <- rbind(gauss_real,
                  "light.rel" = NA))
 gauss_real <- gauss_real[order(gauss_real$date),]
 
+write_csv(gauss_real, 'data/pine_river_data_prepped.csv')
 ## make missing data types for increasing levels of autocorrelation
 # possible autocorrelation vector
 inputAutocor <- c(.0, .10, .20, .30, .40, .50, .60, .70, .80, .90)
