@@ -4,7 +4,7 @@
 # missing observations, using EM
 ####################################################
 
-source("Functions/ricker_count_likelihood_functions.R")
+source(here::here("Functions/ricker_count_likelihood_functions.R"))
 
 #' Fitting the Ricker population model to count data
 #' 
@@ -137,13 +137,41 @@ ricker_EM <- function(y, init_theta, fam = "poisson", tol = 1e-5, max_iter = 50)
 #' fit_ricker_EM(y)
 #' 
 fit_ricker_EM <- function(y, fam = "poisson", ...){
-  # quick check
-  if(sum(is.infinite(y)) > 0){
-    stop("Failed. Infinite population size found.")
+  
+  # Check for population extinction
+  if(any(y==0,na.rm=T)){
+    warning("population extinction caused a divide by zero problem, returning NA")
+    return(list(
+      NA,
+      cause = "population extinction"
+    ))
   }
-  if(sum(is.nan(y)) > 0){
-    stop("Failed. NaN found. Missing values must be coded as NA.")
+  
+  # Check for NaN
+  if(any(is.nan(y),na.rm=T)){
+    warning("NaN found, recode missing data as NA, returning NA")
+    return(list(
+      NA,
+      reason = "NaN found"
+    ))
   }
+  
+  # Check for Inf
+  if(any(is.infinite(y),na.rm=T)){
+    warning("infinite population detected, recheck data returning NA")
+    return(list(
+      NA,
+      reason = "population explosion"
+    ))
+  }
+  
+  # remove starting NAs
+  if(is.na(y[1])){
+    warning("Removing starting NAs...")
+    start <- min(which(!is.na(y)))
+    y <- y[start:length(y)]
+  }
+  
   init_theta <- c(0.5, -0.01)
   if(fam == "neg_binom"){
     init_theta <- c(init_theta, 10)
