@@ -15,6 +15,33 @@
 #' 
 fit_ricker_cc <- function(y, fam = "poisson"){
   
+  # Check for population extinction
+  if(any(y==0,na.rm=T)){
+    warning("population extinction caused a divide by zero problem, returning NA")
+    return(list(
+      NA,
+      cause = "population extinction"
+    ))
+  }
+  
+  # Check for NaN
+  if(any(is.nan(y),na.rm=T)){
+    warning("NaN found, recode missing data as NA, returning NA")
+    return(list(
+      NA,
+      reason = "NaN found"
+    ))
+  }
+  
+  # Check for Inf
+  if(any(is.infinite(y),na.rm=T)){
+    warning("infinite population detected, recheck data returning NA")
+    return(list(
+      NA,
+      reason = "population explosion"
+    ))
+  }
+  
   n <- length(y)
   
   # compile into sliced dataframe
@@ -26,8 +53,11 @@ fit_ricker_cc <- function(y, fam = "poisson"){
   # drop incomplete cases
   dat_cc <- dat[complete.cases(dat), ]
   
-  if(nrow(dat_cc) == 0){
-    return(NA)
+  if(nrow(dat_cc) < 2){
+    return(list(
+      NA,
+      reason = "missingness limit"
+    ))
   }
   
   # fit with poisson
@@ -88,10 +118,40 @@ fit_ricker_cc <- function(y, fam = "poisson"){
 #' 
 fit_ricker_drop <- function(y, fam = "poisson"){
   
+  # Check for population extinction
+  if(any(y==0,na.rm=T)){
+    warning("population extinction caused a divide by zero problem, returning NA")
+    return(list(
+      NA,
+      cause = "population extinction"
+    ))
+  }
+  
+  # Check for NaN
+  if(any(is.nan(y),na.rm=T)){
+    warning("NaN found, recode missing data as NA, returning NA")
+    return(list(
+      NA,
+      reason = "NaN found"
+    ))
+  }
+  
+  # Check for Inf
+  if(any(is.infinite(y),na.rm=T)){
+    warning("infinite population detected, recheck data returning NA")
+    return(list(
+      NA,
+      reason = "population explosion"
+    ))
+  }
+  
   y <- y[complete.cases(y)]
   
-  if(length(y) == 0){
-    return(NA)
+  if(length(y) < 3){
+    return(list(
+      NA,
+      reason = "missingness limit"
+    ))
   }
   
   n <- length(y)
