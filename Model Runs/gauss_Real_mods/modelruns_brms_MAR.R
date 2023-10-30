@@ -19,22 +19,31 @@ CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
   
 #gauss_real_randMiss <- readRDS("data/missingDatasets/gauss_real_randMiss.rds")
 gauss_real_randMiss <- readRDS("/project/modelscape/users/astears/gauss_real_randMiss.rds")
+pine_river_full <- read_csv('data/pine_river_data_prepped.csv')
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
 OutFile <- paste0("gauss_real_MAR_brms_modelResults/", CurSim, "brmsvals.csv")
+OutFile_preds <- paste0("gauss_real_MAR_brms_modelResults/", CurSim, "brmspreds.csv")
 
 #########################################################################################
 ### MY ARIMA FUNCTIONS #####
 ##########################################################################################
 ### Function to fit a BRMS model on a time series ###
 fit_brms_model <- function(sim_list, sim_pars, 
-                           iter = 4000, include_missing = FALSE){
+                           iter = 4000, include_missing = FALSE,
+                           forecast = TRUE, forecast_days = 31,
+                           dat_full ){
   simmissingdf <-lapply(X = sim_list, 
                         FUN = function(X) cbind.data.frame(GPP = X, 
                                                            light = sim_pars$light, 
-                                                             discharge = sim_pars$Q))
+                                                           discharge = sim_pars$Q))
   
+  if(forecast){
+    simmissingdf <- lapply(simmissingdf, function(df) {
+      df[1:(366-forecast_days), ]  # Remove to save these for forecasting
+    })
+  }
   
   # Make the model formula and priors
   bform <- brms::bf(GPP | mi() ~ light + Q + ar(p = 1))
@@ -45,7 +54,7 @@ fit_brms_model <- function(sim_list, sim_pars,
   bmod <- brms::brm_multiple(bform, data = simmissingdf, 
                              prior = bprior, iter = iter, 
                              combine = FALSE)
-  
+
   extract_brms_pars <- function(bfit, include_missing = FALSE){
     bsum <- brms::posterior_summary(bfit, probs = c(0.025, 0.5, 0.975))
     bsum <- as.data.frame(bsum) %>%
@@ -68,6 +77,23 @@ fit_brms_model <- function(sim_list, sim_pars,
   bpars <- lapply(bmod, extract_brms_pars, include_missing = include_missing)
   names(bpars) <- names(simmissingdf)
   
+  if(forecast){  
+    dat_forecast <- dat_full %>%
+      slice((nrow(dat_full)-forecast_days):nrow(dat_full)) %>%
+      select(date, GPP, light, Q)
+    
+    predictions <- lapply(bmod, function(mod){
+      predict(mod, newdata = dat_forecast[,-2]) %>%
+        as.data.frame() %>% mutate(date = dat_forecast$date,
+                                   GPP = dat_forecast$GPP)
+    })
+    
+    names(predictions) <- names(simmissingdf)
+    return(list(brms_forecast = predictions,
+                brms_pars = bpars,
+                sim_params = sim_pars))
+  }
+  
   return(list(brms_pars = bpars,
               sim_params = sim_pars))
   
@@ -80,7 +106,9 @@ fit_brms_model <- function(sim_list, sim_pars,
 #########################################################
 
 brms_MAR <- fit_brms_model(sim_list = gauss_real_randMiss[[CurSim]]$y,
-                           sim_pars = gauss_real_randMiss[[CurSim]]$sim_params)
+                           sim_pars = gauss_real_randMiss[[CurSim]]$sim_params,
+                           forecast = TRUE, forecast_days = 31, 
+                           dat_full = pine_river_full)
 
 
 ########### formatting for figure #############
@@ -92,6 +120,12 @@ brms_MAR_df$missingness <- 'MAR'
 brms_MAR_df$type <- 'brms'
 brms_MAR_df$run_no <- CurSim
 
+brms_MAR_preds <- map_df(brms_MAR$brms_forecast, ~as.data.frame(.x),
+                      .id = "missingprop_autocor")
+brms_MAR_preds$missingness <- 'MAR'
+brms_MAR_preds$type <- 'brms'
+brms_MAR_preds$run_no <- CurSim
+
 
 ###################################################
 #### SAVE #########
@@ -99,6 +133,7 @@ brms_MAR_df$run_no <- CurSim
 # Write the output to the folder which will contain all output files as separate csv
 #    files with a single line of data.
 write_csv(brms_MAR_df, file = OutFile)
+write_csv(brms_MAR_preds, file = OutFile_preds)
 
 
 # Once the job finishes, you can use the following command from within the folder
