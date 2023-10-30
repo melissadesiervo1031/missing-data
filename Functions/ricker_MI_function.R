@@ -33,19 +33,28 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
   # Check for population extinction
   if(any(y==0,na.rm=T)){
     warning("population extinction caused a divide by zero problem, returning NA")
-    return(NA)
+    return(list(
+      NA,
+      cause = "population extinction"
+    ))
   }
   
   # Check for NaN
   if(any(is.nan(y),na.rm=T)){
     warning("NaN found, recode missing data as NA, returning NA")
-    return(NA)
+    return(list(
+      NA,
+      reason = "NaN found"
+    ))
   }
   
   # Check for Inf
   if(any(is.infinite(y),na.rm=T)){
     warning("infinite population detected, recheck data returning NA")
-    return(NA)
+    return(list(
+      NA,
+      reason = "population explosion"
+    ))
   }
   
   
@@ -55,7 +64,10 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
   # Check for not enough information for amelia to fit imputation model (amelia returns collinearity error)
   if(length(which(is.na(y[2:n]-y[1:(n - 1)])))>=(n-2)){ # if there are no, or only 1 overlap of non-NAs for Amelia to use for MI
     warning("There are not enough non-missing sets y(t) and y(t-1)")
-    return(NA)
+    return(list(
+      NA,
+      reason = "missingness limits"
+    ))
   }
   
   
@@ -172,14 +184,20 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
     },
     TimeoutException=function(msg){
       warning("Amelia has timed out, likely due to high missingness")
-      return(NA)
+      return(list(
+        NA,
+        reason = "Amelia time out"
+      ))
     }
   )
   
   
   if(any(is.na(amelia1sim))){
     warning("Amelia has timed out, likely due to exceptionally high missingness")
-    return(NA)
+    return(list(
+      NA,
+      reason = "Amelia time out"
+    ))
   } 
   
   fit=list()
