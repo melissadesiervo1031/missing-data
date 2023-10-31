@@ -63,30 +63,27 @@ for (i in 1:length(gauss_sim_minMaxMiss)) {
 # read in data
 dat <- read.csv('./data/NWIS_MissingTS_subset.csv')
 mdat <- read.csv('data/NWIS_MissingTSinfo_subset.csv')
+id <- mdat$site_name[2]
+q_pr <- dataRetrieval::readNWISdata(sites = substr(id, 6, nchar(id)),
+                                    parameterCd = "00060", 
+                                    service = "dv", 
+                                    startDate = ymd("2016-01-01"), endDate = ymd('2016-12-31')) %>%
+  select(date = dateTime,
+         discharge_cfs = X_00060_00003) %>%
+  mutate(Q = discharge_cfs / (3.28084)^3 ) # convert discharge to cms
 
-id <- mdat$site_name[4]
-pr <- dat %>% filter(site_name == id) %>% select(date, GPP, light, Q, GPP.upper,GPP.lower) %>% 
-  mutate(Jdate= yday(date), light.rel = light/max(light))
-gauss_real <- as.data.frame(pr)
-# make date correct format
-gauss_real$date <- as.Date(gauss_real$date, tz = "UTC")
+pr <- dat %>% filter(site_name == id) %>% 
+  select(date, GPP, light, Q, GPP.upper,GPP.lower) %>% 
+  mutate(date = ymd(date)) %>%
+  complete(date = seq(ymd('2016-01-01'), ymd('2016-12-31'), by = '1 day')) %>%
+  mutate(light = zoo::na.approx(light, na.rm = F)) %>%
+  mutate(Jdate= yday(date), light.rel = light/max(light, na.rm = T))
+pr <- select(pr, -Q) %>% 
+  left_join(select(q_pr, date, Q))
 
-# add in rows for truly missing days
-# make a sequence of all dates over the span of data collection ## 2012 was a leap year!! 
-allDates <- seq(ymd('2012-01-01'), ymd('2012-12-31'), by='1 day')
-# use this df to add NAs to the real data at the correct dates
-missingDates <- allDates[!(allDates%in% gauss_real$date)]
-gauss_real <- rbind(gauss_real, 
-      data.frame("date" = missingDates,
-                 "GPP" = NA, 
-                 "light" = NA, 
-                 "Q" = NA, 
-                 "GPP.upper" = NA, 
-                 "GPP.lower" = NA, 
-                 "Jdate" = NA, 
-                 "light.rel" = NA))
-gauss_real <- gauss_real[order(gauss_real$date),]
+gauss_real <- data.frame(pr)
 
+write_csv(gauss_real, 'data/pine_river_data_prepped.csv')
 ## make missing data types for increasing levels of autocorrelation
 # possible autocorrelation vector
 inputAutocor <- c(.0, .10, .20, .30, .40, .50, .60, .70, .80, .90)
