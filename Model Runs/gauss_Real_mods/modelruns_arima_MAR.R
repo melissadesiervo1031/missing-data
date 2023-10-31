@@ -20,6 +20,7 @@ CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
 
 ## read in the autocor_01 list ##
 
+# gauss_real_randMiss <- readRDS("data/missingDatasets/gauss_real_randMiss.rds")
 gauss_real_randMiss <- readRDS("/project/modelscape/users/astears/gauss_real_randMiss.rds")
 
 # make file for output beforehand in supercomputer folder 
