@@ -6,7 +6,7 @@
 #SBATCH --account=modelscape
 #SBATCH --output=modelruns_brms_MAR_gaussian_real_ex01_%A.out
 #SBATCH --array=0-2
-#SBATCH --mem=3G           # total memory per node
+#SBATCH --mem=4G           # total memory per node
 
 echo "SLURM_JOB_ID:" $SLURM_JOB_ID
 echo "SLURM_JOB_NAME:" $SLURM_JOB_NAME
