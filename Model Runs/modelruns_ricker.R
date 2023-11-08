@@ -99,20 +99,20 @@ if(!is.null(names(dat))){
   
 }
 
-# find any problem cases and drop from both the parameter
-# dataframe and the data list
-probs <- unique(c(
-  which(
-    sapply(dat_flat, function(x){sum(is.infinite(x))}) > 0
-  ),
-  which(
-    sapply(dat_flat, function(x){sum(is.nan(x))}) > 0
-  ),
-  which(sapply(dat_flat, function(x){sum(x == 0, na.rm = T)}) > 0)
-))
+# # find any problem cases and drop from both the parameter
+# # dataframe and the data list
+# probs <- unique(c(
+#   which(
+#     sapply(dat_flat, function(x){sum(is.infinite(x))}) > 0
+#   ),
+#   which(
+#     sapply(dat_flat, function(x){sum(is.nan(x))}) > 0
+#   ),
+#   which(sapply(dat_flat, function(x){sum(x == 0, na.rm = T)}) > 0)
+# ))
 
-dat_flat_complete <- dat_flat[-probs]
-pars_complete <- pars_full[-probs, ]
+# dat_flat_complete <- dat_flat[-probs]
+# pars_complete <- pars_full[-probs, ]
 
 
 ### fitting the models ###
@@ -144,7 +144,7 @@ names(results_list) <- paste0(
 for(i in 1:length(methods)){
   results_list[[i]] <- parLapply(
     cl = cl,
-    X = dat_flat_complete,
+    X = dat_flat,
     fun = eval(parse(
       text = paste0("fit_ricker_", methods[i])
     ))
@@ -156,7 +156,7 @@ stopCluster(cl)
 
 # compile results into a tibble
 results <- cbind(
-  as_tibble(pars_complete),
+  as_tibble(pars_full),
   as_tibble(results_list)
 )
 })
