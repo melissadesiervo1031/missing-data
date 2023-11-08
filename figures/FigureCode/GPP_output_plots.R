@@ -79,10 +79,10 @@ gauss_sim_Means <- gauss_sim_figDat %>%
 
 
 # Figure of parameter recovery (mean and sd in separate panels) -----------
-# figure of means for each model type and level of missingness
-(gauss_sim_MeansFig <- ggplot(data = gauss_sim_Means, aes(x = meanAmtMiss, y = mean_paramDiff)) +
+# figure of means for each model type and level of missingness (with shortened x-axis)
+(gauss_sim_MeansFig_trimmed <- ggplot(data = gauss_sim_Means, aes(x = meanAmtMiss, y = mean_paramDiff)) +
   facet_grid(~factor(param, levels = c("intercept", "phi", "light", "discharge")) 
-                                                               ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR"))) + 
+                                       ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR"))) + 
   geom_hline(aes(yintercept = 0), colour = "grey") + 
   #geom_errorbar(aes(ymin=mean_paramDiff - sd_paramDiff, ymax=mean_paramDiff + sd_paramDiff, color = as.factor(type)), 
                 #size=0.3, width=0, position = position_dodge(width=0.03))+
@@ -94,14 +94,20 @@ gauss_sim_Means <- gauss_sim_figDat %>%
   theme(legend.position="top")+
   theme(legend.title=element_blank())+
   ylab("Mean standardized parameter estimate")+ 
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) +
+   xlim(c(-0.05,.55)) +
+   ylim(c(-0.85,0.8))
 )
 
+## make a sub-dataframe that includes points for SDs that are >5 
+largeSD <- gauss_sim_Means[gauss_sim_Means$meanAmtMiss <= 0.5 & 
+                             gauss_sim_Means$sd_paramDiff > 4,]
+  
 # figure of means for each model type and level of missingness
-(gauss_sim_SDFig <- ggplot(data = gauss_sim_Means, aes(x = meanAmtMiss, y = sd_paramDiff)) +
+(gauss_sim_SDFig_trimmed <- ggplot(data = gauss_sim_Means, aes(x = meanAmtMiss, y = sd_paramDiff)) +
   facet_grid(~factor(param, levels = c("intercept", "phi", "light", "discharge")) 
              ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR"))) + 
-  geom_hline(aes(yintercept = 0), colour = "grey") + 
+  geom_hline(aes(yintercept = 1.96), colour = "grey", lty = 2) + 
   geom_line(aes(color = as.factor(type)), position = position_dodge(width=0.03)) + 
   geom_point(aes(color = as.factor(type)), alpha = .8, position = position_dodge(width=0.03)) +
   #geom_ribbon(aes(ymin = 0, ymax = sd_paramDiff, fill = as.factor(type), color = as.factor(type)), alpha = .2, position = position_dodge(width=0.03)) +
@@ -110,15 +116,63 @@ gauss_sim_Means <- gauss_sim_figDat %>%
   theme(legend.position="top")+
   theme(legend.title=element_blank())+
   ylab("SD of standardized parameter estimate")+ 
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)))
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))+
+    xlim(c(-0.05,.55)) + 
+    ylim(c(0,4)) +
+  geom_point(data = largeSD, aes(x = meanAmtMiss, y = c(3.99,3.99,3.99,3.99,3.99,3.99), color = as.factor(type)), 
+             position = position_dodge(width=0.03), pch = 8)
+  ) 
 
 # put into one figure
-Gauss_paramRecov <- ggarrange(gauss_sim_MeansFig, gauss_sim_SDFig, common.legend = TRUE)
+Gauss_paramRecov_trimmed <- ggarrange(gauss_sim_MeansFig_trimmed, gauss_sim_SDFig_trimmed, common.legend = TRUE)
+
+## save results
+png(file = "./figures/parameterRecovery_sim_Guassian_meansSD_trimmed.png", width = 9, height = 4, units = "in", res = 700)
+Gauss_paramRecov_trimmed
+dev.off()
+
+
+## make a figure like the one above, but without a trimmed x axis
+# figure of means for each model type and level of missingness
+(gauss_sim_MeansFig_reg<- ggplot(data = gauss_sim_Means, aes(x = meanAmtMiss, y = mean_paramDiff)) +
+    facet_grid(~factor(param, levels = c("intercept", "phi", "light", "discharge")) 
+               ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR"))) + 
+    geom_hline(aes(yintercept = 0), colour = "grey") + 
+    #geom_errorbar(aes(ymin=mean_paramDiff - sd_paramDiff, ymax=mean_paramDiff + sd_paramDiff, color = as.factor(type)), 
+    #size=0.3, width=0, position = position_dodge(width=0.03))+
+    #geom_ribbon(aes(ymin = mean_paramDiff - sd_paramDiff, ymax = mean_paramDiff + sd_paramDiff, color = as.factor(type), fill = as.factor(type)), alpha = .1) +
+    geom_line(aes(color = as.factor(type)), position = position_dodge(width=0.03)) + 
+    geom_point(aes(color = as.factor(type)), alpha = .8, position = position_dodge(width=0.03)) +
+    theme_classic() +
+    xlab("Proportion of missing data")+ 
+    theme(legend.position="top")+
+    theme(legend.title=element_blank())+
+    ylab("Mean standardized parameter estimate")+ 
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) 
+)
+# figure of means for each model type and level of missingness
+(gauss_sim_SDFig_reg<- ggplot(data = gauss_sim_Means, aes(x = meanAmtMiss, y = sd_paramDiff)) +
+    facet_grid(~factor(param, levels = c("intercept", "phi", "light", "discharge")) 
+               ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR"))) + 
+    geom_hline(aes(yintercept = 1.96), colour = "grey", lty = 2) + 
+    geom_line(aes(color = as.factor(type)), position = position_dodge(width=0.03)) + 
+    geom_point(aes(color = as.factor(type)), alpha = .8, position = position_dodge(width=0.03)) +
+    #geom_ribbon(aes(ymin = 0, ymax = sd_paramDiff, fill = as.factor(type), color = as.factor(type)), alpha = .2, position = position_dodge(width=0.03)) +
+    theme_classic() +
+    xlab("Proportion of missing data")+ 
+    theme(legend.position="top")+
+    theme(legend.title=element_blank())+
+    ylab("SD of standardized parameter estimate")+ 
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))
+) 
+# put into one figure
+Gauss_paramRecov <- ggarrange(gauss_sim_MeansFig_reg, gauss_sim_SDFig_reg, common.legend = TRUE)
 
 ## save results
 png(file = "./figures/parameterRecovery_sim_Guassian_meansSD.png", width = 9, height = 4, units = "in", res = 700)
 Gauss_paramRecov
 dev.off()
+
 
 # 95% CI Error bar plots to show spread of complete parameter recovery data  --------
 (ErrorBarPlots <- ggplot(data = gauss_sim_Means, aes(x = meanAmtMiss, y = mean_paramDiff)) +
@@ -136,6 +190,6 @@ dev.off()
    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))
 )
 ## save figure
-png(file = "./figures/test.png", width = 9, height = 4, units = "in", res = 700)
+png(file = "./figures/.png", width = 9, height = 4, units = "in", res = 700)
 ErrorBarPlots
 dev.off()
