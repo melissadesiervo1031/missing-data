@@ -8,7 +8,6 @@ library(here)
 library(tidyverse)
 library(ggpubr)
 
-
 # read in data resulting from beartooth
 gauss_sim_ModelResults <- readRDS("./data/model_results/gauss_sim_ModelResults.rds")
 
