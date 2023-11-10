@@ -19,7 +19,7 @@ CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
   
 #gauss_real_randMiss <- readRDS("data/missingDatasets/gauss_real_randMiss.rds")
 gauss_real_randMiss <- readRDS("/project/modelscape/users/astears/gauss_real_randMiss.rds")
-pine_river_full <- read_csv('data/pine_river_data_prepped.csv')
+pine_river_full <- read_csv('/project/modelscape/users/astears/pine_river_data_prepped.csv')
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
