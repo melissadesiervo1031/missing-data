@@ -61,29 +61,30 @@ for (i in 1:length(gauss_sim_minMaxMiss)) {
 
 # Gaussian Real Data (Pine River GPP data) --------------------------------
 # read in data
-dat <- read.csv('./data/NWIS_MissingTS_subset.csv')
-mdat <- read.csv('data/NWIS_MissingTSinfo_subset.csv')
-id <- mdat$site_name[2]
-q_pr <- dataRetrieval::readNWISdata(sites = substr(id, 6, nchar(id)),
-                                    parameterCd = "00060", 
-                                    service = "dv", 
-                                    startDate = ymd("2016-01-01"), endDate = ymd('2016-12-31')) %>%
-  select(date = dateTime,
-         discharge_cfs = X_00060_00003) %>%
-  mutate(Q = discharge_cfs / (3.28084)^3 ) # convert discharge to cms
-
-pr <- dat %>% filter(site_name == id) %>% 
-  select(date, GPP, light, Q, GPP.upper,GPP.lower) %>% 
-  mutate(date = ymd(date)) %>%
-  complete(date = seq(ymd('2016-01-01'), ymd('2016-12-31'), by = '1 day')) %>%
-  mutate(light = zoo::na.approx(light, na.rm = F)) %>%
-  mutate(Jdate= yday(date), light.rel = light/max(light, na.rm = T))
-pr <- select(pr, -Q) %>% 
-  left_join(select(q_pr, date, Q))
-
-gauss_real <- data.frame(pr)
-
-write_csv(gauss_real, 'data/pine_river_data_prepped.csv')
+# dat <- read.csv('./data/NWIS_MissingTS_subset.csv')
+# mdat <- read.csv('data/NWIS_MissingTSinfo_subset.csv')
+# id <- mdat$site_name[2]
+# q_pr <- dataRetrieval::readNWISdata(sites = substr(id, 6, nchar(id)),
+#                                     parameterCd = "00060", 
+#                                     service = "dv", 
+#                                     startDate = ymd("2016-01-01"), endDate = ymd('2016-12-31')) %>%
+#   select(date = dateTime,
+#          discharge_cfs = X_00060_00003) %>%
+#   mutate(Q = discharge_cfs / (3.28084)^3 ) # convert discharge to cms
+# 
+# pr <- dat %>% filter(site_name == id) %>% 
+#   select(date, GPP, light, Q, GPP.upper,GPP.lower) %>% 
+#   mutate(date = ymd(date)) %>%
+#   complete(date = seq(ymd('2016-01-01'), ymd('2016-12-31'), by = '1 day')) %>%
+#   mutate(light = zoo::na.approx(light, na.rm = F)) %>%
+#   mutate(Jdate= yday(date), light.rel = light/max(light, na.rm = T))
+# pr <- select(pr, -Q) %>% 
+#   left_join(select(q_pr, date, Q))
+# 
+# gauss_real <- data.frame(pr)
+# 
+# write_csv(gauss_real, 'data/pine_river_data_prepped.csv')
+gauss_real <- read.csv("./data/pine_river_data_prepped.csv")
 ## make missing data types for increasing levels of autocorrelation
 # possible autocorrelation vector
 inputAutocor <- c(.0, .10, .20, .30, .40, .50, .60, .70, .80, .90)
