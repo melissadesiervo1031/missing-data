@@ -4,7 +4,6 @@
 #/////////////////
 
 # Load packages
-library(here)
 library(tidyverse)
 library(ggpubr)
 
@@ -27,11 +26,11 @@ gauss_sim_ModelResults <- gauss_sim_ModelResults %>%
 # get just "high autocorrelation MAR", "low autocorrelation MAR", and "MNAR" (for all simulations)
 gauss_sim_figDat <- gauss_sim_ModelResults %>% 
   filter(missingness == "MNAR" # get data that is MNAR 
-         | (missingness == "MAR" & autoCor <= 0.2) # get low autocor MAR data
-           | (missingness == "MAR" & autoCor >= 0.8 )) 
+         | (missingness == "MAR" & autoCor <= 0.3) # get low autocor MAR data
+           | (missingness == "MAR" & autoCor >= 0.7 )) 
 
-gauss_sim_figDat[gauss_sim_figDat$autoCor <=0.2 & !is.na(gauss_sim_figDat$autoCor), "missingness"] <- "MAR_lowAutoCor"
-gauss_sim_figDat[gauss_sim_figDat$autoCor  >= 0.8 & !is.na(gauss_sim_figDat$autoCor), "missingness"] <- "MAR_highAutoCor"
+gauss_sim_figDat[gauss_sim_figDat$autoCor <=0.3 & !is.na(gauss_sim_figDat$autoCor), "missingness"] <- "MAR_lowAutoCor"
+gauss_sim_figDat[gauss_sim_figDat$autoCor  >= 0.7 & !is.na(gauss_sim_figDat$autoCor), "missingness"] <- "MAR_highAutoCor"
 
 # remove values for models fitted to time series with no missingness (Doesn't work for all model approaches)
 gauss_sim_figDat <- gauss_sim_figDat[gauss_sim_figDat$missingprop_autocor != "y_noMiss",]
@@ -118,7 +117,7 @@ largeSD <- gauss_sim_Means[gauss_sim_Means$meanAmtMiss <= 0.5 &
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))+
     xlim(c(-0.05,.55)) + 
     ylim(c(0,4)) +
-  geom_point(data = largeSD, aes(x = meanAmtMiss, y = c(3.99,3.99,3.99,3.99,3.99,3.99), color = as.factor(type)), 
+  geom_point(data = largeSD, aes(x = meanAmtMiss, y = c(3.99,3.99,3.99,3.99,3.99), color = as.factor(type)), 
              position = position_dodge(width=0.03), pch = 8)
   ) 
 
