@@ -188,7 +188,13 @@ fit_ricker_DA <- function(
     y, fam = "poisson", 
     chains = 4, 
     samples = 1000, burnin = 1000,
-    priors_list, stepsize = NULL,
+    priors_list = list(
+      m_r = 0,
+      sd_r = 2.5,
+      m_lalpha = -3,
+      sd_lalpha = 1
+    ),
+    stepsize = NULL,
     nthin = 1, return_y = FALSE
 ){
   require(parallel)
