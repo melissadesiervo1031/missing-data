@@ -21,11 +21,11 @@ f_list <- list.files(here("Functions/"), full.names = T)
 lapply(f_list, source)
 
 # arguments from the shell
+# Should include (1) data file (2) parameter file (3) number of nodes for cluster (4) save file location
 in_args <- commandArgs(trailingOnly = T)
 
 # read in datafile
 dat <- readRDS(here(in_args[1]))
-
 pars <- readRDS(here(in_args[2]))
 
 # count number of missingness proportions
@@ -120,7 +120,7 @@ if(!is.null(names(dat))){
 # define methods to be used
 if(is.na(in_args[5])){
   methods <- paste0(
-    c("drop", "cc", "EM")
+    c("drop", "cc", "EM", "DA","MI")
   )
 }
 
