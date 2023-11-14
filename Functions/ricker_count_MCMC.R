@@ -121,6 +121,19 @@ MH_Gibbs_DA <- function(theta_init, dat, fill_rng, lp, q_rng, q_lpdf, burnin, it
   # compute initial log probability
   lp_samps <- vector(length = S, mode = "double")
   lp_samps[1] <- lp(theta_init, dat, y_samps[1, ])
+  
+  # check validity of initial values
+  i <- 1
+  while(is.infinite(lp_samps[1]) & i < 100){
+    theta_init_rt <- runif(length(theta_init), -1, 1)
+    names(theta_init_rt) <- names(theta_init)
+    y_samps[1, ] <- fill_rng(theta_init_rt, dat)
+    lp_samps[1] <- lp(theta_init_rt, dat, y_samps[1, ])
+    i <- i + 1
+  }
+  if(is.infinite(lp_samps[1])){
+    stop("Failed to find suitable starting values for the parameters.")
+  }
   accept <- vector(mode = "double", S)
   
   for(s in 2:S){
@@ -187,7 +200,7 @@ MH_Gibbs_DA <- function(theta_init, dat, fill_rng, lp, q_rng, q_lpdf, burnin, it
 fit_ricker_DA <- function(
     y, fam = "poisson", 
     chains = 4, 
-    samples = 1000, burnin = 1000,
+    samples = 1000, burnin = 3000,
     priors_list = list(
       m_r = 0,
       sd_r = 2.5,
@@ -195,7 +208,7 @@ fit_ricker_DA <- function(
       sd_lalpha = 1
     ),
     stepsize = NULL,
-    nthin = 1, return_y = FALSE
+    nthin = 5, return_y = FALSE
 ){
   require(parallel)
   if(fam == "neg_binom"){
@@ -313,7 +326,10 @@ fit_ricker_DA <- function(
   )
   
   # initialize
-  theta_init <- runif(p, -2, 2)
+  theta_init <- c(
+    runif(1, max = 1),
+    runif(1, min = -4, max = -1)
+  )
   names(theta_init) <- c("r", "lalpha")
   
   prop_miss <- mean(is.na(y))
@@ -330,6 +346,14 @@ fit_ricker_DA <- function(
       );
       lapply(flist, source)}
     )
+    
+    # export the remaining variables
+    parallel::clusterExport(
+      cl, 
+      varlist = ls(envir = environment()), 
+      envir = environment()
+    )
+    
     post_samps <- parallel::clusterCall(
       cl,
       MH_block_sample,
@@ -356,6 +380,13 @@ fit_ricker_DA <- function(
         full.names = T
       );
       lapply(flist, source)}
+    )
+    
+    # export the remaining variables
+    parallel::clusterExport(
+      cl, 
+      varlist = ls(envir = environment()), 
+      envir = environment()
     )
     
     post_samps <- parallel::clusterCall(
@@ -398,6 +429,16 @@ fit_ricker_DA <- function(
     )
     colnames(theta_samps)[3:ncol(theta_samps)] <- 
       paste0("y", 1:n)
+  }
+  
+  # return NA if the sampler got stuck
+  ses <- apply(theta_samps, 2, sd)
+  if(any(ses == 0)){
+    warning("MCMC sampler got stuck")
+    return(list(
+      NA,
+      reason = "Sampler got stuck"
+    ))
   }
   
   # return summaries
