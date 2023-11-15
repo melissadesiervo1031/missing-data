@@ -67,7 +67,7 @@ figDat <- gauss_sim_figDat %>%
 ## make heatmap for mean of parameter recovery
 (heatMap_mean_MAR <-ggplot(data = figDat, aes(x=amtMiss, y=autoCor)) + 
     geom_tile(aes(fill=paramDiff_mean), size=5) + 
-    scale_fill_viridis_c() +
+    scale_fill_viridis_c(name = "value" ) +
     facet_grid(~factor(figDat$param, levels = c("phi", "intercept","light", "discharge")) ~ type) +
     #scale_fill_viridis_c(begin=1, end=0, option = "inferno")+
     xlab("Proportion of missing data")+
@@ -80,7 +80,7 @@ figDat <- gauss_sim_figDat %>%
 (heatMap_SD_MAR <-ggplot(data = figDat, aes(x=amtMiss, y=autoCor)) + 
     geom_tile(aes(fill=paramDiff_SD), size=5) + 
     facet_grid(~factor(figDat$param, levels = c("phi", "intercept","light", "discharge")) ~ type) +
-    scale_fill_viridis_c(begin=1, end=0, option = "plasma")+
+    scale_fill_viridis_c(begin=1, end=0, option = "plasma", name = "value" )+
     xlab("Proportion of missing data")+
     ylab("Autocorrellation in missingness") +
     theme_classic() +
@@ -96,7 +96,7 @@ png(file = "./figures/heatmap_GaussianMAR_SD.png", width = 7, height = 6, units 
 heatMap_SD_MAR
 dev.off()
 
-png(file = "./figures/heatmap_GaussianMAR_all.png", width = 11, height = 6, units = "in", res = 700)
+png(file = "./figures/heatmap_GaussianMAR_all.png", width = 12.5, height = 6, units = "in", res = 700)
 ggarrange(heatMap_mean_MAR, heatMap_SD_MAR)
 dev.off()
 
@@ -118,7 +118,7 @@ figDat <- gauss_sim_figDat %>%
 ## make heatmap for mean of parameter recovery
 (heatMap_mean_MNAR <-ggplot(data = figDat, aes(x=amtMiss, y=autoCor)) + 
     geom_tile(aes(fill=paramDiff_mean), size=5) + 
-    scale_fill_viridis_c() +
+    scale_fill_viridis_c(name = "value") +
     facet_grid(~factor(figDat$param, levels = c("phi", "intercept","light", "discharge")) ~ type) +
     #scale_fill_viridis_c(begin=1, end=0, option = "inferno")+
     xlab("Proportion of missing data")+
@@ -131,7 +131,7 @@ figDat <- gauss_sim_figDat %>%
 (heatMap_SD_MNAR <-ggplot(data = figDat, aes(x=amtMiss, y=autoCor)) + 
     geom_tile(aes(fill=paramDiff_SD), size=5) + 
     facet_grid(~factor(figDat$param, levels = c("phi", "intercept","light", "discharge")) ~ type) +
-    scale_fill_viridis_c(begin=1, end=0, option = "plasma")+
+    scale_fill_viridis_c(begin=1, end=0, option = "plasma", name = "value" )+
     xlab("Proportion of missing data")+
     ylab("Autocorrellation in missingness") +
     theme_classic() +
@@ -147,6 +147,6 @@ png(file = "./figures/heatmap_GaussianMNAR_SD.png", width = 7, height = 6, units
 heatMap_SD_MNAR
 dev.off()
 
-png(file = "./figures/heatmap_GaussianMNAR_all.png", width = 11, height = 6, units = "in", res = 700)
+png(file = "./figures/heatmap_GaussianMNAR_all.png", width = 12.5, height = 6, units = "in", res = 700)
 ggarrange(heatMap_mean_MNAR, heatMap_SD_MNAR)
 dev.off()
