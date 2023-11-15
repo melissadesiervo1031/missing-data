@@ -7,8 +7,11 @@
 library(tidyverse)
 library(ggpubr)
 
-# read in data resulting from beartooth
+
+
+## read in data 
 gauss_sim_ModelResults <- readRDS("./data/model_results/gauss_sim_ModelResults.rds")
+gauss_sim_ModelResults <- unique(gauss_sim_ModelResults)
 
 # make columns for "autocor" and "missingness"
 gauss_sim_ModelResults$autoCor <- gauss_sim_ModelResults$missingprop_autocor %>% 
@@ -21,71 +24,63 @@ gauss_sim_ModelResults$amtMiss <- gauss_sim_ModelResults$missingprop_autocor %>%
 gauss_sim_ModelResults <- gauss_sim_ModelResults %>% 
   mutate(value = as.numeric(value),
          SE = as.numeric(SE))
-
-# Gaussian simulated data -------------------------------------------------
-# get just "high autocorrelation MAR", "low autocorrelation MAR", and "MNAR" (for all simulations)
-gauss_sim_figDat <- gauss_sim_ModelResults %>% 
-  filter(missingness == "MNAR" # get data that is MNAR 
-         | (missingness == "MAR" & autoCor <= 0.3) # get low autocor MAR data
-           | (missingness == "MAR" & autoCor >= 0.7 )) 
-
-gauss_sim_figDat[gauss_sim_figDat$autoCor <=0.3 & !is.na(gauss_sim_figDat$autoCor), "missingness"] <- "MAR_lowAutoCor"
-gauss_sim_figDat[gauss_sim_figDat$autoCor  >= 0.7 & !is.na(gauss_sim_figDat$autoCor), "missingness"] <- "MAR_highAutoCor"
+# 
+gauss_sim_ModelResults[gauss_sim_ModelResults$missingness == "MAR" & 
+                         is.na(gauss_sim_ModelResults$autoCor), "autoCor"] <- 0
 
 # remove values for models fitted to time series with no missingness (Doesn't work for all model approaches)
-gauss_sim_figDat <- gauss_sim_figDat[gauss_sim_figDat$missingprop_autocor != "y_noMiss",]
+gauss_sim_figDat <- gauss_sim_ModelResults[gauss_sim_ModelResults$missingprop_autocor != "y_noMiss",]
+
+simDat <- gauss_sim_figDat %>% 
+  select(simName, phi_sim, intercept_sim, light_sim, discharge_sim) %>% 
+  pivot_longer(cols = c(phi_sim, intercept_sim, light_sim, discharge_sim), 
+               names_to = "param", 
+               values_to = "param_simVal",
+               names_transform = function(x) str_split(string = x, pattern = "_", simplify = TRUE)[,1]) %>% 
+  unique()
+
+# remove columns for simulation data
+gauss_sim_figDat <- gauss_sim_figDat %>% 
+  select(-phi_sim, -intercept_sim, -light_sim, -discharge_sim)
+
+gauss_sim_figDat <- gauss_sim_figDat %>% 
+  left_join(simDat, by = c("simName", "param"))
 
 # calculate the standardized difference between parameter estimates and simulated values??
 gauss_sim_figDat <- gauss_sim_figDat %>% 
-  dplyr::mutate(paramDiff_phi = (value - phi_sim)/phi_sim,
-                paramDiff_intercept = (value - intercept_sim)/intercept_sim, 
-                paramDiff_light = (value-light_sim)/light_sim,
-                paramDiff_discharge = (value -discharge_sim)/discharge_sim)
-  
-# remove unnecessary values
-gauss_sim_figDat[gauss_sim_figDat$param == "sigma", c("paramDiff_phi", "paramDiff_intercept", "paramDiff_light", "paramDiff_discharge")] <- NA
-gauss_sim_figDat[gauss_sim_figDat$param == "phi", c("paramDiff_intercept", "paramDiff_light", "paramDiff_discharge")] <- NA
-gauss_sim_figDat[gauss_sim_figDat$param == "light", c("paramDiff_phi", "paramDiff_intercept", "paramDiff_discharge")] <- NA
-gauss_sim_figDat[gauss_sim_figDat$param == "intercept", c("paramDiff_phi", "paramDiff_light", "paramDiff_discharge")] <- NA
-gauss_sim_figDat[gauss_sim_figDat$param == "discharge", c("paramDiff_phi", "paramDiff_intercept", "paramDiff_light")] <- NA
+  dplyr::mutate(paramDiff = ((value - param_simVal)/abs(param_simVal)))
 
-gauss_sim_figDat$paramDiff_stnd <- apply(X = gauss_sim_figDat[,c("paramDiff_phi", "paramDiff_intercept", "paramDiff_light", "paramDiff_discharge")],
-                                        MARGIN = 1, 
-                                        FUN = function(x) sum(x, na.rm = TRUE))
-gauss_sim_figDat <- gauss_sim_figDat %>% 
-  select(-paramDiff_phi,
-         -paramDiff_intercept,
-         -paramDiff_light,
-         -paramDiff_discharge)
-# make bins of proportion missingness
-gauss_sim_figDat$amtMiss_bin <- round(gauss_sim_figDat$amtMiss,1) 
+# make data for figure
+figDat_temp <- gauss_sim_figDat
+# filter for low and high autocor
+figDat_temp[figDat_temp$autoCor <=0.3 & !is.na(figDat_temp$autoCor), "missingness"] <- "MAR_lowAutoCor"
+figDat_temp[figDat_temp$autoCor  >= 0.7 & !is.na(figDat_temp$autoCor), "missingness"] <- "MAR_highAutoCor"
 
-# remove "sigma" values, for now
-gauss_sim_figDat <- gauss_sim_figDat %>% 
-  filter(param != "sigma")
-
-# remove duplicate rows that got introduced to BRMS mnar portion somehow
-gauss_sim_figDat <- unique(gauss_sim_figDat)
-
-## get the mean and standard deviation for each proportion missing bin
-gauss_sim_Means <- gauss_sim_figDat %>%
-  group_by(missingness, type, param, round(amtMiss, digits = 1)) %>% 
-  summarize(mean_paramDiff = mean(paramDiff_stnd), 
-            sd_paramDiff = sd(paramDiff_stnd),
-            n_bin = length(paramDiff_stnd)) %>% 
-  rename("meanAmtMiss" = 'round(amtMiss, digits = 1)')
-
+figDat_lines <- figDat_temp %>% 
+  filter(param != "sigma") %>%
+  filter(missingness %in% c("MAR_highAutoCor", "MAR_lowAutoCor", "MNAR")) %>% 
+  mutate(autoCor = round(autoCor, 1), 
+         amtMiss = round(amtMiss, 1)) %>% 
+  group_by(missingness, type, param, amtMiss) %>% 
+  summarize(paramDiff_mean = mean(paramDiff, na.rm = TRUE),
+            paramDiff_med = median(paramDiff, na.rm = TRUE),
+            paramDiff_SD = sd(paramDiff, na.rm = TRUE),
+            n = length(paramDiff)) %>% 
+  filter(n  > 100)  %>% # drop combinations that have fewer than 300 observations
+  filter(amtMiss <=.5)
 
 # Figure of parameter recovery (mean and sd in separate panels) -----------
 # figure of means for each model type and level of missingness (with shortened x-axis)
-(gauss_sim_MeansFig_trimmed <- ggplot(data = gauss_sim_Means, aes(x = meanAmtMiss, y = mean_paramDiff)) +
-  facet_grid(~factor(param, levels = c("intercept", "phi", "light", "discharge")) 
-                                       ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR"))) + 
+(gauss_sim_MeansFig_trimmed <- ggplot(data = figDat_lines, aes(x = amtMiss, y = paramDiff_mean)) +
+  facet_grid(~factor(param, levels = c("phi", "intercept","light", "discharge")) 
+                                       ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR")),
+             scales = "free_y") + 
   geom_hline(aes(yintercept = 0), colour = "grey") + 
-  #geom_errorbar(aes(ymin=mean_paramDiff - sd_paramDiff, ymax=mean_paramDiff + sd_paramDiff, color = as.factor(type)), 
+  #geom_errorbar(aes(ymin=paramDiff_mean - paramDiff_SD, ymax=paramDiff_mean + paramDiff_SD, color = as.factor(type)), 
                 #size=0.3, width=0, position = position_dodge(width=0.03))+
-  #geom_ribbon(aes(ymin = mean_paramDiff - sd_paramDiff, ymax = mean_paramDiff + sd_paramDiff, color = as.factor(type), fill = as.factor(type)), alpha = .1) +
+  #geom_ribbon(aes(ymin = paramDiff_mean - paramDiff_SD, ymax = paramDiff_mean + paramDiff_SD, color = as.factor(type), fill = as.factor(type)), alpha = .1) +
   geom_line(aes(color = as.factor(type)), position = position_dodge(width=0.03)) + 
+  geom_point(data = data.frame("x" = c(0,.5), "y" = c(-.25, .1)), aes(x = x, y = y), alpha = 0.0000001) + ## add invisible points to change scales
   geom_point(aes(color = as.factor(type)), alpha = .8, position = position_dodge(width=0.03)) +
   theme_classic() +
   xlab("Proportion of missing data")+ 
@@ -93,31 +88,28 @@ gauss_sim_Means <- gauss_sim_figDat %>%
   theme(legend.title=element_blank())+
   ylab("Mean standardized parameter estimate")+ 
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) +
-   xlim(c(-0.05,.55)) +
-   ylim(c(-0.85,0.8))
+  ylim(c(-0.85,0.55))
 )
 
 ## make a sub-dataframe that includes points for SDs that are >5 
-largeSD <- gauss_sim_Means[gauss_sim_Means$meanAmtMiss <= 0.5 & 
-                             gauss_sim_Means$sd_paramDiff > 4,]
+largeSD <- figDat_lines[figDat_lines$amtMiss <= 0.5 & 
+                             figDat_lines$paramDiff_SD > 5,]
   
-# figure of means for each model type and level of missingness
-(gauss_sim_SDFig_trimmed <- ggplot(data = gauss_sim_Means, aes(x = meanAmtMiss, y = sd_paramDiff)) +
-  facet_grid(~factor(param, levels = c("intercept", "phi", "light", "discharge")) 
+# figure of SDfor each model type and level of missingness
+(gauss_sim_SDFig_trimmed <- ggplot(data = figDat_lines, aes(x = amtMiss, y = paramDiff_SD)) +
+  facet_grid(~factor(param, levels = c("phi", "intercept","light", "discharge")) 
              ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR"))) + 
-  geom_hline(aes(yintercept = 1.96), colour = "grey", lty = 2) + 
   geom_line(aes(color = as.factor(type)), position = position_dodge(width=0.03)) + 
   geom_point(aes(color = as.factor(type)), alpha = .8, position = position_dodge(width=0.03)) +
-  #geom_ribbon(aes(ymin = 0, ymax = sd_paramDiff, fill = as.factor(type), color = as.factor(type)), alpha = .2, position = position_dodge(width=0.03)) +
-  theme_classic() +
+  geom_hline(aes(yintercept = 0), colour = "grey") + theme_classic() +
   xlab("Proportion of missing data")+ 
   theme(legend.position="top")+
   theme(legend.title=element_blank())+
   ylab("SD of standardized parameter estimate")+ 
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))+
     xlim(c(-0.05,.55)) + 
-    ylim(c(0,4)) +
-  geom_point(data = largeSD, aes(x = meanAmtMiss, y = c(3.99,3.99,3.99,3.99,3.99), color = as.factor(type)), 
+    ylim(c(0,5)) +
+  geom_point(data = largeSD, aes(x = amtMiss, y = c(3.99,3.99), color = as.factor(type)), 
              position = position_dodge(width=0.03), pch = 8)
   ) 
 
@@ -130,15 +122,28 @@ Gauss_paramRecov_trimmed
 dev.off()
 
 
-## make a figure like the one above, but without a trimmed x axis
+#
+figDat_long <- figDat_temp %>% 
+  filter(param != "sigma") %>%
+  filter(missingness %in% c("MAR_highAutoCor", "MAR_lowAutoCor", "MNAR")) %>% 
+  mutate(autoCor = round(autoCor, 1), 
+         amtMiss = round(amtMiss, 1)) %>% 
+  group_by(missingness, type, param, amtMiss) %>% 
+  summarize(paramDiff_mean = mean(paramDiff, na.rm = TRUE),
+            paramDiff_med = median(paramDiff, na.rm = TRUE),
+            paramDiff_SD = sd(paramDiff, na.rm = TRUE),
+            n = length(paramDiff)) %>% 
+  filter(n  > 100)  
+
+# make a figure like the one above, but without a trimmed x axis
 # figure of means for each model type and level of missingness
-(gauss_sim_MeansFig_reg<- ggplot(data = gauss_sim_Means, aes(x = meanAmtMiss, y = mean_paramDiff)) +
+(gauss_sim_MeansFig_reg<- ggplot(data = figDat_long, aes(x = amtMiss, y = paramDiff_mean)) +
     facet_grid(~factor(param, levels = c("intercept", "phi", "light", "discharge")) 
                ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR"))) + 
     geom_hline(aes(yintercept = 0), colour = "grey") + 
-    #geom_errorbar(aes(ymin=mean_paramDiff - sd_paramDiff, ymax=mean_paramDiff + sd_paramDiff, color = as.factor(type)), 
+    #geom_errorbar(aes(ymin=paramDiff_mean - paramDiff_SD, ymax=paramDiff_mean + paramDiff_SD, color = as.factor(type)), 
     #size=0.3, width=0, position = position_dodge(width=0.03))+
-    #geom_ribbon(aes(ymin = mean_paramDiff - sd_paramDiff, ymax = mean_paramDiff + sd_paramDiff, color = as.factor(type), fill = as.factor(type)), alpha = .1) +
+    #geom_ribbon(aes(ymin = paramDiff_mean - paramDiff_SD, ymax = paramDiff_mean + paramDiff_SD, color = as.factor(type), fill = as.factor(type)), alpha = .1) +
     geom_line(aes(color = as.factor(type)), position = position_dodge(width=0.03)) + 
     geom_point(aes(color = as.factor(type)), alpha = .8, position = position_dodge(width=0.03)) +
     theme_classic() +
@@ -149,13 +154,13 @@ dev.off()
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) 
 )
 # figure of means for each model type and level of missingness
-(gauss_sim_SDFig_reg<- ggplot(data = gauss_sim_Means, aes(x = meanAmtMiss, y = sd_paramDiff)) +
+(gauss_sim_SDFig_reg<- ggplot(data = figDat_long, aes(x = amtMiss, y = paramDiff_SD)) +
     facet_grid(~factor(param, levels = c("intercept", "phi", "light", "discharge")) 
                ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR"))) + 
-    geom_hline(aes(yintercept = 1.96), colour = "grey", lty = 2) + 
+    geom_hline(aes(yintercept = 0), colour = "grey") + 
     geom_line(aes(color = as.factor(type)), position = position_dodge(width=0.03)) + 
     geom_point(aes(color = as.factor(type)), alpha = .8, position = position_dodge(width=0.03)) +
-    #geom_ribbon(aes(ymin = 0, ymax = sd_paramDiff, fill = as.factor(type), color = as.factor(type)), alpha = .2, position = position_dodge(width=0.03)) +
+    #geom_ribbon(aes(ymin = 0, ymax = paramDiff_SD, fill = as.factor(type), color = as.factor(type)), alpha = .2, position = position_dodge(width=0.03)) +
     theme_classic() +
     xlab("Proportion of missing data")+ 
     theme(legend.position="top")+
@@ -173,12 +178,12 @@ dev.off()
 
 
 # 95% CI Error bar plots to show spread of complete parameter recovery data  --------
-(ErrorBarPlots <- ggplot(data = gauss_sim_Means, aes(x = meanAmtMiss, y = mean_paramDiff)) +
+(ErrorBarPlots <- ggplot(data = figDat_long, aes(x = amtMiss, y = paramDiff_mean)) +
    facet_grid(~factor(param, levels = c("intercept", "phi", "light", "discharge")) 
-              ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR")), scales = "free_y") + 
+              ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR"))) + 
    geom_hline(aes(yintercept = 0), colour = "grey") + 
-   geom_errorbar(aes(ymin=mean_paramDiff - 1.96*sd_paramDiff, ymax=mean_paramDiff + 1.96*sd_paramDiff, color = as.factor(type)), 
-   size=0.3, width=0, position = position_dodge(width=0.07))+
+   geom_errorbar(aes(ymin=paramDiff_mean - 1.96*paramDiff_SD, ymax=paramDiff_mean + 1.96*paramDiff_SD, color = as.factor(type)), 
+      size=0.3, width=0, position = position_dodge(width=0.07))+
    geom_point(aes(color = as.factor(type)), alpha = .8, position = position_dodge(width=0.07)) +
    theme_classic() +
    xlab("Proportion of missing data")+ 
@@ -187,7 +192,30 @@ dev.off()
    ylab("Mean standardized parameter estimate")+ 
    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))
 )
+
+
+
+figDat_all <- figDat_temp %>% 
+  filter(param != "sigma") %>%
+  filter(missingness %in% c("MAR_highAutoCor", "MAR_lowAutoCor", "MNAR")) %>% 
+  mutate(autoCor = round(autoCor, 1), 
+         amtMiss = round(amtMiss, 1)) %>% 
+  filter(amtMiss <= 0.5)
+
+(gauss_sim_violin <- ggplot(data = figDat_all) +
+  facet_grid(~factor(param, levels = c("intercept", "phi", "light", "discharge")) 
+             ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR"))) + 
+  geom_hline(aes(yintercept = 0), colour = "grey") + 
+  geom_violin(aes(x = as.factor(amtMiss), y = paramDiff, color = type)) +
+  theme_classic() +
+  xlab("Proportion of missing data")+ 
+  theme(legend.position="top")+
+  theme(legend.title=element_blank())+
+  ylab("Mean standardized parameter estimate")+ 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)))
+
+
 ## save figure
-png(file = "./figures/.png", width = 9, height = 4, units = "in", res = 700)
+png(file = "./figures/parameterRecovery_sim_Guassian_95CIs.png", width = 9, height = 4, units = "in", res = 700)
 ErrorBarPlots
 dev.off()
