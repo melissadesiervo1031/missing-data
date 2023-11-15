@@ -6,6 +6,7 @@ library(ggpubr)
 
 ## read in data 
 gauss_sim_ModelResults <- readRDS("./data/model_results/gauss_sim_ModelResults.rds")
+gauss_sim_ModelResults <- unique(gauss_sim_ModelResults)
 
 # make columns for "autocor" and "missingness"
 gauss_sim_ModelResults$autoCor <- gauss_sim_ModelResults$missingprop_autocor %>% 
@@ -21,6 +22,9 @@ gauss_sim_ModelResults <- gauss_sim_ModelResults %>%
 # 
 gauss_sim_ModelResults[gauss_sim_ModelResults$missingness == "MAR" & 
                                  is.na(gauss_sim_ModelResults$autoCor), "autoCor"] <- 0
+
+# fix values for MNAR (remove autocor values)
+gauss_sim_ModelResults[gauss_sim_ModelResults$missingness == "MNAR", "autoCor"] <- NA
 
 # remove values for models fitted to time series with no missingness (Doesn't work for all model approaches)
 gauss_sim_figDat <- gauss_sim_ModelResults[gauss_sim_ModelResults$missingprop_autocor != "y_noMiss",]
@@ -42,15 +46,10 @@ gauss_sim_figDat <- gauss_sim_figDat %>%
 
 # calculate the standardized difference between parameter estimates and simulated values??
 gauss_sim_figDat <- gauss_sim_figDat %>% 
-  dplyr::mutate(paramDiff = (value - param_simVal)/param_simVal)
+  dplyr::mutate(paramDiff = ((value - param_simVal)/abs(param_simVal)))
 
 ##make heat map! ##
-
-#mytheme<- theme_bw()+ theme(axis.line.x= element_line(colour = "black", size=0.3))+theme(axis.line.y= element_line(colour = "black", size=0.3))+theme(axis.text.x=element_text(size=10, colour = "black"))+theme(axis.text.y=element_text(size=10, colour = "black"))+theme(axis.title=element_text(size=12))+theme(plot.title=element_text(size=7) +theme(plot.title = element_text(hjust = 0.5)))+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+theme(plot.title = element_text(margin=margin(0,0,5,0)))
-
-
 # Make heatmaps for Gaussian MAR data -------------------------------------
-# subset the data for the figure
 # bin amt missing and autocorr (average paramDiff)
 figDat <- gauss_sim_figDat %>% 
   filter(param != "sigma" & 
@@ -59,45 +58,33 @@ figDat <- gauss_sim_figDat %>%
          amtMiss = round(amtMiss, 1)) %>% 
   group_by(missingness, type, param, autoCor, amtMiss) %>% 
   summarize(paramDiff_mean = mean(paramDiff, na.rm = TRUE),
+            paramDiff_med = median(paramDiff, na.rm = TRUE),
             paramDiff_SD = sd(paramDiff, na.rm = TRUE),
             n = length(paramDiff)) %>% 
-  filter(n != 1) %>% # drop combinations that only have 1 observation
-  mutate(tooBigSD = ifelse(paramDiff_SD > 1.96, yes = 1, no = NA)) # flag if SD is greater than 1.96
+  filter(n  > 300) %>% # drop combinations that have fewer than 300 observations
+  mutate(tooBigSD = ifelse(paramDiff_SD > 1.96, yes = 1, no = NA)) 
 
 ## make heatmap for mean of parameter recovery
 (heatMap_mean_MAR <-ggplot(data = figDat, aes(x=amtMiss, y=autoCor)) + 
     geom_tile(aes(fill=paramDiff_mean), size=5) + 
-    scale_fill_gradientn(colours = c("#008837", "#a6dba0", "#c2a5cf","#7b3294"), 
-                         values = c(0, 
-                                    -min(figDat$paramDiff_mean)/(max(figDat$paramDiff_mean) - min(figDat$paramDiff_mean)),
-                                    
-                                    -min(figDat$paramDiff_mean)/(max(figDat$paramDiff_mean) - min(figDat$paramDiff_mean))+.01, 
-                                    1),
-                         name = "value") +
-   facet_grid(rows = vars(type), cols = vars(param)) +
+    scale_fill_viridis_c() +
+    facet_grid(~factor(figDat$param, levels = c("phi", "intercept","light", "discharge")) ~ type) +
     #scale_fill_viridis_c(begin=1, end=0, option = "inferno")+
     xlab("Proportion of missing data")+
     ylab("Autocorrellation in missingness") +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    ggtitle("Mean of standardized parameter estimates"))
+    ggtitle("Mean of standardized parameter estimates")) 
 
 ## make heatmap for SD of parameter recovery
 (heatMap_SD_MAR <-ggplot(data = figDat, aes(x=amtMiss, y=autoCor)) + 
     geom_tile(aes(fill=paramDiff_SD), size=5) + 
-    facet_grid(rows = vars(type), cols = vars(param)) +
-    #scale_fill_viridis_c(begin=1, end=0, option = "inferno")+
-    scale_fill_gradientn(colours = c("#fecc5c","#e31a1c", "grey","grey20"),
-                         values = c(0, 
-                                    (1.96-min(figDat$paramDiff_SD))/(max(figDat$paramDiff_SD) - min(figDat$paramDiff_SD)),
-                                    (1.96-min(figDat$paramDiff_SD))/(max(figDat$paramDiff_SD) - min(figDat$paramDiff_SD))+.01, 
-                                    1),
-                         name = "value") +
+    facet_grid(~factor(figDat$param, levels = c("phi", "intercept","light", "discharge")) ~ type) +
+    scale_fill_viridis_c(begin=1, end=0, option = "plasma")+
     xlab("Proportion of missing data")+
     ylab("Autocorrellation in missingness") +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    
     ggtitle("SD of standardized parameter estimates"))
 
 ## save figures
@@ -122,48 +109,33 @@ figDat <- gauss_sim_figDat %>%
          amtMiss = round(amtMiss, 1)) %>% 
   group_by(missingness, type, param, autoCor, amtMiss) %>% 
   summarize(paramDiff_mean = mean(paramDiff, na.rm = TRUE),
+            paramDiff_med = median(paramDiff, na.rm = TRUE),
             paramDiff_SD = sd(paramDiff, na.rm = TRUE),
             n = length(paramDiff)) %>% 
-  filter(n != 1) %>% # drop combinations that only have 1 observation
-  mutate(tooBigSD = ifelse(paramDiff_SD > 1.96, yes = 1, no = NA)) # flag if SD is greater than 1.96
+  filter(n  > 300) %>% # drop combinations that have fewer than 300 observations
+  mutate(tooBigSD = ifelse(paramDiff_SD > 1.96, yes = 1, no = NA)) 
 
 ## make heatmap for mean of parameter recovery
-(heatMap_mean_MNAR <-ggplot(data = figDat, aes(x=amtMiss, y = as.factor(0))) + 
-   geom_tile(aes(fill=paramDiff_mean), size=5) + 
-   scale_fill_gradientn(colours = c("#008837", "#a6dba0", "#c2a5cf","#7b3294"), 
-                        values = c(0, 
-                                   -min(figDat$paramDiff_mean)/(max(figDat$paramDiff_mean) - min(figDat$paramDiff_mean)),
-                                   
-                                   -min(figDat$paramDiff_mean)/(max(figDat$paramDiff_mean) - min(figDat$paramDiff_mean))+.01, 
-                                   1),
-                        name = "value") +
-   facet_grid(rows = vars(type), cols = vars(param)) +
-   #scale_fill_viridis_c(begin=1, end=0, option = "inferno")+
-   xlab("Proportion of missing data")+
-   ylab("No Autocorrellation in missingness") +
-   theme_classic() +
-   theme(axis.text.x = element_text(angle = 45, hjust = 1),
-         axis.text.y = element_blank(),
-         axis.ticks.y = element_blank()) +
-   ggtitle("Mean of standardized parameter estimates"))
+(heatMap_mean_MNAR <-ggplot(data = figDat, aes(x=amtMiss, y=autoCor)) + 
+    geom_tile(aes(fill=paramDiff_mean), size=5) + 
+    scale_fill_viridis_c() +
+    facet_grid(~factor(figDat$param, levels = c("phi", "intercept","light", "discharge")) ~ type) +
+    #scale_fill_viridis_c(begin=1, end=0, option = "inferno")+
+    xlab("Proportion of missing data")+
+    ylab("Autocorrellation in missingness") +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    ggtitle("Mean of standardized parameter estimates")) 
 
 ## make heatmap for SD of parameter recovery
-(heatMap_SD_MNAR <-ggplot(data = figDat, aes(x=amtMiss, y=as.factor(0))) + 
+(heatMap_SD_MNAR <-ggplot(data = figDat, aes(x=amtMiss, y=autoCor)) + 
     geom_tile(aes(fill=paramDiff_SD), size=5) + 
-    facet_grid(rows = vars(type), cols = vars(param)) +
-    #scale_fill_viridis_c(begin=1, end=0, option = "inferno")+
-    scale_fill_gradientn(colours = c("#fecc5c","#e31a1c", "grey","grey20"),
-                         values = c(0, 
-                                    (1.96-min(figDat$paramDiff_SD))/(max(figDat$paramDiff_SD) - min(figDat$paramDiff_SD)),
-                                    (1.96-min(figDat$paramDiff_SD))/(max(figDat$paramDiff_SD) - min(figDat$paramDiff_SD))+.01, 
-                                    1),
-                         name = "value") +
+    facet_grid(~factor(figDat$param, levels = c("phi", "intercept","light", "discharge")) ~ type) +
+    scale_fill_viridis_c(begin=1, end=0, option = "plasma")+
     xlab("Proportion of missing data")+
-    ylab("No Autocorrellation in missingness") +
+    ylab("Autocorrellation in missingness") +
     theme_classic() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1),
-          axis.text.y = element_blank(),
-          axis.ticks.y = element_blank()) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     ggtitle("SD of standardized parameter estimates"))
 
 ## save figures
