@@ -114,6 +114,10 @@ if(!is.null(names(dat))){
 # dat_flat_complete <- dat_flat[-probs]
 # pars_complete <- pars_full[-probs, ]
 
+# time testing only
+dat_flat <- dat_flat[1:1000]
+pars_full <- pars_full[1:1000, ]
+
 
 ### fitting the models ###
 
