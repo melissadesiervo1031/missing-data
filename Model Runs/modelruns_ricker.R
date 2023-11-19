@@ -22,6 +22,7 @@ lapply(f_list, source)
 
 # arguments from the shell
 # Should include (1) data file (2) parameter file (3) number of nodes for cluster (4) save file location
+# (5) beginnning index (6) ending index (7) optional- model list
 in_args <- commandArgs(trailingOnly = T)
 
 # read in datafile
@@ -115,14 +116,14 @@ if(!is.null(names(dat))){
 # pars_complete <- pars_full[-probs, ]
 
 # time testing only
-dat_flat <- dat_flat[1:1000]
-pars_full <- pars_full[1:1000, ]
+dat_flat <- dat_flat[as.numeric(in_args[5]):as.numeric(in_args[6])]
+pars_full <- pars_full[as.numeric(in_args[5]):as.numeric(in_args[6]),]
 
 
 ### fitting the models ###
 
 # define methods to be used
-if(is.na(in_args[5])){
+if(is.na(in_args[7])){
   methods <- paste0(
     c("drop", "cc", "EM", "DA","MI")
   )
