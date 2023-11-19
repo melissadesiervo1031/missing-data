@@ -7,10 +7,10 @@
 n=75000/2500
 
 # data file name
-datFile=rep("Model_Runs/modelruns_ricker.R",n)
+datFile=rep("data/missingDatasets/pois_sim_randMiss_A.rds",n)
 
 # par file name
-parFile=rep("data/missingDatasets/pois_sim_randMiss_A.rds",n)
+parFile=rep("data/missingDatasets/pois_sim_params.rds",n)
 
 # cluster size
 clsize=rep(8,n)
