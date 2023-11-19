@@ -18,7 +18,7 @@ module load arcc/1.0 gcc/12.2.0 r/4.2.2
 
 cd /project/modelscape/analyses/MissingTS/missing-data
 
-config="Model Runs/RickerConfig.txt"
+config=Model_Runs/RickerConfig.txt
 
 datFile=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $2}' $config)
 parFile=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $3}' $config)
@@ -28,4 +28,4 @@ index1=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $6}' $c
 index2=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $7}' $config)
 
 
-Rscript "Model Runs/modelruns_ricker.R" "${datFile}" "${parFile}" ${clsize} "${saveFile}" ${index1} ${index2} > "Model Runs/outputRickerA_${SLURM_ARRAY_TASK_ID}.txt" 
+Rscript Model_Runs/modelruns_ricker.R ${datFile} ${parFile} ${clsize} ${saveFile} ${index1} ${index2} > Model_Runs/outputRickerA_${SLURM_ARRAY_TASK_ID}.txt
