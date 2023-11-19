@@ -7,7 +7,7 @@
 n=75000/2500
 
 # data file name
-datFile=rep("Model Runs/modelruns_ricker.R",n)
+datFile=rep("Model_Runs/modelruns_ricker.R",n)
 
 # par file name
 parFile=rep("data/missingDatasets/pois_sim_randMiss_A.rds",n)
@@ -16,7 +16,7 @@ parFile=rep("data/missingDatasets/pois_sim_randMiss_A.rds",n)
 clsize=rep(8,n)
 
 # save file location
-saveFile=paste0(rep("Model Runs/RickerA_resultTable",n),1:n,".rds")
+saveFile=paste0(rep("Model_Runs/RickerA_resultTable",n),1:n,".rds")
 
 # beginning index
 index1=seq(1,75000,by=2500)
@@ -29,5 +29,5 @@ configx=as.data.frame(matrix(data=c(1:n,datFile,parFile,clsize,saveFile,index1,i
 colnames(configx)=c("ArrayTaskID","datFile","parFile","clsize","saveFile","index1","index2")
 rownames(configx)=NULL
 
-write.table(configx, file="/Users/amypatterson/Documents/Laramie_postdoc/Missing_data_TS/missing-data/Model Runs/RickerConfig.txt",sep=" ",row.names = F)
+write.table(configx, file="/Users/amypatterson/Documents/Laramie_postdoc/Missing_data_TS/missing-data/Model_Runs/RickerConfig.txt",sep=" ",row.names = F)
 
