@@ -28,6 +28,6 @@ index1=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $6}' $c
 index2=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $7}' $config)
 
 
-echo "This is array task ${SLURM_ARRAY_TASK_ID} loading data file ${datFile} and parameter file ${parFile} using cluster size ${clsize} and saving file at ${saveFile}. We are doing data set numbers ${index1} through ${index2}
+echo "This is array task ${SLURM_ARRAY_TASK_ID} loading data file ${datFile} and parameter file ${parFile} using cluster size ${clsize} and saving file at ${saveFile}. We are doing data set numbers ${index1} through ${index2} >> output.txt
 
 #Rscript Model_Runs/modelruns_ricker.R ${datFile} ${parFile} ${clsize} ${saveFile} ${index1} ${index2} > Model_Runs/outputRickerA_${SLURM_ARRAY_TASK_ID}.txt
