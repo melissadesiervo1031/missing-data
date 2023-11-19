@@ -34,5 +34,5 @@ configx$clsize<-as.numeric(configx$clsize)
 configx$index1<-as.numeric(configx$index1)
 configx$index2<-as.numeric(configx$index2)
 
-write.table(configx, file="/Users/amypatterson/Documents/Laramie_postdoc/Missing_data_TS/missing-data/Model_Runs/RickerConfig.txt",sep=" ",row.names = F)
+write.table(configx, file="/Users/amypatterson/Documents/Laramie_postdoc/Missing_data_TS/missing-data/Model_Runs/RickerConfig.txt",sep=" ",row.names = F, quote=F)
 
