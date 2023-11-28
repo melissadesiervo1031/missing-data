@@ -47,7 +47,7 @@ fit_brms_model <- function(sim_list, sim_pars,
   
   # Make the model formula and priors
   bform <- brms::bf(GPP | mi() ~ light + Q + ar(p = 1))
-  bprior <- c(prior(uniform(0,1), class = 'ar', lb = 0, ub = 1),
+  bprior <- c(prior(normal(0,1), class = 'ar', lb = 0, ub = 1),
               prior(normal(0,5), class = 'b'))
   
   # fit model to list of datasets
