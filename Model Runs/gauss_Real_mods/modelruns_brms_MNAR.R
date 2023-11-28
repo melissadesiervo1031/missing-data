@@ -1,6 +1,5 @@
 # Load packages ## 
-#make sure these are already in the folder on supercomputer where I need them ##
-
+# this file can run LOCALLY
 library(tidyverse)
 library(brms)
 
