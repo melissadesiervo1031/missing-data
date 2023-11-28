@@ -5,50 +5,7 @@ library(tidyverse)
 library(ggpubr)
 
 ## read in data 
-gauss_sim_ModelResults <- readRDS("./data/model_results/gauss_sim_ModelResults.rds")
-gauss_sim_ModelResults <- unique(gauss_sim_ModelResults)
-
-# make columns for "autocor" and "missingness"
-gauss_sim_ModelResults$autoCor <- gauss_sim_ModelResults$missingprop_autocor %>% 
-  str_extract(pattern = "0.[0-9]+$") %>% 
-  as.numeric()
-gauss_sim_ModelResults[gauss_sim_ModelResults$missingness=="MNAR", "autoCor"] <- NA
-gauss_sim_ModelResults$amtMiss <- gauss_sim_ModelResults$missingprop_autocor %>% 
-  str_extract(pattern = "0.[0-9]+") %>% 
-  as.numeric
-gauss_sim_ModelResults <- gauss_sim_ModelResults %>% 
-  mutate(value = as.numeric(value),
-         SE = as.numeric(SE))
-# 
-gauss_sim_ModelResults[gauss_sim_ModelResults$missingness == "MAR" & 
-                                 is.na(gauss_sim_ModelResults$autoCor), "autoCor"] <- 0
-
-# fix values for MNAR (remove autocor values)
-gauss_sim_ModelResults[gauss_sim_ModelResults$missingness == "MNAR", "autoCor"] <- NA
-
-# remove values for models fitted to time series with no missingness (Doesn't work for all model approaches)
-gauss_sim_figDat <- gauss_sim_ModelResults[gauss_sim_ModelResults$missingprop_autocor != "y_noMiss",]
-
-simDat <-
-  gauss_sim_figDat %>%
-  select(simName, phi_sim, intercept_sim, light_sim, discharge_sim) %>%
-  pivot_longer(cols = c(phi_sim, intercept_sim, light_sim, discharge_sim),
-               names_to = "param",
-               values_to = "param_simVal",
-               names_transform = function(x) str_split(string = x, pattern = "_", simplify = TRUE)[,1]) %>%
-  unique()
-
-
-# remove columns for simulation data
-gauss_sim_figDat <- gauss_sim_figDat %>% 
-  select(-phi_sim, -intercept_sim, -light_sim, -discharge_sim)
-
-gauss_sim_figDat <- gauss_sim_figDat %>% 
-  left_join(simDat, by = c("simName", "param"))
-
-# calculate the standardized difference between parameter estimates and simulated values??
-gauss_sim_figDat <- gauss_sim_figDat %>% 
-  dplyr::mutate(paramDiff = ((value - param_simVal)/abs(param_simVal)))
+gauss_sim_figDat <- readRDS("./data/model_results/gauss_sim_ModelResults.rds")
 
 ##make heat map! ##
 # Make heatmaps for Gaussian MAR data -------------------------------------
