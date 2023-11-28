@@ -7,7 +7,7 @@
 n=75000/2500
 
 # data file name
-datFile=rep("data/missingDatasets/pois_sim_randMiss_A.rds",n)
+datFile=rep("data/missingDatasets/pois_sim_randMiss_B.rds",n)
 
 # par file name
 parFile=rep("data/missingDatasets/pois_sim_params.rds",n)
@@ -16,7 +16,7 @@ parFile=rep("data/missingDatasets/pois_sim_params.rds",n)
 clsize=rep(8,n)
 
 # save file location
-saveFile=paste0(rep("Model_Runs/RickerA_resultTable",n),1:n,".rds")
+saveFile=paste0(rep("Model_Runs/RickerB_resultTable",n),1:n,".rds")
 
 # beginning index
 index1=seq(1,75000,by=2500)
