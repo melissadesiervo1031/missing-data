@@ -29,13 +29,15 @@ gauss_sim_ModelResults[gauss_sim_ModelResults$missingness == "MNAR", "autoCor"] 
 # remove values for models fitted to time series with no missingness (Doesn't work for all model approaches)
 gauss_sim_figDat <- gauss_sim_ModelResults[gauss_sim_ModelResults$missingprop_autocor != "y_noMiss",]
 
-simDat <- gauss_sim_figDat %>% 
-  select(simName, phi_sim, intercept_sim, light_sim, discharge_sim) %>% 
-  pivot_longer(cols = c(phi_sim, intercept_sim, light_sim, discharge_sim), 
-               names_to = "param", 
+simDat <-
+  gauss_sim_figDat %>%
+  select(simName, phi_sim, intercept_sim, light_sim, discharge_sim) %>%
+  pivot_longer(cols = c(phi_sim, intercept_sim, light_sim, discharge_sim),
+               names_to = "param",
                values_to = "param_simVal",
-               names_transform = function(x) str_split(string = x, pattern = "_", simplify = TRUE)[,1]) %>% 
+               names_transform = function(x) str_split(string = x, pattern = "_", simplify = TRUE)[,1]) %>%
   unique()
+
 
 # remove columns for simulation data
 gauss_sim_figDat <- gauss_sim_figDat %>% 
