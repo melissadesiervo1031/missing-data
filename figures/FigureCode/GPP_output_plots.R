@@ -12,8 +12,6 @@ library(ggpubr)
 ## read in data 
 figDat_temp <- readRDS("./data/model_results/gauss_sim_ModelResults.rds")
 
-# make data for figure
-figDat_temp <- gauss_sim_figDat
 # filter for low and high autocor
 figDat_temp[figDat_temp$autoCor <=0.3 & !is.na(figDat_temp$autoCor), "missingness"] <- "MAR_lowAutoCor"
 figDat_temp[figDat_temp$autoCor  >= 0.7 & !is.na(figDat_temp$autoCor), "missingness"] <- "MAR_highAutoCor"
@@ -34,7 +32,7 @@ figDat_lines <- figDat_temp %>%
 # Figure of parameter recovery (mean and sd in separate panels) -----------
 # figure of means for each model type and level of missingness (with shortened x-axis)
 (gauss_sim_MeansFig_trimmed <- ggplot(data = figDat_lines, aes(x = amtMiss, y = paramDiff_mean)) +
-  facet_grid(~factor(param, levels = c("phi", "intercept","light", "discharge")) 
+  facet_grid(~factor(param, levels = c( "intercept","phi", "light", "discharge")) 
                                        ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR")),
              scales = "free_y") + 
   geom_hline(aes(yintercept = 0), colour = "grey") + 
@@ -59,7 +57,7 @@ largeSD <- figDat_lines[figDat_lines$amtMiss <= 0.5 &
   
 # figure of SDfor each model type and level of missingness
 (gauss_sim_SDFig_trimmed <- ggplot(data = figDat_lines, aes(x = amtMiss, y = paramDiff_SD)) +
-  facet_grid(~factor(param, levels = c("phi", "intercept","light", "discharge")) 
+  facet_grid(~factor(param, levels = c("intercept","phi", "light", "discharge")) 
              ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR"))) + 
   geom_line(aes(color = as.factor(type)), position = position_dodge(width=0.03)) + 
   geom_point(aes(color = as.factor(type)), alpha = .8, position = position_dodge(width=0.03)) +
@@ -115,7 +113,7 @@ figDat_long <- figDat_temp %>%
     ylab("Mean standardized parameter estimate")+ 
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) 
 )
-# figure of means for each model type and level of missingness
+# figure of SD for each model type and level of missingness
 (gauss_sim_SDFig_reg<- ggplot(data = figDat_long, aes(x = amtMiss, y = paramDiff_SD)) +
     facet_grid(~factor(param, levels = c("intercept", "phi", "light", "discharge")) 
                ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR"))) + 
@@ -141,7 +139,7 @@ dev.off()
 
 # 95% CI Error bar plots to show spread of complete parameter recovery data  --------
 (ErrorBarPlots <- ggplot(data = figDat_long, aes(x = amtMiss, y = paramDiff_mean)) +
-   facet_grid(~factor(param, levels = c("intercept", "phi", "light", "discharge")) 
+   facet_grid(~factor(param, levels = c("phi", "intercept",  "light", "discharge")) 
               ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR"))) + 
    geom_hline(aes(yintercept = 0), colour = "grey") + 
    geom_errorbar(aes(ymin=paramDiff_mean - 1.96*paramDiff_SD, ymax=paramDiff_mean + 1.96*paramDiff_SD, color = as.factor(type)), 
@@ -154,7 +152,6 @@ dev.off()
    ylab("Mean standardized parameter estimate")+ 
    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))
 )
-
 
 
 figDat_all <- figDat_temp %>% 
@@ -181,3 +178,97 @@ figDat_all <- figDat_temp %>%
 png(file = "./figures/parameterRecovery_sim_Guassian_95CIs.png", width = 9, height = 4, units = "in", res = 700)
 ErrorBarPlots
 dev.off()
+
+
+## trying to figure out brms phi issue
+phi <- figDat_temp[figDat_temp$param == "phi",]
+# calculate the unstandardized difference of values
+phi <- phi %>% 
+  mutate(paramDiff_actual = value - param_simVal)
+
+phi_means <- phi %>% 
+  filter(param != "sigma") %>%
+  filter(missingness %in% c("MAR_highAutoCor", "MAR_lowAutoCor", "MNAR")) %>% 
+  mutate(autoCor = round(autoCor, 1), 
+         amtMiss = round(amtMiss, 1)) %>% 
+  group_by(missingness, type, param, amtMiss) %>% 
+  summarize(paramDiff_mean = mean(paramDiff, na.rm = TRUE),
+            paramDiff_med = median(paramDiff, na.rm = TRUE),
+            paramDiff_SD = sd(paramDiff, na.rm = TRUE),
+            n = length(paramDiff),
+            paramDiff_actual_mean = mean(paramDiff_actual, na.rm = TRUE),
+            param_actual_sd = sd(paramDiff_actual, na.rm = TRUE)) %>% 
+  filter(n  > 100)  %>% # drop combinations that have fewer than 300 observations
+  filter(amtMiss <=.5)
+  
+# calculate quantiles
+phi_quants <- phi %>% 
+  group_by(type) %>% 
+  summarize("quantile_value" = quantile(x = paramDiff, probs = c(0.01, .25, .5, .75, .99)),
+            "quantile_level" = c(.01, .25, .5, .75, .99))
+
+  
+ggplot(data = phi) +
+  geom_histogram(aes(paramDiff, col = type)) + 
+  facet_wrap(~type)
+
+ggplot(data = phi) + 
+  geom_violin(aes(x = type, y = paramDiff, col = type)) +
+  xlab("Missingness Approach") + 
+  ylab("[(true param-sim param)/abs(sim param)]") +
+  ggtitle("phi parameter recovery")
+
+ggplot(data = phi) + 
+  geom_vline(aes(xintercept = c(0)), col = "grey", lty = 2) +
+  geom_vline(aes(xintercept = c(1)), col = "grey", lty = 2) +
+  geom_histogram(aes(param_simVal), col = "grey20", alpha = .3) +
+  geom_histogram(aes(value, col = type, fill = type), alpha = .5) + 
+  facet_wrap(~type) + 
+  xlab("model estimate of phi") + 
+  theme_classic()
+  
+ggplot(data = phi) + 
+  geom_vline(aes(xintercept = c(0)), col = "grey", lty = 2) +
+  geom_vline(data = phi_quants[phi_quants$quantile_level == .01,], aes(xintercept =quantile_value)) + 
+  geom_vline(data = phi_quants[phi_quants$quantile_level == .99,], aes(xintercept =quantile_value)) + 
+  geom_histogram(aes(paramDiff, col = type, fill = type), alpha = .5) + 
+  facet_wrap(~type) + 
+  xlab("standardized parameter differences ") + 
+  theme_classic() + 
+  xlim(c(min(phi_quants$quantile_value), max(phi_quants$quantile_value)))
+
+
+
+(gauss_sim_phi_means<- ggplot(data = phi_means, aes(x = amtMiss, y = paramDiff_actual_mean)) +
+    facet_grid(~factor(param, levels = c("intercept", "phi", "light", "discharge")) 
+               ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR"))) + 
+    geom_hline(aes(yintercept = 0), colour = "grey") + 
+    #geom_errorbar(aes(ymin=paramDiff_actual_mean - paramDiff_SD, ymax=paramDiff_actual_mean + paramDiff_SD, color = as.factor(type)), 
+    #size=0.3, width=0, position = position_dodge(width=0.03))+
+    #geom_ribbon(aes(ymin = paramDiff_actual_mean - paramDiff_SD, ymax = paramDiff_actual_mean + paramDiff_SD, color = as.factor(type), fill = as.factor(type)), alpha = .1) +
+    geom_line(aes(color = as.factor(type)), position = position_dodge(width=0.03)) + 
+    geom_point(aes(color = as.factor(type)), alpha = .8, position = position_dodge(width=0.03)) +
+    theme_classic() +
+    xlab("Proportion of missing data")+ 
+    theme(legend.position="top")+
+    theme(legend.title=element_blank())+
+    ylab("Mean standardized parameter estimate")+ 
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) 
+)
+(gauss_sim_phi_meds<- ggplot(data = phi_means, aes(x = amtMiss, y = paramDiff_med)) +
+    facet_grid(~factor(param, levels = c("intercept", "phi", "light", "discharge")) 
+               ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR"))) + 
+    geom_hline(aes(yintercept = 0), colour = "grey") + 
+    #geom_errorbar(aes(ymin=paramDiff_actual_mean - paramDiff_SD, ymax=paramDiff_actual_mean + paramDiff_SD, color = as.factor(type)), 
+    #size=0.3, width=0, position = position_dodge(width=0.03))+
+    #geom_ribbon(aes(ymin = paramDiff_actual_mean - paramDiff_SD, ymax = paramDiff_actual_mean + paramDiff_SD, color = as.factor(type), fill = as.factor(type)), alpha = .1) +
+    geom_line(aes(color = as.factor(type)), position = position_dodge(width=0.03)) + 
+    geom_point(aes(color = as.factor(type)), alpha = .8, position = position_dodge(width=0.03)) +
+    theme_classic() +
+    xlab("Proportion of missing data")+ 
+    theme(legend.position="top")+
+    theme(legend.title=element_blank())+
+    ylab("Mean standardized parameter estimate")+ 
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) 
+)
+
