@@ -31,7 +31,7 @@ figDat_lines <- figDat_temp %>%
 
 # Figure of parameter recovery (mean and sd in separate panels) -----------
 # figure of means for each model type and level of missingness (with shortened x-axis)
-(gauss_sim_MeansFig_trimmed <- ggplot(data = figDat_lines, aes(x = amtMiss, y = paramDiff_mean)) +
+(gauss_sim_MeansFig_trimmed <- ggplot(data = figDat_lines, aes(x = amtMiss, y = paramDiff_med)) +
   facet_grid(~factor(param, levels = c( "intercept","phi", "light", "discharge")) 
                                        ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR")),
              scales = "free_y") + 
