@@ -191,6 +191,14 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
     }
   )
   
+  if(!exists("amelia1sim")){
+    warning("Amelia was unable to fit for reason other than timeout")
+    return(list(
+      NA,
+      reason = "Amelia fitting error"
+    ))
+  } 
+  
   
   if(any(is.na(amelia1sim))){
     warning("Amelia has timed out, likely due to exceptionally high missingness")
@@ -244,7 +252,9 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
   # Check that the model fit ran ok
   if(any(is.na(fit))){
     warning("There has been a model fitting error")
-    return(NA)
+    return(list(NA,
+                reason="Amelia model fit error"
+                  ))
   }
   
   
