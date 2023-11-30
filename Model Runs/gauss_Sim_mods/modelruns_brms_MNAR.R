@@ -17,11 +17,11 @@ CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
 ## read in the autocor_01 list ##
 
 # gauss_sim_MinMaxMiss <- readRDS("data/missingDatasets/forBeartooth/gauss_sim_randMiss_A.rds")
-gauss_sim_MNAR <- readRDS("/project/modelscape/users/astears/gauss_sim_MinMaxMiss.rds")
+gauss_sim_MNAR <- readRDS("/project/modelscape/users/astears/gauss_sim_minMaxMiss.rds")
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
-OutFile <- paste0("gauss_sim_MNAR_modResults/", CurSim, "brmsvals.csv")
+OutFile <- paste0("gauss_sim_MNAR_brms_modResults_normPrior/", CurSim, "brmsvals.csv")
 
 #########################################################################################
 ### MY ARIMA FUNCTIONS #####
@@ -37,7 +37,7 @@ fit_brms_model <- function(sim_list, sim_pars,
   
   # Make the model formula and priors
   bform <- brms::bf(GPP | mi() ~ light + discharge + ar(p = 1))
-  bprior <- c(prior(uniform(0,1), class = 'ar', lb = 0, ub = 1),
+  bprior <- c(prior(normal(0,1), class = 'ar', lb = 0, ub = 1),
               prior(normal(0,5), class = 'b'))
   
   # fit model to list of datasets

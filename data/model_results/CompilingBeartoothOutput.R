@@ -118,8 +118,8 @@ outData_MAR_brms <- outData_MAR_brms %>%
          "discharge_sim" = "beta3_sim")
 
 # gauss_sim_MNAR_brms models ----------------------------------------------
-brms_MNAR <- read_csv("data/model_results/00_combined_gauss_sim_minMaxMiss.csv", show_col_types = FALSE) # 80999 X 10 # 
-
+#brms_MNAR <- read_csv("data/model_results/00_combined_gauss_sim_minMaxMiss.csv", show_col_types = FALSE) # 80999 X 10 # 
+brms_MNAR <- read_csv("data/model_results/gauss_sim_MNAR_brms_results_normPrior.csv")
 # combine together
 outData_MNAR_brms <- brms_MNAR %>% 
   rename("param" = "parameter", "value" = "mean", "SE" = "sd") %>% 
@@ -148,7 +148,48 @@ outData_MNAR_brms <- outData_MNAR_brms %>%
 ## combine all of the model results for gaussian simulated data
 outData_gauss_sim <- rbind(outData_MAR_arima, outData_MNAR_arima, outData_MAR_brms, outData_MNAR_brms)
 
-saveRDS(outData_gauss_sim, file = "./data/model_results/gauss_sim_ModelResults.rds")
+## clean up, and calculate simulation data
+outData_gauss_sim <- unique(outData_gauss_sim)
+
+# make columns for "autocor" and "missingness"
+outData_gauss_sim$autoCor <- outData_gauss_sim$missingprop_autocor %>% 
+  str_extract(pattern = "0.[0-9]+$") %>% 
+  as.numeric()
+outData_gauss_sim[outData_gauss_sim$missingness=="MNAR", "autoCor"] <- NA
+outData_gauss_sim$amtMiss <- outData_gauss_sim$missingprop_autocor %>% 
+  str_extract(pattern = "0.[0-9]+") %>% 
+  as.numeric
+outData_gauss_sim <- outData_gauss_sim %>% 
+  mutate(value = as.numeric(value),
+         SE = as.numeric(SE))
+# 
+outData_gauss_sim[outData_gauss_sim$missingness == "MAR" & 
+                         is.na(outData_gauss_sim$autoCor), "autoCor"] <- 0
+
+# remove values for models fitted to time series with no missingness (Doesn't work for all model approaches)
+gauss_sim_figDat <- outData_gauss_sim[outData_gauss_sim$missingprop_autocor != "y_noMiss",]
+
+simDat <- gauss_sim_figDat %>% 
+  select(simName, phi_sim, intercept_sim, light_sim, discharge_sim) %>% 
+  pivot_longer(cols = c(phi_sim, intercept_sim, light_sim, discharge_sim), 
+               names_to = "param", 
+               values_to = "param_simVal",
+               names_transform = function(x) str_split(string = x, pattern = "_", simplify = TRUE)[,1]) %>% 
+  unique()
+
+# remove columns for simulation data
+gauss_sim_figDat <- gauss_sim_figDat %>% 
+  select(-phi_sim, -intercept_sim, -light_sim, -discharge_sim)
+
+gauss_sim_figDat <- gauss_sim_figDat %>% 
+  left_join(simDat, by = c("simName", "param"))
+
+# calculate the standardized difference between parameter estimates and simulated values
+gauss_sim_figDat <- gauss_sim_figDat %>% 
+  dplyr::mutate(paramDiff = ((value - param_simVal)/abs(param_simVal)))
+
+
+saveRDS(gauss_sim_figDat, file = "./data/model_results/gauss_sim_ModelResults.rds")
 
 # gauss_real_MAR_arima models ----------------------------------------------
 # read in output file
