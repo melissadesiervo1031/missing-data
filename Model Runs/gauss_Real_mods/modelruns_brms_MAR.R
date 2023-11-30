@@ -23,8 +23,8 @@ pine_river_full <- read_csv('/project/modelscape/users/astears/pine_river_data_p
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
-OutFile <- paste0("gauss_real_MAR_brms_modelResults/", CurSim, "brmsvals.csv")
-OutFile_preds <- paste0("gauss_real_MAR_brms_modelResults/", CurSim, "brmspreds.csv")
+OutFile <- paste0("gauss_real_MAR_brms_modelResults_normPrior/", CurSim, "brmsvals.csv")
+OutFile_preds <- paste0("gauss_real_MAR_brms_modelResults_normPrior/", CurSim, "brmspreds.csv")
 
 #########################################################################################
 ### MY ARIMA FUNCTIONS #####
