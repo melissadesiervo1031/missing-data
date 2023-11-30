@@ -118,8 +118,8 @@ outData_MAR_brms <- outData_MAR_brms %>%
          "discharge_sim" = "beta3_sim")
 
 # gauss_sim_MNAR_brms models ----------------------------------------------
-brms_MNAR <- read_csv("data/model_results/00_combined_gauss_sim_minMaxMiss.csv", show_col_types = FALSE) # 80999 X 10 # 
-
+#brms_MNAR <- read_csv("data/model_results/00_combined_gauss_sim_minMaxMiss.csv", show_col_types = FALSE) # 80999 X 10 # 
+brms_MNAR <- read_csv("data/model_results/gauss_sim_MNAR_brms_results_normPrior.csv")
 # combine together
 outData_MNAR_brms <- brms_MNAR %>% 
   rename("param" = "parameter", "value" = "mean", "SE" = "sd") %>% 
