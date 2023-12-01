@@ -25,12 +25,10 @@ lapply(f_list, source)
 # (5) beginnning index (6) ending index (7) optional- model list
 in_args <- commandArgs(trailingOnly = T)
 
-cat(in_args)
-
 # read in datafile
 dat <- readRDS(here(in_args[1]))
 pars <- readRDS(here(in_args[2]))
-cat("finished reading data")
+
 # count number of missingness proportions
 nmiss_props <- length(dat[[1]]$y)
 
