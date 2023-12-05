@@ -11,6 +11,8 @@ library(ggpubr)
 ## read in data 
 ricDat_temp <- readRDS("./data/model_results/RickerA_resultTableAll.rds")
 
+# for now, remove the simulation 176 (really tiny simulation parameters)
+
 ## for now, remove rows where simulated population went extinct (was 13% of data!)
 badRows <- as.vector(sapply(ricDat_temp$drop_fits, function(x)
   ifelse(sum(str_detect(names(x), pattern = "cause"))>=1, 
@@ -196,17 +198,18 @@ ricDat_lines <- ricDat_long %>%
 
 # Figure of parameter recovery (mean and sd in separate panels) -----------
 # figure of means for each model type and level of missingness (with shortened x-axis)
-(pois_sim_MeansFig_trimmed <- ggplot(data = ricDat_lines, aes(x = amtMiss, y = paramDiff_med)) +
+(pois_sim_MeansFig_trimmed <- ggplot(data = ricDat_lines, aes(x = amtMiss, y = paramDiff_mean)) +
    facet_grid(~factor(param, levels = c( "alpha", "r")) 
               ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_medAutoCor", "MAR_highAutoCor")),
               scales = "free_y") + 
-   geom_hline(aes(yintercept = 0), colour = "grey") + geom_line(aes(color = as.factor(type)), position = position_dodge(width=0.03)) + 
-   geom_point(data = data.frame("x" = c(0,.5), "y" = c(-.25, .1)), aes(x = x, y = y), alpha = 0.0000001) + ## add invisible points to change scales
+   geom_hline(aes(yintercept = 0), colour = "grey") + 
+   geom_line(aes(color = as.factor(type)), position = position_dodge(width=0.03)) + 
+   #geom_point(data = data.frame("x" = c(0,.5), "y" = c(-.25, .1)), aes(x = x, y = y), alpha = 0.0000001) + ## add invisible points to change scales
    geom_point(aes(color = as.factor(type)), alpha = .8, position = position_dodge(width=0.03)) +
+   #geom_line(aes(x = amtMiss, y = paramDiff_med, color = as.factor(type)), position = position_dodge(width=0.03), lty = 2) +
    theme_classic() +
    xlab("Proportion of missing data")+ 
-   theme(legend.position="top")+
-   theme(legend.title=element_blank())+
+   theme(legend.position="top", legend.title=element_blank())+
    ylab("Mean standardized parameter estimate")+ 
    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) #+
    #ylim(c(-0.85,0.55))
@@ -217,7 +220,7 @@ largeSD <- ricDat_lines[ricDat_lines$amtMiss <= 0.5 &
                           ricDat_lines$paramDiff_SD > 5,]
 
 # figure of SDfor each model type and level of missingness
-(gauss_sim_SDFig_trimmed <- ggplot(data = ricDat_lines, aes(x = amtMiss, y = paramDiff_SD)) +
+(pois_sim_SDFig_trimmed <- ggplot(data = ricDat_lines, aes(x = amtMiss, y = paramDiff_SD)) +
     facet_grid(~factor(param, levels = c( "alpha", "r")) 
                ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_medAutoCor", "MAR_highAutoCor")),
                scales = "free_y") + 
@@ -236,29 +239,16 @@ largeSD <- ricDat_lines[ricDat_lines$amtMiss <= 0.5 &
 ) 
 
 # put into one figure
-Gauss_paramRecov_trimmed <- ggarrange(gauss_sim_MeansFig_trimmed, gauss_sim_SDFig_trimmed, common.legend = TRUE)
+pois_paramRecov_trimmed <- ggarrange(pois_sim_MeansFig_trimmed, pois_sim_SDFig_trimmed, common.legend = TRUE)
 
 ## save results
-png(file = "./figures/parameterRecovery_sim_Guassian_meansSD_trimmed.png", width = 9, height = 4, units = "in", res = 700)
+png(file = "./figures/parameterRecovery_sim_Poisson_meansSD_trimmed.png", width = 9, height = 4, units = "in", res = 700)
 Gauss_paramRecov_trimmed
 dev.off()
 
-
-#
-ricDat_long <- ricDat_long %>% 
-  filter(missingness %in% c("MAR_highAutoCor", "MAR_lowAutoCor", "MNAR")) %>% 
-  mutate(autoCor = round(autoCor, 1), 
-         amtMiss = round(amtMiss, 1)) %>% 
-  group_by(missingness, type, param, amtMiss) %>% 
-  summarize(paramDiff_mean = mean(paramDiff, na.rm = TRUE),
-            paramDiff_med = median(paramDiff, na.rm = TRUE),
-            paramDiff_SD = sd(paramDiff, na.rm = TRUE),
-            n = length(paramDiff)) %>% 
-  filter(n  > 100)  
-
 # make a figure like the one above, but without a trimmed x axis
 # figure of means for each model type and level of missingness
-(gauss_sim_MeansFig_reg<- ggplot(data = ricDat_long, aes(x = amtMiss, y = paramDiff_mean)) +
+(gauss_sim_MeansFig_reg<- ggplot(data = ricDat_lines, aes(x = amtMiss, y = paramDiff_mean)) +
     facet_grid(~factor(param, levels = c("intercept", "phi", "light", "discharge")) 
                ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR"))) + 
     geom_hline(aes(yintercept = 0), colour = "grey") + 
@@ -297,21 +287,6 @@ png(file = "./figures/parameterRecovery_sim_Guassian_meansSD.png", width = 9, he
 Gauss_paramRecov
 dev.off()
 
-# 95% CI Error bar plots to show spread of complete parameter recovery data  --------
-(ErrorBarPlots <- ggplot(data = ricDat_long, aes(x = amtMiss, y = paramDiff_mean)) +
-   facet_grid(~factor(param, levels = c("phi", "intercept",  "light", "discharge")) 
-              ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR"))) + 
-   geom_hline(aes(yintercept = 0), colour = "grey") + 
-   geom_errorbar(aes(ymin=paramDiff_mean - 1.96*paramDiff_SD, ymax=paramDiff_mean + 1.96*paramDiff_SD, color = as.factor(type)), 
-                 size=0.3, width=0, position = position_dodge(width=0.07))+
-   geom_point(aes(color = as.factor(type)), alpha = .8, position = position_dodge(width=0.07)) +
-   theme_classic() +
-   xlab("Proportion of missing data")+ 
-   theme(legend.position="top")+
-   theme(legend.title=element_blank())+
-   ylab("Mean standardized parameter estimate")+ 
-   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))
-)
 
 
 ricDat_violin <- ricDat_long %>% 
@@ -324,9 +299,9 @@ ricDat_violin <- ricDat_long %>%
 
 (pois_sim_violin <- ggplot(data = ricDat_violin) +
     facet_grid(~factor(param, levels = c( "alpha", "r")) 
-               ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_medAutoCor", "MAR_highAutoCor")),
+               ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_medAutoCor", "MAR_highAutoCor")),  #~ type,
                scales = "free_y") + 
-    geom_point(aes(x = as.factor(amtMiss), y = paramDiff, color = type), alpha = .8, position = position_dodge(width=0.07)) +
+    #geom_point(aes(x = as.factor(amtMiss), y = paramDiff, color = type), alpha = .8, position = position_dodge(width=0.07)) +
     geom_hline(aes(yintercept = 0), colour = "grey") + 
     geom_violin(aes(x = as.factor(amtMiss), y = paramDiff, color = type)) +
     theme_classic() +
@@ -334,105 +309,12 @@ ricDat_violin <- ricDat_long %>%
     theme(legend.position="top")+
     theme(legend.title=element_blank())+
     ylab("Mean standardized parameter estimate")+ 
-    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))# +
-    #ylim(c(-10,50))
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) #+
+   # ylim(c(-2,2))
 )
 
 ## save figure
 png(file = "./figures/parameterRecovery_sim_Guassian_95CIs.png", width = 9, height = 4, units = "in", res = 700)
 ErrorBarPlots
 dev.off()
-
-
-## trying to figure out brms phi issue
-phi <- ricDat_temp[ricDat_temp$param == "phi",]
-# calculate the unstandardized difference of values
-phi <- phi %>% 
-  mutate(paramDiff_actual = value - param_simVal)
-
-phi_means <- phi %>% 
-  filter(param != "sigma") %>%
-  filter(missingness %in% c("MAR_highAutoCor", "MAR_lowAutoCor", "MNAR")) %>% 
-  mutate(autoCor = round(autoCor, 1), 
-         amtMiss = round(amtMiss, 1)) %>% 
-  group_by(missingness, type, param, amtMiss) %>% 
-  summarize(paramDiff_mean = mean(paramDiff, na.rm = TRUE),
-            paramDiff_med = median(paramDiff, na.rm = TRUE),
-            paramDiff_SD = sd(paramDiff, na.rm = TRUE),
-            n = length(paramDiff),
-            paramDiff_actual_mean = mean(paramDiff_actual, na.rm = TRUE),
-            param_actual_sd = sd(paramDiff_actual, na.rm = TRUE)) %>% 
-  filter(n  > 100)  %>% # drop combinations that have fewer than 300 observations
-  filter(amtMiss <=.5)
-
-# calculate quantiles
-phi_quants <- phi %>% 
-  group_by(type) %>% 
-  summarize("quantile_value" = quantile(x = paramDiff, probs = c(0.01, .25, .5, .75, .99)),
-            "quantile_level" = c(.01, .25, .5, .75, .99))
-
-
-ggplot(data = phi) +
-  geom_histogram(aes(paramDiff, col = type)) + 
-  facet_wrap(~type)
-
-ggplot(data = phi) + 
-  geom_violin(aes(x = type, y = paramDiff, col = type)) +
-  xlab("Missingness Approach") + 
-  ylab("[(true param-sim param)/abs(sim param)]") +
-  ggtitle("phi parameter recovery")
-
-ggplot(data = phi) + 
-  geom_vline(aes(xintercept = c(0)), col = "grey", lty = 2) +
-  geom_vline(aes(xintercept = c(1)), col = "grey", lty = 2) +
-  geom_histogram(aes(param_simVal), col = "grey20", alpha = .3) +
-  geom_histogram(aes(value, col = type, fill = type), alpha = .5) + 
-  facet_wrap(~type) + 
-  xlab("model estimate of phi") + 
-  theme_classic()
-
-ggplot(data = phi) + 
-  geom_vline(aes(xintercept = c(0)), col = "grey", lty = 2) +
-  geom_vline(data = phi_quants[phi_quants$quantile_level == .01,], aes(xintercept =quantile_value)) + 
-  geom_vline(data = phi_quants[phi_quants$quantile_level == .99,], aes(xintercept =quantile_value)) + 
-  geom_histogram(aes(paramDiff, col = type, fill = type), alpha = .5) + 
-  facet_wrap(~type) + 
-  xlab("standardized parameter differences ") + 
-  theme_classic() + 
-  xlim(c(min(phi_quants$quantile_value), max(phi_quants$quantile_value)))
-
-
-
-(gauss_sim_phi_means<- ggplot(data = phi_means, aes(x = amtMiss, y = paramDiff_actual_mean)) +
-    facet_grid(~factor(param, levels = c("intercept", "phi", "light", "discharge")) 
-               ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR"))) + 
-    geom_hline(aes(yintercept = 0), colour = "grey") + 
-    #geom_errorbar(aes(ymin=paramDiff_actual_mean - paramDiff_SD, ymax=paramDiff_actual_mean + paramDiff_SD, color = as.factor(type)), 
-    #size=0.3, width=0, position = position_dodge(width=0.03))+
-    #geom_ribbon(aes(ymin = paramDiff_actual_mean - paramDiff_SD, ymax = paramDiff_actual_mean + paramDiff_SD, color = as.factor(type), fill = as.factor(type)), alpha = .1) +
-    geom_line(aes(color = as.factor(type)), position = position_dodge(width=0.03)) + 
-    geom_point(aes(color = as.factor(type)), alpha = .8, position = position_dodge(width=0.03)) +
-    theme_classic() +
-    xlab("Proportion of missing data")+ 
-    theme(legend.position="top")+
-    theme(legend.title=element_blank())+
-    ylab("Mean standardized parameter estimate")+ 
-    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) 
-)
-(gauss_sim_phi_meds<- ggplot(data = phi_means, aes(x = amtMiss, y = paramDiff_med)) +
-    facet_grid(~factor(param, levels = c("intercept", "phi", "light", "discharge")) 
-               ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR"))) + 
-    geom_hline(aes(yintercept = 0), colour = "grey") + 
-    #geom_errorbar(aes(ymin=paramDiff_actual_mean - paramDiff_SD, ymax=paramDiff_actual_mean + paramDiff_SD, color = as.factor(type)), 
-    #size=0.3, width=0, position = position_dodge(width=0.03))+
-    #geom_ribbon(aes(ymin = paramDiff_actual_mean - paramDiff_SD, ymax = paramDiff_actual_mean + paramDiff_SD, color = as.factor(type), fill = as.factor(type)), alpha = .1) +
-    geom_line(aes(color = as.factor(type)), position = position_dodge(width=0.03)) + 
-    geom_point(aes(color = as.factor(type)), alpha = .8, position = position_dodge(width=0.03)) +
-    theme_classic() +
-    xlab("Proportion of missing data")+ 
-    theme(legend.position="top")+
-    theme(legend.title=element_blank())+
-    ylab("Mean standardized parameter estimate")+ 
-    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) 
-)
 
