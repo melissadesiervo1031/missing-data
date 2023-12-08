@@ -250,9 +250,29 @@ png(file = "./figures/parameterRecovery_sim_Poisson_meansSD_trimmed.png", width 
 Gauss_paramRecov_trimmed
 dev.off()
 
+
+
+## save results
+png(file = "./figures/parameterRecovery_sim_Guassian_meansSD_trimmed.png", width = 9, height = 4, units = "in", res = 700)
+Gauss_paramRecov_trimmed
+dev.off()
+
+
+#
+ricDat_long <- ricDat_long %>% 
+  filter(missingness %in% c("MAR_highAutoCor", "MAR_lowAutoCor", "MNAR")) %>% 
+  mutate(autoCor = round(autoCor, 1), 
+         amtMiss = round(amtMiss, 1)) %>% 
+  group_by(missingness, type, param, amtMiss) %>% 
+  summarize(paramDiff_mean = mean(paramDiff, na.rm = TRUE),
+            paramDiff_med = median(paramDiff, na.rm = TRUE),
+            paramDiff_SD = sd(paramDiff, na.rm = TRUE),
+            n = length(paramDiff)) %>% 
+  filter(n  > 100)  
+
 # make a figure like the one above, but without a trimmed x axis
 # figure of means for each model type and level of missingness
-(gauss_sim_MeansFig_reg<- ggplot(data = ricDat_lines, aes(x = amtMiss, y = paramDiff_mean)) +
+(gauss_sim_MeansFig_reg<- ggplot(data = ricDat_long, aes(x = amtMiss, y = paramDiff_mean)) +
     facet_grid(~factor(param, levels = c("intercept", "phi", "light", "discharge")) 
                ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_highAutoCor", "MNAR"))) + 
     geom_hline(aes(yintercept = 0), colour = "grey") + 
@@ -282,7 +302,7 @@ dev.off()
     theme(legend.title=element_blank())+
     ylab("SD of standardized parameter estimate")+ 
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))
-) 
+  ) 
 # put into one figure
 Gauss_paramRecov <- ggarrange(gauss_sim_MeansFig_reg, gauss_sim_SDFig_reg, common.legend = TRUE)
 
@@ -290,7 +310,6 @@ Gauss_paramRecov <- ggarrange(gauss_sim_MeansFig_reg, gauss_sim_SDFig_reg, commo
 png(file = "./figures/parameterRecovery_sim_Guassian_meansSD.png", width = 9, height = 4, units = "in", res = 700)
 Gauss_paramRecov
 dev.off()
-
 
 
 ricDat_violin <- ricDat_long %>% 
@@ -303,9 +322,9 @@ ricDat_violin <- ricDat_long %>%
 
 (pois_sim_violin <- ggplot(data = ricDat_violin) +
     facet_grid(~factor(param, levels = c( "alpha", "r")) 
-               ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_medAutoCor", "MAR_highAutoCor")),  #~ type,
+               ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_medAutoCor", "MAR_highAutoCor")),
                scales = "free_y") + 
-    #geom_point(aes(x = as.factor(amtMiss), y = paramDiff, color = type), alpha = .8, position = position_dodge(width=0.07)) +
+    geom_point(aes(x = as.factor(amtMiss), y = paramDiff, color = type), alpha = .8, position = position_dodge(width=0.07)) +
     geom_hline(aes(yintercept = 0), colour = "grey") + 
     geom_violin(aes(x = as.factor(amtMiss), y = paramDiff, color = type)) +
     theme_classic() +
@@ -313,12 +332,11 @@ ricDat_violin <- ricDat_long %>%
     theme(legend.position="top")+
     theme(legend.title=element_blank())+
     ylab("Mean standardized parameter estimate")+ 
-    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) #+
-   # ylim(c(-2,2))
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))# +
+    #ylim(c(-10,50))
 )
 
 ## save figure
 png(file = "./figures/parameterRecovery_sim_Guassian_95CIs.png", width = 9, height = 4, units = "in", res = 700)
 ErrorBarPlots
 dev.off()
-
