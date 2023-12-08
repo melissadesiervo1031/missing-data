@@ -12,6 +12,7 @@ library(ggpubr)
 ricDat_temp <- readRDS("./data/model_results/RickerA_resultTableAll.rds")
 
 # for now, remove the simulation 176 (really tiny simulation parameters)
+ricDat_temp <- ricDat_temp[ricDat_temp$SimNumber != 176,]
 
 ## for now, remove rows where simulated population went extinct (was 13% of data!)
 badRows <- as.vector(sapply(ricDat_temp$drop_fits, function(x)
@@ -182,6 +183,9 @@ mutate("paramDiff" = (paramEst - paramSim)/abs(paramSim))
 ricDat_long[ricDat_long$actAutoCorr <=0.3 & !is.na(ricDat_long$actAutoCorr), "missingness"] <- "MAR_lowAutoCor"
 ricDat_long[ricDat_long$actAutoCorr >0.3 & ricDat_long$actAutoCorr <0.6 & !is.na(ricDat_long$actAutoCorr), "missingness"] <- "MAR_medAutoCor"
 ricDat_long[ricDat_long$actAutoCorr  >= 0.6 & !is.na(ricDat_long$actAutoCorr), "missingness"] <- "MAR_highAutoCor"
+
+# save data to file for use later...
+#write_rds(ricDat_long, file = "./data/model_results/ricker_sim_ModelResultsLong.rds")
 
 # generate summary statistics for each 
 ricDat_lines <- ricDat_long %>% 

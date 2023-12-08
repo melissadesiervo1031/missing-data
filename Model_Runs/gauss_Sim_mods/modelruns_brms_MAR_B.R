@@ -23,7 +23,7 @@ gauss_sim_randMiss_autoCorr_01 <- readRDS("/project/modelscape/users/acarte26/mi
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
-OutFile <- paste0("gauss_sim_randMiss_modResults_A/", CurSim, "brmsvals.csv")
+OutFile <- paste0("gauss_sim_randMiss_modResults_B/", CurSim, "brmsvals.csv")
 
 #########################################################################################
 ### MY ARIMA FUNCTIONS #####

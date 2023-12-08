@@ -7,6 +7,9 @@ library(ggpubr)
 ## read in data 
 gauss_sim_figDat <- readRDS("./data/model_results/gauss_sim_ModelResults.rds")
 
+# remove data for simluation 376... has one really small parameter, which is causing a lot of outliers
+gauss_sim_figDat <- gauss_sim_figDat[gauss_sim_figDat$simName != 376,]
+
 ##make heat map! ##
 # Make heatmaps for Gaussian MAR data -------------------------------------
 # bin amt missing and autocorr (average paramDiff)
@@ -20,8 +23,10 @@ figDat <- gauss_sim_figDat %>%
             paramDiff_med = median(paramDiff, na.rm = TRUE),
             paramDiff_SD = sd(paramDiff, na.rm = TRUE),
             n = length(paramDiff)) %>% 
-  filter(n  > 300) %>% # drop combinations that have fewer than 300 observations
-  mutate(tooBigSD = ifelse(paramDiff_SD > 1.96, yes = 1, no = NA)) 
+  filter(n  > 100) %>% # drop combinations that have fewer than 100 observations
+  mutate(tooBigSD = ifelse(paramDiff_SD > 1.96, yes = 1, no = NA)) %>% 
+  filter(amtMiss <=.5)
+# only consider missingness of 50% or less
 
 ## make heatmap for mean of parameter recovery
 (heatMap_mean_MAR <-ggplot(data = figDat, aes(x=amtMiss, y=autoCor)) + 
