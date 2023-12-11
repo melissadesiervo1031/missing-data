@@ -1,30 +1,25 @@
-## draft of the GPP heat map figure ##
+## draft of the Population heat map figure ##
 
 # Load packages
 library(tidyverse)
 library(ggpubr)
 
 ## read in data 
-gauss_sim_figDat <- readRDS("./data/model_results/gauss_sim_ModelResults.rds")
-
-# remove data for simluation 376... has one really small parameter, which is causing a lot of outliers
-gauss_sim_figDat <- gauss_sim_figDat[gauss_sim_figDat$simName != 376,]
+pop_sim_figDat <- readRDS("./data/model_results/ricker_sim_ModelResultsLong.rds")
+# this dataset already has simulation 176 removed (which had really small parameters)
 
 ##make heat map! ##
 # Make heatmaps for Gaussian MAR data -------------------------------------
 # bin amt missing and autocorr (average paramDiff)
-figDat <- gauss_sim_figDat %>% 
-  filter(param != "sigma" & 
-           missingness == "MAR") %>% 
-  mutate(autoCor = round(autoCor, 1), 
-         amtMiss = round(amtMiss, 1)) %>% 
+figDat <- pop_sim_figDat %>% 
+  mutate(autoCor = round(actAutoCorr, 1), 
+         amtMiss = round(actPropMiss, 1)) %>% 
   group_by(missingness, type, param, autoCor, amtMiss) %>% 
   summarize(paramDiff_mean = mean(paramDiff, na.rm = TRUE),
             paramDiff_med = median(paramDiff, na.rm = TRUE),
             paramDiff_SD = sd(paramDiff, na.rm = TRUE),
             n = length(paramDiff)) %>% 
   filter(n  > 100) %>% # drop combinations that have fewer than 100 observations
-  mutate(tooBigSD = ifelse(paramDiff_SD > 1.96, yes = 1, no = NA)) %>% 
   filter(amtMiss <=.5)
 # only consider missingness of 50% or less
 
@@ -32,7 +27,7 @@ figDat <- gauss_sim_figDat %>%
 (heatMap_mean_MAR <-ggplot(data = figDat, aes(x=amtMiss, y=autoCor)) + 
     geom_tile(aes(fill=paramDiff_mean), size=5) + 
     scale_fill_viridis_c(name = "value" ) +
-    facet_grid(~factor(figDat$param, levels = c("phi", "intercept","light", "discharge")) ~ type) +
+    facet_grid(~factor(figDat$param, levels = c("alpha", "r")) ~ type) +
     #scale_fill_viridis_c(begin=1, end=0, option = "inferno")+
     xlab("Proportion of missing data")+
     ylab("Autocorrellation in missingness") +
@@ -43,7 +38,7 @@ figDat <- gauss_sim_figDat %>%
 ## make heatmap for SD of parameter recovery
 (heatMap_SD_MAR <-ggplot(data = figDat, aes(x=amtMiss, y=autoCor)) + 
     geom_tile(aes(fill=paramDiff_SD), size=5) + 
-    facet_grid(~factor(figDat$param, levels = c("phi", "intercept","light", "discharge")) ~ type) +
+    facet_grid(~factor(figDat$param, levels = c("alpha", "r")) ~ type) +
     scale_fill_viridis_c(begin=1, end=0, option = "plasma", name = "value" )+
     xlab("Proportion of missing data")+
     ylab("Autocorrellation in missingness") +
@@ -66,7 +61,7 @@ dev.off()
 
 # Make heatmaps for Gaussian MNAR data ------------------------------------
 # bin amt missing and autocorr (average paramDiff)
-figDat <- gauss_sim_figDat %>% 
+figDat <- pop_sim_figDat %>% 
   filter(param != "sigma" & 
            missingness == "MNAR") %>% 
   mutate(autoCor = 0, 

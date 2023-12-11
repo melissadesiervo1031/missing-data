@@ -1,11 +1,13 @@
 # Load packages ## 
 #make sure these are already in the folder on supercomputer where I need them ##
 
-.libPaths("/pfs/tc1/home/astears/R/x86_64-pc-linux-gnu-library/4.2")
+# .libPaths("/pfs/tc1/project/modelscape/users/mdesierv")
+setwd('/project/modelscape/users/acarte26/missing-data/')
 
 library(tidyverse)
 library(brms)
 
+# This script will run 3 ARIMA functions (drop missing, Kalman, Multiple imputations 
 #over a nested list with increasing prop missing, over 1000+ simulations ###)
 
 #CurSim = like a loop ##
@@ -15,13 +17,13 @@ CurSim <- as.numeric(CurSim)
 CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
 
 ## read in the autocor_01 list ##
-
-# gauss_sim_MinMaxMiss <- readRDS("data/missingDatasets/forBeartooth/gauss_sim_randMiss_A.rds")
-gauss_sim_MNAR <- readRDS("/project/modelscape/users/astears/gauss_sim_minMaxMiss.rds")
+  
+# gauss_sim_randMiss_autoCorr_01 <- readRDS("data/missingDatasets/forBeartooth/gauss_sim_randMiss_A.rds")
+gauss_sim_randMiss_autoCorr_01 <- readRDS("/project/modelscape/users/acarte26/missing-data/data/gauss_sim_randMiss_A.rds")
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
-OutFile <- paste0("gauss_sim_MNAR_brms_modResults_normPrior/", CurSim, "brmsvals.csv")
+OutFile <- paste0("gauss_sim_MAR_A_brms_results_normPrior/", CurSim, "brmsvals.csv")
 
 #########################################################################################
 ### MY ARIMA FUNCTIONS #####
@@ -78,18 +80,18 @@ fit_brms_model <- function(sim_list, sim_pars,
 #### MODEL RUN ARIMA DROP ##############
 #########################################################
 
-brms_MNAR <- fit_brms_model(sim_list = gauss_sim_MNAR[[CurSim]]$y,
-                           sim_pars = gauss_sim_MNAR[[CurSim]]$sim_params)
+brms_MAR <- fit_brms_model(sim_list = gauss_sim_randMiss_autoCorr_01[[CurSim]]$y,
+                           sim_pars = gauss_sim_randMiss_autoCorr_01[[CurSim]]$sim_params)
 
 
 ########### formatting for figure #############
 
 
-brms_MNAR_df <- map_df(brms_MNAR$brms_pars, ~as.data.frame(.x),
+brms_MAR_df <- map_df(brms_MAR$brms_pars, ~as.data.frame(.x),
                       .id = "missingprop_autocor")
-brms_MNAR_df$missingness <- 'MNAR'
-brms_MNAR_df$type <- 'brms'
-brms_MNAR_df$run_no <- CurSim
+brms_MAR_df$missingness <- 'MAR'
+brms_MAR_df$type <- 'brms'
+brms_MAR_df$run_no <- CurSim
 
 
 ###################################################
@@ -97,7 +99,7 @@ brms_MNAR_df$run_no <- CurSim
 #################################################
 # Write the output to the folder which will contain all output files as separate csv
 #    files with a single line of data.
-write.csv(brms_MNAR_df, file = OutFile, row.names = FALSE)
+write_csv(brms_MAR_df, file = OutFile)
 
 
 # Once the job finishes, you can use the following command from within the folder

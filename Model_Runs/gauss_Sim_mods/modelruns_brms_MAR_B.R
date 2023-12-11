@@ -1,41 +1,41 @@
 # Load packages ## 
-# this file can run LOCALLY
+#make sure these are already in the folder on supercomputer where I need them ##
+
+# .libPaths("/pfs/tc1/project/modelscape/users/mdesierv")
+setwd('/project/modelscape/users/acarte26/missing-data/')
+
 library(tidyverse)
 library(brms)
 
+# This script will run 3 ARIMA functions (drop missing, Kalman, Multiple imputations 
 #over a nested list with increasing prop missing, over 1000+ simulations ###)
 
 #CurSim = like a loop ##
-CurSim <- 1 # since the Slurm array is 0 indexed
 
-## read in the data ##
-gauss_real_MNAR<- readRDS("./data/missingDatasets/gauss_real_MinMaxMiss.rds")
-pine_river_full <- read_csv('./data/pine_river_data_prepped.csv')
+CurSim <- commandArgs(trailingOnly = TRUE) #Look at command line arguments only after the R script
+CurSim <- as.numeric(CurSim)
+CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
+
+## read in the autocor_01 list ##
+  
+# gauss_sim_randMiss_autoCorr_01 <- readRDS("data/missingDatasets/forBeartooth/gauss_sim_randMiss_A.rds")
+gauss_sim_randMiss_autoCorr_01 <- readRDS("/project/modelscape/users/acarte26/missing-data/data/gauss_sim_randMiss_A.rds")
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
-OutFile <- ("gauss_real_MNAR_brms_FORECASTresults.csv")
-OutFile_preds <- ("gauss_real_MNAR_brms_FORECASTpreds.csv")
+OutFile <- paste0("gauss_sim_randMiss_modResults_B/", CurSim, "brmsvals.csv")
 
 #########################################################################################
 ### MY ARIMA FUNCTIONS #####
 ##########################################################################################
 ### Function to fit a BRMS model on a time series ###
-
 fit_brms_model <- function(sim_list, sim_pars, 
-                           iter = 4000, include_missing = FALSE,
-                           forecast = TRUE, forecast_days = 31,
-                           dat_full ){
+                           iter = 4000, include_missing = FALSE){
   simmissingdf <-lapply(X = sim_list, 
                         FUN = function(X) cbind.data.frame(GPP = X, 
-                                                           light = sim_pars$light, 
-                                                           discharge = sim_pars$Q))
+                                                           light = sim_pars$X[,2], 
+                                                           discharge = sim_pars$X[,3]))
   
-  if(forecast){
-    simmissingdf <- lapply(simmissingdf, function(df) {
-      df[1:(366-forecast_days), ]  # Remove to save these for forecasting
-    })
-  }
   
   # Make the model formula and priors
   bform <- brms::bf(GPP | mi() ~ light + discharge + ar(p = 1))
@@ -69,74 +69,37 @@ fit_brms_model <- function(sim_list, sim_pars,
   bpars <- lapply(bmod, extract_brms_pars, include_missing = include_missing)
   names(bpars) <- names(simmissingdf)
   
-  if(forecast){  
-    dat_forecast <- dat_full %>%
-      slice((nrow(dat_full)-forecast_days):nrow(dat_full)) %>%
-      select(date, GPP, light, Q) %>% 
-      rename(discharge = Q)
-    
-    predictions <- lapply(bmod, function(mod){
-      predict(mod, newdata = dat_forecast[,-2]) %>%
-        as.data.frame() %>% mutate(date = dat_forecast$date,
-                                   GPP = dat_forecast$GPP)
-    })
-    
-    names(predictions) <- names(simmissingdf)
-    return(list(brms_forecast = predictions,
-                brms_pars = bpars,
-                sim_params = sim_pars))
-  }
-  
   return(list(brms_pars = bpars,
               sim_params = sim_pars))
   
 }
 
 
+
 #####################################################
 #### MODEL RUN ARIMA DROP ##############
 #########################################################
 
-brms_MNAR <- fit_brms_model(sim_list = gauss_real_MNAR[[CurSim]]$y,
-                           sim_pars = gauss_real_MNAR[[CurSim]]$sim_params,
-                           forecast = TRUE, forecast_days = 31,
-                           dat_full = pine_river_full)
+brms_MAR <- fit_brms_model(sim_list = gauss_sim_randMiss_autoCorr_01[[CurSim]]$y,
+                           sim_pars = gauss_sim_randMiss_autoCorr_01[[CurSim]]$sim_params)
 
-
-#####
 
 ########### formatting for figure #############
 
-brms_MNAR_df <- map_df(brms_MNAR$brms_pars, ~as.data.frame(.x),
+
+brms_MAR_df <- map_df(brms_MAR$brms_pars, ~as.data.frame(.x),
                       .id = "missingprop_autocor")
-brms_MNAR_df$missingness <- 'MAR'
-brms_MNAR_df$type <- 'brms'
-brms_MNAR_df$run_no <- CurSim
+brms_MAR_df$missingness <- 'MAR'
+brms_MAR_df$type <- 'brms'
+brms_MAR_df$run_no <- CurSim
 
-brms_MNAR_preds <- map_df(brms_MNAR$brms_forecast, ~as.data.frame(.x),
-                         .id = "missingprop_autocor")
-brms_MNAR_preds$missingness <- 'MAR'
-brms_MNAR_preds$type <- 'brms'
-brms_MNAR_preds$run_no <- CurSim
 
-# fix "missingprop_autocor" column in brms_MNAR_preds so it shows the actual missingness quantity
-unique(brms_MNAR_preds$missingprop_autocor)
-
-namesActual <- data.frame("missingprop_autocor" = as.character(c(1:16)),
-                          "actualName" =unique(names(gauss_real_MNAR[[1]]$y)))
-
-brms_MNAR_preds <- left_join(brms_MNAR_preds, namesActual) %>% 
-  select(-missingprop_autocor) %>% 
-  rename(missingprop_autocor = actualName) %>% 
-  select("missingprop_autocor", "Estimate", "Est.Error", "Q2.5", "Q97.5", "date", "GPP", "missingness", "type", "run_no")
-  
 ###################################################
 #### SAVE #########
 #################################################
 # Write the output to the folder which will contain all output files as separate csv
 #    files with a single line of data.
-write_csv(brms_MNAR_df, file = paste0("./data/model_results/", OutFile))
-write_csv(brms_MNAR_preds, file = paste0("./data/model_results/", OutFile_preds))
+write_csv(brms_MAR_df, file = OutFile)
 
 
 # Once the job finishes, you can use the following command from within the folder
