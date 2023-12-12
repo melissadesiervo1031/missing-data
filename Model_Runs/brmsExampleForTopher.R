@@ -6,7 +6,7 @@ gauss_sim_randMiss_autoCorr_01 <- readRDS("data/missingDatasets/gauss_sim_randMi
 
 ## subset the data 
 # get simulated GPP data
-sim_list <- gauss_sim_randMiss_autoCorr_01[[1]]$y
+sim_list <- gauss_sim_randMiss_autoCorr_01[[c(1)]]$y
 # get simulated covariates (light and discharge)
 sim_params <- gauss_sim_randMiss_autoCorr_01[[1]]$sim_params
 
@@ -19,7 +19,7 @@ simmissingdf <-lapply(X = sim_list,
                                                          discharge = sim_pars$X[,3]))
 # Make the model formula and priors
 bform <- brms::bf(GPP | mi() ~ light + discharge + ar(p = 1))
-bprior <- c(prior(normal(0,1), class = 'ar', lb = 0, ub = 1),
+bprior <- c(prior(normal(0,1), class = 'ar', ub = 1, lb = 0),
             prior(normal(0,5), class = 'b'))
 
 # fit model to list of datasets
@@ -52,6 +52,27 @@ names(bpars) <- names(simmissingdf)
 # return a list of the brms parameters, paired with the simulation parameters
 outDat <- list(brms_pars = bpars,
             sim_params = sim_pars)
+
+
+outDat_normPrior_bounds <- outDat
+
+outDat_normPrior_bounds_phi <- map_df(c(1:length(outDat_normPrior_bounds$brms_pars)), function(x) 
+    data.frame("name" = names(outDat_normPrior_bounds$brms_pars)[x],
+               outDat_normPrior_bounds$brms_pars[[x]]
+    )
+    ) %>% 
+  filter(parameter == "phi")
+
+outDat_normPrior_noBounds_phi$prior <- "normPrior_noBounds"
+outDat_uniformPrior_bounds_phi$prior <- "uniformPrior_bounds"
+outDat_normPrior_bounds_phi$prior <- "normPrior_bounds"
+
+outDat_all <- rbind(
+  outDat_normPrior_noBounds_phi, outDat_uniformPrior_bounds_phi, outDat_normPrior_bounds_phi)
+
+ggplot(data = outDat_all) +
+  geom_density(aes(mean, col = prior)) + 
+  geom_vline(aes(xintercept = 0.786986918))
 
 ## get the STAN code used in the mode
 make_stancode(bform, data = simmissingdf[[1]], 
