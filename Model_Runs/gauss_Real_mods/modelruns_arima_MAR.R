@@ -90,6 +90,75 @@ fit_arima_dropmissing <- function(sim_list, sim_pars,
 
   }
 
+# Drop missing (complete case) + arima function ---------------------------------------------------
+
+fit_arima_dropmissing_CC <- function(sim_list, sim_pars, 
+                                  forecast = TRUE, forecast_days = 31,
+                                  dat_full){
+  
+  simmissingdf <-lapply(X = sim_list, 
+                        FUN = function(X) cbind.data.frame(GPP = X, 
+                                                           light = sim_pars$light, 
+                                                           discharge = sim_pars$Q)) # Q is discharge
+
+  ## holdout data for forecasting
+  if(forecast){
+    simmissingdf <- lapply(simmissingdf, function(df) {
+      df[1:(366-forecast_days), ]  # Remove to save these for forecasting
+    })
+  }
+  # remove data in a "complete case" way
+  # compile into sliced dataframe
+  sim_missing_list_drop <- map(simmissingdf, function(x) {
+    temp <- data.frame(
+      yt = x[2:nrow(x),],
+      ytm1 = x[1:(nrow(x)-1),]
+    )
+    # drop incomplete cases
+    x[complete.cases(temp),]
+  }
+  )
+  
+  
+  # fit arima models to list of datasets
+  Arimaoutputdrop <- lapply(seq_along(sim_missing_list_drop ), function(j) {
+    xreg1<-sim_missing_list_drop [[j]][["light"]]
+    xreg2<-sim_missing_list_drop [[j]][["Q"]]
+    modeldrop <- arima(sim_missing_list_drop [[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2))
+    arimacoefsdrop <-c(modeldrop$coef, modeldrop$sigma2)
+    names(arimacoefsdrop) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
+    arimasesdrop<-sqrt(diag(vcov(modeldrop)))
+    names(arimasesdrop) <- c("ar1", "intercept", "xreg1", "xreg2")
+    list(arimacoefsdrop=arimacoefsdrop, arimasesdrop=arimasesdrop, arimaModelObject = modeldrop)
+    
+    
+    return(list(arima_model = modeldrop,
+                arima_pars = arimacoefsdrop,
+                arima_errors = arimasesdrop,
+                sim_params = sim_pars))
+  })
+  
+  if(forecast){  
+    dat_forecast <- dat_full %>%
+      slice((nrow(dat_full)-forecast_days):nrow(dat_full)) %>%
+      select(date, GPP, light, Q) %>% 
+      rename(xreg1 = "light", xreg2 = "Q")
+    
+    predictions <- lapply(Arimaoutputdrop, function(mod){
+      predict(mod$arima_model, n.ahead = forecast_days+1, 
+              newxreg = dat_forecast[,c(3,4)]) %>%
+        as.data.frame() %>% mutate(date = dat_forecast$date,
+                                   GPP = dat_forecast$GPP)
+    })
+    
+    names(predictions) <- names(simmissingdf)
+    return(list(arima_forecast = predictions,
+                arima_pars = bpars,
+                sim_params = sim_pars))
+  }
+  
+}
+
 # arima + Kalman filter function ------------------------------------------
 
 fit_arima_Kalman <- function(sim_list, sim_pars){
@@ -199,7 +268,6 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum){
 arima_drop_MAR <- fit_arima_dropmissing(gauss_real_randMiss[[CurSim]]$y,gauss_real_randMiss[[CurSim]]$sim_params, forecast = TRUE, forecast_days = 31, dat_full = pine_river_full)
 
 ## formatting for figure
-########### formatting for figure #############
 # save arima model parameters
 arimadrop_MAR_df <- map_df(arima_drop_MAR$arima_pars, ~as.data.frame(.x),
                            .id = "missingprop_autocor")
@@ -214,6 +282,24 @@ arimadrop_MAR_preds$missingness <- 'MAR'
 arimadrop_MAR_preds$type <- 'dropNA_simple'
 arimadrop_MAR_preds$run_no <- CurSim
 
+# Run models with drop missing complete case + arima ------------------------------------
+
+arima_dropCC_MAR <- fit_arima_dropmissing_CC(gauss_real_randMiss[[CurSim]]$y,gauss_real_randMiss[[CurSim]]$sim_params, forecast = TRUE, forecast_days = 31, dat_full = pine_river_full)
+
+## formatting for figure
+# save arima model parameters
+arimadropCC_MAR_df <- map_df(arima_dropCC_MAR, ~as.data.frame(.x),
+                           .id = "missingprop_autocor")
+arimadropCC_MAR_df$missingness <- 'MAR'
+arimadropCC_MAR_df$type <- 'dropNA_simple'
+arimadropCC_MAR_df$run_no <- CurSim
+
+# save arima forecasts
+arimadropCC_MAR_preds <- map_df(arima_drop_MAR$arima_forecast, ~as.data.frame(.x),
+                              .id = "missingprop_autocor")
+arimadropCC_MAR_preds$missingness <- 'MAR'
+arimadropCC_MAR_preds$type <- 'dropNA_simple'
+arimadropCC_MAR_preds$run_no <- CurSim
 
 # Run models w/ Kalman filter + arima fxn ---------------------------------
 
