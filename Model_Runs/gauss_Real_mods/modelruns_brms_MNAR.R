@@ -14,8 +14,8 @@ pine_river_full <- read_csv('./data/pine_river_data_prepped.csv')
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
-OutFile <- ("gauss_real_MNAR_brms_FORECASTresults.csv")
-OutFile_preds <- ("gauss_real_MNAR_brms_FORECASTpreds.csv")
+OutFile <- ("gauss_real_MNAR_brms_FORECASTresults_normPriorNB.csv")
+OutFile_preds <- ("gauss_real_MNAR_brms_FORECASTpreds_normPriorNB.csv")
 
 #########################################################################################
 ### MY ARIMA FUNCTIONS #####
@@ -39,7 +39,7 @@ fit_brms_model <- function(sim_list, sim_pars,
   
   # Make the model formula and priors
   bform <- brms::bf(GPP | mi() ~ light + discharge + ar(p = 1))
-  bprior <- c(prior(normal(0,1), class = 'ar', lb = 0, ub = 1),
+  bprior <- c(prior(normal(0,1), class = 'ar'),
               prior(normal(0,5), class = 'b'))
   
   # fit model to list of datasets
