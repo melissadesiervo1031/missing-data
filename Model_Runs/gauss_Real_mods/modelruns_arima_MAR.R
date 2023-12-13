@@ -1,7 +1,7 @@
 # Load packages ## 
 #make sure these are already in the folder on supercomputer where I need them ##
 
-.libPaths("/pfs/tc1/home/astears/R/x86_64-pc-linux-gnu-library/4.2")
+#.libPaths("/pfs/tc1/home/astears/R/x86_64-pc-linux-gnu-library/4.2")
 
 library(tidyverse)
 #library(forecast) ## it hates this package...run with lowercase arima# 
@@ -12,388 +12,485 @@ library(Amelia)
 # This script will run 3 ARIMA functions (drop missing, Kalman, Multiple imputations 
 #over a nested list with increasing prop missing, over 1000+ simulations ###)
 
-#CurSim = like a loop ##
-
-CurSim <- commandArgs(trailingOnly = TRUE) #Look at command line arguments only after the R script
-CurSim <- as.numeric(CurSim)
-CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
-
 ## read in the autocor_01 list ##
 
-# gauss_real_randMiss <- readRDS("data/missingDatasets/gauss_real_randMiss.rds")
-#pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
-
-gauss_real_randMiss <- readRDS("/project/modelscape/kusers/astears/gauss_real_randMiss.rds")
-pine_river_full <- read_csv('/project/modelscape/users/astears/pine_river_data_prepped.csv')
+gauss_real_randMiss <- readRDS("data/missingDatasets/gauss_real_randMiss.rds")
+pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
+#gauss_real_randMiss <- readRDS("/project/modelscape/users/astears/gauss_real_randMiss.rds")
+#pine_river_full <- read_csv('/project/modelscape/users/astears/pine_river_data_prepped.csv')
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
-OutFile <- paste("./gauss_real_MAR_arima_modResults/", CurSim, "arimavals.csv", sep = "")
-
-# Drop missing (simple case) + arima function ---------------------------------------------------
-
-fit_arima_dropmissing <- function(sim_list, sim_pars, 
-                                  forecast = TRUE, forecast_days = 31,
-                                  dat_full){
-  
-  simmissingdf <-lapply(X = sim_list, 
-                        FUN = function(X) cbind.data.frame(GPP = X, 
-                                                           light = sim_pars$light, 
-                                                           discharge = sim_pars$Q)) # Q is discharge
-  ## holdout data for forecasting
-  if(forecast){
-    simmissingdf <- lapply(simmissingdf, function(df) {
-      df[1:(366-forecast_days), ]  # Remove to save these for forecasting
-    })
-  }
-  ## drop the missing values ###
-  sim_missing_list_drop <- lapply(seq_along(simmissingdf), function(j) {
-    drop_na(simmissingdf[[j]])
-  })
-  
-  # fit arima models to list of datasets
-  Arimaoutputdrop <- lapply(seq_along(sim_missing_list_drop ), function(j) {
-    xreg1<-sim_missing_list_drop [[j]][["light"]]
-    xreg2<-sim_missing_list_drop [[j]][["Q"]]
-    modeldrop <- arima(sim_missing_list_drop [[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2))
-    arimacoefsdrop <-c(modeldrop$coef, modeldrop$sigma2)
-    names(arimacoefsdrop) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
-    arimasesdrop<-sqrt(diag(vcov(modeldrop)))
-    names(arimasesdrop) <- c("ar1", "intercept", "xreg1", "xreg2")
-    list(arimacoefsdrop=arimacoefsdrop, arimasesdrop=arimasesdrop, arimaModelObject = modeldrop)
-    
-    
-    return(list(arima_model = modeldrop,
-                arima_pars = arimacoefsdrop,
-                arima_errors = arimasesdrop,
-                sim_params = sim_pars))
-  })
-  
-  if(forecast){  
-    dat_forecast <- dat_full %>%
-      slice((nrow(dat_full)-forecast_days):nrow(dat_full)) %>%
-      select(date, GPP, light, Q) %>% 
-      rename(xreg1 = "light", xreg2 = "Q")
-    
-    predictions <- lapply(Arimaoutputdrop, function(mod){
-      predict(mod$arima_model, n.ahead = forecast_days+1, 
-              newxreg = dat_forecast[,c(3,4)]) %>%
-        as.data.frame() %>% mutate(date = dat_forecast$date,
-                                   GPP = dat_forecast$GPP)
-    })
-    
-    names(predictions) <- names(simmissingdf)
-    return(list(arima_forecast = predictions,
-                arima_pars = bpars,
-                sim_params = sim_pars))
-  }
-
-  }
-
-# Drop missing (complete case) + arima function ---------------------------------------------------
-
-fit_arima_dropmissing_CC <- function(sim_list, sim_pars, 
-                                  forecast = TRUE, forecast_days = 31,
-                                  dat_full){
-  
-  simmissingdf <-lapply(X = sim_list, 
-                        FUN = function(X) cbind.data.frame(GPP = X, 
-                                                           light = sim_pars$light, 
-                                                           discharge = sim_pars$Q)) # Q is discharge
-
-  ## holdout data for forecasting
-  if(forecast){
-    simmissingdf <- lapply(simmissingdf, function(df) {
-      df[1:(366-forecast_days), ]  # Remove to save these for forecasting
-    })
-  }
-  # remove data in a "complete case" way
-  # compile into sliced dataframe
-  sim_missing_list_drop <- map(simmissingdf, function(x) {
-    temp <- data.frame(
-      yt = x[2:nrow(x),],
-      ytm1 = x[1:(nrow(x)-1),]
-    )
-    # drop incomplete cases
-    x[complete.cases(temp),]
-  }
-  )
-  
-  
-  # fit arima models to list of datasets
-  Arimaoutputdrop <- lapply(seq_along(sim_missing_list_drop ), function(j) {
-    xreg1<-sim_missing_list_drop [[j]][["light"]]
-    xreg2<-sim_missing_list_drop [[j]][["Q"]]
-    modeldrop <- arima(sim_missing_list_drop [[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2))
-    arimacoefsdrop <-c(modeldrop$coef, modeldrop$sigma2)
-    names(arimacoefsdrop) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
-    arimasesdrop<-sqrt(diag(vcov(modeldrop)))
-    names(arimasesdrop) <- c("ar1", "intercept", "xreg1", "xreg2")
-    list(arimacoefsdrop=arimacoefsdrop, arimasesdrop=arimasesdrop, arimaModelObject = modeldrop)
-    
-    
-    return(list(arima_model = modeldrop,
-                arima_pars = arimacoefsdrop,
-                arima_errors = arimasesdrop,
-                sim_params = sim_pars))
-  })
-  
-  if(forecast){  
-    dat_forecast <- dat_full %>%
-      slice((nrow(dat_full)-forecast_days):nrow(dat_full)) %>%
-      select(date, GPP, light, Q) %>% 
-      rename(xreg1 = "light", xreg2 = "Q")
-    
-    predictions <- lapply(Arimaoutputdrop, function(mod){
-      predict(mod$arima_model, n.ahead = forecast_days+1, 
-              newxreg = dat_forecast[,c(3,4)]) %>%
-        as.data.frame() %>% mutate(date = dat_forecast$date,
-                                   GPP = dat_forecast$GPP)
-    })
-    
-    names(predictions) <- names(simmissingdf)
-    return(list(arima_forecast = predictions,
-                arima_pars = bpars,
-                sim_params = sim_pars))
-  }
-  
+if (!dir.exists("data/model_results/gauss_real_MAR_arima_modResults/")) {
+  dir.create("data/model_results/gauss_real_MAR_arima_modResults/")
 }
 
-# arima + Kalman filter function ------------------------------------------
-
-fit_arima_Kalman <- function(sim_list, sim_pars){
+for (i in 1:10) {
+  CurSim <- i
+  OutFile_params <- paste("./data/model_results/gauss_real_MAR_arima_modResults/", CurSim, "arimavals.csv", sep = "")
+  OutFile_preds <- paste("./data/model_results/gauss_real_MAR_arima_modResults/", CurSim, "arimapreds.csv", sep = "")
+  # Drop missing (simple case) + arima function ---------------------------------------------------
   
-  simmissingdf <-lapply(X = sim_list, 
-                        FUN = function(X) cbind.data.frame(GPP = X, 
-                                                           light = sim_pars$light, 
-                                                           discharge = sim_pars$Q))
-  
-  ## fit ARIMA with the missing values as NAS . Applies KALMAN FILTER###
-  
-  
-  ArimaoutputNAs <- lapply(seq_along(simmissingdf), function(j) {
-    xreg1<-simmissingdf [[j]][["light"]]
-    xreg2<-simmissingdf [[j]][["Q"]]
-    modelNAs <- arima(simmissingdf[[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2))
-    arimacoefsNAs <- c(modelNAs$coef, modelNAs$sigma2)
-    names(arimacoefsNAs) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
-    arimasesNAs<-sqrt(diag(vcov(modelNAs)))
-    names(arimasesNAs) <- c("ar1", "intercept", "xreg1", "xreg2")
-    list(arimacoefsNAs=arimacoefsNAs, arimasesNAs=arimasesNAs)
+  fit_arima_dropmissing <- function(sim_list, sim_pars, 
+                                    forecast = TRUE, forecast_days = 31,
+                                    dat_full){
     
-    return(list(arima_pars = arimacoefsNAs,
-                arima_errors = arimasesNAs,
-                sim_params = sim_pars))
-  })
-}
-
-# multiple imputations + Arima function -----------------------------------
-
-fit_arima_MI <- function(sim_list, sim_pars, imputationsnum){
-  
-  days<-seq(1, 366)
-  
-  simmissingdf <-lapply(X = sim_list, 
-                        FUN = function(X) cbind.data.frame(days= days,
-                                                           GPP = X, 
-                                                           light = sim_pars$light, 
-                                                           discharge = sim_pars$Q))
-  
-  amelia1sim <-lapply(X = simmissingdf  , FUN = function(X)   amelia(X, ts="days", m=imputationsnum, lags="GPP")) ## lags by 1 day ##
-  
-  
-  ##nested list of dataframes that just has the imputations###
-  amelias11sim<-map(amelia1sim , ~.[["imputations"]])
-  
-  ##forloop## gives us the model parameters and errors for all the ARIMA models on imputed datasets
-  
-  modelparamlistsim=list()
-  modelerrorlistsim=list()
-  
-  for (i in seq_along(amelias11sim)) {
-    a=list()
-    aa=list()
-    for (j in seq_along(amelias11sim[[i]])) {
-      xreg1<-amelias11sim [[i]][[j]][["light"]]
-      xreg2<-amelias11sim [[i]][[j]][["Q"]]
-      tempobj=arima(amelias11sim[[i]][[j]]$GPP, order = c(1,0,0), xreg = matrix(c(xreg1, xreg2), ncol = 2))
-      arimacoefs<-c(tempobj$coef, tempobj$sigma2)
-      names(arimacoefs) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
-      arimases<-sqrt(diag(vcov(tempobj)))
-      names(arimases) <- c("ar1", "intercept", "xreg1", "xreg2")
-      name <- paste('imp',seq_along((amelias11sim)[[i]])[[j]],sep='')
-      a[[name]] <- arimacoefs
-      aa[[name]]<-arimases
+    simmissingdf <-lapply(X = sim_list, 
+                          FUN = function(X) cbind.data.frame(GPP = X, 
+                                                             light = sim_pars$light, 
+                                                             discharge = sim_pars$Q)) # Q is discharge
+    ## holdout data for forecasting
+    if(forecast){
+      simmissingdf <- lapply(simmissingdf, function(df) {
+        df[1:(366-forecast_days), ]  # Remove to save these for forecasting
+      })
     }
-    #name1 <- names(amelias11sim)[[i]]
-    modelparamlistsim[[i]] <- a
-    modelerrorlistsim[[i]] <- aa
+    ## drop the missing values ###
+    sim_missing_list_drop <- lapply(seq_along(simmissingdf), function(j) {
+      drop_na(simmissingdf[[j]])
+    })
+    
+    # fit arima models to list of datasets
+    Arimaoutputdrop <- lapply(seq_along(sim_missing_list_drop ), function(j) {
+      xreg1<-sim_missing_list_drop [[j]][["light"]]
+      xreg2<-sim_missing_list_drop [[j]][["Q"]]
+      modeldrop <- arima(sim_missing_list_drop [[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2))
+      arimacoefsdrop <-c(modeldrop$coef, modeldrop$sigma2)
+      names(arimacoefsdrop) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
+      arimasesdrop<-sqrt(diag(vcov(modeldrop)))
+      names(arimasesdrop) <- c("ar1", "intercept", "xreg1", "xreg2")
+      arima_pars_j <- data.frame("parameters" = names(arimacoefsdrop), 
+                 "param_value" = arimacoefsdrop, 
+                 "param_se" = c(arimasesdrop,NA))
+      outList <- list(arima_model = modeldrop,
+                      arima_pars = arima_pars_j,
+                      sim_params = sim_pars)
+      
+      return(outList)
+    })
+    names(Arimaoutputdrop) <- names(simmissingdf)
+    # flatten arima parameters
+    arima_pars <- map_df(Arimaoutputdrop,
+           function(x) {
+             x[["arima_pars"]]
+             }, 
+           .id = "missingprop_autocor")
+    rownames(arima_pars) <- NULL
+    
+    if(forecast){  
+      dat_forecast <- dat_full %>%
+        slice((nrow(dat_full)-forecast_days):nrow(dat_full)) %>%
+        select(date, GPP, light, Q) %>% 
+        rename("xreg1" = "light", "xreg2" = "Q")
+      xreg1 <- dat_forecast$xreg1
+      xreg2 <- dat_forecast$xreg2
+      predictions <- lapply(Arimaoutputdrop, function(mod){
+        predict(mod$arima_model, n.ahead = forecast_days+1, 
+                newxreg = dat_forecast[,c(3,4)]) %>%
+          as.data.frame() %>% mutate(date = dat_forecast$date,
+                                     GPP = dat_forecast$GPP)
+      })
+      
+      names(predictions) <- names(simmissingdf)
+      return(list(arima_forecast = predictions,
+                  arima_pars = arima_pars,
+                  sim_params = sim_pars))
+    }
+    
   }
   
+  # Drop missing (complete case) + arima function ---------------------------------------------------
   
-  ### Averages the models together back to 1 model per missing data prop ##
+  fit_arima_dropmissing_CC <- function(sim_list, sim_pars, 
+                                       forecast = TRUE, forecast_days = 31,
+                                       dat_full){
+    
+    simmissingdf <-lapply(X = sim_list, 
+                          FUN = function(X) cbind.data.frame(GPP = X, 
+                                                             light = sim_pars$light, 
+                                                             discharge = sim_pars$Q)) # Q is discharge
+    
+    ## holdout data for forecasting
+    if(forecast){
+      simmissingdf <- lapply(simmissingdf, function(df) {
+        df[1:(366-forecast_days), ]  # Remove to save these for forecasting
+      })
+    }
+    # remove data in a "complete case" way
+    # compile into sliced dataframe
+    sim_missing_list_drop <- map(simmissingdf, function(x) {
+      temp <- data.frame(
+        yt = x[2:nrow(x),],
+        ytm1 = x[1:(nrow(x)-1),]
+      )
+      # drop incomplete cases
+      x[complete.cases(temp),]
+    }
+    )
+    
+    
+    # fit arima models to list of datasets
+    Arimaoutputdrop <- lapply(seq_along(sim_missing_list_drop ), function(j) {
+      xreg1<-sim_missing_list_drop [[j]][["light"]]
+      xreg2<-sim_missing_list_drop [[j]][["Q"]]
+      modeldrop <- arima(sim_missing_list_drop [[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2))
+      arimacoefsdrop <-c(modeldrop$coef, modeldrop$sigma2)
+      names(arimacoefsdrop) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
+      arimasesdrop<-sqrt(diag(vcov(modeldrop)))
+      names(arimasesdrop) <- c("ar1", "intercept", "xreg1", "xreg2")
+      arima_pars_j <- data.frame("parameters" = names(arimacoefsdrop), 
+                                 "param_value" = arimacoefsdrop, 
+                                 "param_se" = c(arimasesdrop,NA))
+      outList <- list(arima_model = modeldrop,
+                      arima_pars = arima_pars_j,
+                      sim_params = sim_pars)
+      
+      return(outList)
+    })
+      
+    names(Arimaoutputdrop) <- names(simmissingdf)
+    
+    # flatten arima parameters
+    arima_pars <- map_df(Arimaoutputdrop,
+                         function(x) {
+                           x[["arima_pars"]]
+                         }, 
+                         .id = "missingprop_autocor")
+    rownames(arima_pars) <- NULL
+    
+    if(forecast){  
+      dat_forecast <- dat_full %>%
+        slice((nrow(dat_full)-forecast_days):nrow(dat_full)) %>%
+        select(date, GPP, light, Q) %>% 
+        rename(xreg1 = "light", xreg2 = "Q")
+      xreg1 <- dat_forecast$xreg1
+      xreg2 <- dat_forecast$xreg2
+      predictions <- lapply(Arimaoutputdrop, function(mod){
+        predict(mod$arima_model, n.ahead = forecast_days+1, 
+                newxreg = dat_forecast[,c(3,4)]) %>%
+          as.data.frame() %>% mutate(date = dat_forecast$date,
+                                     GPP = dat_forecast$GPP)
+      })
+      
+      names(predictions) <- names(simmissingdf)
+      return(list(arima_forecast = predictions,
+                  arima_pars = arima_pars,
+                  sim_params = sim_pars))
+    }
+    
+  }
   
-  listcoefsessim<-mapply(function(X,Y) {
-    list(mi.meld(data.frame(X), data.frame(Y), byrow=FALSE))
-  }, X=lapply(modelparamlistsim, function(x) lapply(x, function (x) x[1:4])), 
-  Y=modelerrorlistsim)
-  # rename coef list
-  names(listcoefsessim) <- names(amelias11sim)
+  # arima + Kalman filter function ------------------------------------------
   
-  # put the mean sigma for each imputation back into the listcoefsessim list
-  sigmas_temp <- sapply(modelparamlistsim, function(x) lapply(x, function(x) x[5]))
-  sigmas <- apply(sigmas_temp, MARGIN = 2, function(x) mean(as.numeric(x), na.rm = TRUE))
+  fit_arima_Kalman <- function(sim_list, sim_pars, forecast = TRUE, forecast_days = 31,
+                               dat_full){
+    
+    simmissingdf <-lapply(X = sim_list, 
+                          FUN = function(X) cbind.data.frame(GPP = X, 
+                                                             light = sim_pars$light, 
+                                                             discharge = sim_pars$Q))
+    ## holdout data for forecasting
+    if(forecast){
+      simmissingdf <- lapply(simmissingdf, function(df) {
+        df[1:(366-forecast_days), ]  # Remove to save these for forecasting
+      })
+    }
+    
+    ## fit ARIMA with the missing values as NAS . Applies KALMAN FILTER###
+    ArimaoutputNAs <- lapply(seq_along(simmissingdf), function(j) {
+      xreg1<-simmissingdf [[j]][["light"]]
+      xreg2<-simmissingdf [[j]][["Q"]]
+      modelNAs <- arima(simmissingdf[[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2))
+      arimacoefsNAs <- c(modelNAs$coef, modelNAs$sigma2)
+      names(arimacoefsNAs) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
+      arimasesNAs<-sqrt(diag(vcov(modelNAs)))
+      names(arimasesNAs) <- c("ar1", "intercept", "xreg1", "xreg2")
+      arima_pars_j <- data.frame("parameters" = names(arimacoefsNAs), 
+                                 "param_value" = arimacoefsNAs, 
+                                 "param_se" = c(arimasesNAs,NA))
+      outList <- list(arima_model = modelNAs,
+                      arima_pars = arima_pars_j,
+                      sim_params = sim_pars)
+      
+      return(outList)
+    })
+ 
+    
+    names(ArimaoutputNAs) <- names(simmissingdf)
+    
+    # flatten arima parameters
+    arima_pars <- map_df(ArimaoutputNAs,
+                         function(x) {
+                           x[["arima_pars"]]
+                         }, 
+                         .id = "missingprop_autocor")
+    rownames(arima_pars) <- NULL
+    
+    if(forecast){  
+      dat_forecast <- dat_full %>%
+        slice((nrow(dat_full)-forecast_days):nrow(dat_full)) %>%
+        select(date, GPP, light, Q) %>% 
+        rename(xreg1 = "light", xreg2 = "Q")
+      xreg1 <- dat_forecast$xreg1
+      xreg2 <- dat_forecast$xreg2
+      predictions <- lapply(ArimaoutputNAs, function(mod){
+        predict(mod$arima_model, n.ahead = forecast_days+1, 
+                newxreg = dat_forecast[,c(3,4)]) %>%
+          as.data.frame() %>% mutate(date = dat_forecast$date,
+                                     GPP = dat_forecast$GPP)
+      })
+      
+      names(predictions) <- names(simmissingdf)
+      return(list(arima_forecast = predictions,
+                  arima_pars = arima_pars,
+                  sim_params = sim_pars))
+    }
+  }
   
-  # make return values
-  #paramlistsim <- map(listcoefsessim , ~.["q.mi"])
-
-  paramlistsim <- lapply(seq(1:16), function(x) 
-    matrix(c(listcoefsessim[[x]]$q.mi, sigmas[x]),
-           nrow = 1, byrow = TRUE, 
-           dimnames = 
-             list(c(NULL),c("ar1", "intercept", "xreg1", "xreg2", "sigma")))
-  )
-  names(paramlistsim) <- names(listcoefsessim)
+  # multiple imputations + Arima function -----------------------------------
   
-  selistsim <- lapply(listcoefsessim, function(x) x$se.mi)
+  fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, forecast_days = 31,
+                           dat_full){
+    
+    days<-seq(1, 366)
+    
+    simmissingdf <-lapply(X = sim_list, 
+                          FUN = function(X) cbind.data.frame(days= days,
+                                                             GPP = X, 
+                                                             light = sim_pars$light, 
+                                                             discharge = sim_pars$Q))
+    ## holdout data for forecasting
+    if(forecast){
+      simmissingdf <- lapply(simmissingdf, function(df) {
+        df[1:(366-forecast_days), ]  # Remove to save these for forecasting
+      })
+    }
+    
+    amelia1sim <-lapply(X = simmissingdf  , FUN = function(X)   amelia(X, ts="days", m=imputationsnum, lags="GPP")) ## lags by 1 day ##
+    
+    
+    ##nested list of dataframes that just has the imputations###
+    amelias11sim<-map(amelia1sim , ~.[["imputations"]])
+    
+    ##forloop## gives us the model parameters and errors for all the ARIMA models on imputed datasets
+    
+    modelparamlistsim <- list()
+    modelerrorlistsim <- list()
+    modelobjectlist <- list()
+    for (i in seq_along(amelias11sim)) {
+      a=list()
+      aa=list()
+      mod_a <- list()
+      for (j in seq_along(amelias11sim[[i]])) {
+        xreg1<-amelias11sim [[i]][[j]][["light"]]
+        xreg2<-amelias11sim [[i]][[j]][["Q"]]
+        tempobj=arima(amelias11sim[[i]][[j]]$GPP, order = c(1,0,0), xreg = matrix(c(xreg1, xreg2), ncol = 2))
+        arimacoefs<-c(tempobj$coef, tempobj$sigma2)
+        names(arimacoefs) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
+        arimases<-sqrt(diag(vcov(tempobj)))
+        names(arimases) <- c("ar1", "intercept", "xreg1", "xreg2")
+        name <- paste('imp',seq_along((amelias11sim)[[i]])[[j]],sep='')
+        a[[name]] <- arimacoefs
+        aa[[name]]<-arimases
+        mod_a[[name]] <- tempobj
+      }
+      #name1 <- names(amelias11sim)[[i]]
+      modelparamlistsim[[i]] <- a
+      modelerrorlistsim[[i]] <- aa
+      modelobjectlist[[i]] <- mod_a
+    }
+    
+    ### Averages the models together back to 1 model per missing data prop ##
+    
+    listcoefsessim<-mapply(function(X,Y) {
+      list(mi.meld(data.frame(X), data.frame(Y), byrow=FALSE))
+    }, X=lapply(modelparamlistsim, function(x) lapply(x, function (x) x[1:4])), 
+    Y=modelerrorlistsim)
+    # rename coef list
+    names(listcoefsessim) <- names(amelias11sim)
+    
+    # put the mean sigma for each imputation back into the listcoefsessim list
+    sigmas_temp <- sapply(modelparamlistsim, function(x) lapply(x, function(x) x[5]))
+    sigmas <- apply(sigmas_temp, MARGIN = 2, function(x) mean(as.numeric(x), na.rm = TRUE))
+    
+    # make return values
+    #paramlistsim <- map(listcoefsessim , ~.["q.mi"])
+    
+    paramlistsim <- map_df(seq(1:16),
+                           function(x){
+                             data.frame("parameters" = c("intercept", "xreg1", "xreg2", "phi", "sigma"),
+                                        "param_value" = c(listcoefsessim[[x]]$q.mi, sigmas[x]),
+                                        "param_se" = c(listcoefsessim[[x]]$se.mi,NA)) 
+                           }, 
+                           .id = "tempNum")
+    # update missingPropAutocor column
+    numName_df <- data.frame("tempNum" = c(1:16), 
+                             "missingprop_autocor" = names(listcoefsessim)) %>% 
+      mutate("tempNum" = as.character(tempNum))
+    
+    paramlistsim <- left_join(paramlistsim, numName_df) %>% 
+      select(missingprop_autocor, parameters, param_value, param_se)
+    
+    selistsim <- lapply(listcoefsessim, function(x) x$se.mi)
+    
+    # reframe list of coefficients and s.e.s into a single object for forecasting
+    
+    forecastList <- map(c(1:16), function(x) {
+      test <- modelobjectlist[[i]]$imp1  
+      test$coef <- as.vector(listcoefsessim[[x]]$q.mi)
+      names(test$coef) <- c("ar1","intercept","matrix(c(xreg1, xreg2), ncol = 2)1","matrix(c(xreg1, xreg2), ncol = 2)2")
+      test$sigma2 <- sigmas[[i]]
+      return(test)
+    }
+    ) 
+    names(forecastList) <- names(listcoefsessim) 
+    
+    if(forecast){  
+      dat_forecast <- dat_full %>%
+        slice((nrow(dat_full)-forecast_days):nrow(dat_full)) %>%
+        select(date, GPP, light, Q) %>% 
+        rename(xreg1 = "light", xreg2 = "Q")
+      xreg1 <- dat_forecast$xreg1
+      xreg2 <- dat_forecast$xreg2
+      predictions <- lapply(forecastList, function(mod){
+        predict(mod, n.ahead = forecast_days+1, 
+                newxreg = dat_forecast[,c(3,4)]) %>%
+          as.data.frame() %>% mutate(date = dat_forecast$date,
+                                     GPP = dat_forecast$GPP)
+      })
+      
+      names(predictions) <- names(simmissingdf)
+      return(list(arima_forecast = predictions,
+                  arima_pars = paramlistsim,
+                  arima_se = selistsim,
+                  sim_params = sim_pars))
+    }
+    
+    return(list(paramlistsim, 
+                selistsim
+    ))
+  }
   
-  return(list(paramlistsim, 
-              selistsim
-              ))
+  # Run models with drop missing + arima ------------------------------------
+  
+  arima_drop_MAR <- fit_arima_dropmissing(gauss_real_randMiss[[CurSim]]$y,gauss_real_randMiss[[CurSim]]$sim_params, forecast = TRUE, forecast_days = 31, dat_full = pine_river_full)
+  
+  ## formatting for figure
+  # save arima model parameters
+  arimadrop_MAR_df <- arima_drop_MAR$arima_pars
+  arimadrop_MAR_df$missingness <- 'MAR'
+  arimadrop_MAR_df$type <- 'dropNA_simple'
+  arimadrop_MAR_df$run_no <- CurSim
+  
+  # save arima forecasts
+  arimadrop_MAR_preds <- map_df(arima_drop_MAR$arima_forecast, ~as.data.frame(.x),
+                                .id = "missingprop_autocor")
+  arimadrop_MAR_preds$missingness <- 'MAR'
+  arimadrop_MAR_preds$type <- 'dropNA_simple'
+  arimadrop_MAR_preds$run_no <- CurSim
+  
+  # Run models with drop missing complete case + arima ------------------------------------
+  
+  arima_dropCC_MAR <- fit_arima_dropmissing_CC(gauss_real_randMiss[[CurSim]]$y,gauss_real_randMiss[[CurSim]]$sim_params, forecast = TRUE, forecast_days = 31, dat_full = pine_river_full)
+  
+  ## formatting for figure
+  # save arima model parameters
+  arimadropCC_MAR_df <- arima_dropCC_MAR$arima_pars
+  arimadropCC_MAR_df$missingness <- 'MAR'
+  arimadropCC_MAR_df$type <- 'dropNA_complete'
+  arimadropCC_MAR_df$run_no <- CurSim
+  
+  # save arima forecasts
+  arimadropCC_MAR_preds <- map_df(arima_drop_MAR$arima_forecast, ~as.data.frame(.x),
+                                  .id = "missingprop_autocor")
+  arimadropCC_MAR_preds$missingness <- 'MAR'
+  arimadropCC_MAR_preds$type <- 'dropNA_complete'
+  arimadropCC_MAR_preds$run_no <- CurSim
+  
+  # Run models w/ Kalman filter + arima fxn ---------------------------------
+  
+  arima_kalman_MAR<- fit_arima_Kalman(gauss_real_randMiss[[CurSim]]$y,gauss_real_randMiss[[CurSim]]$sim_params, 
+                                      forecast = TRUE, forecast_days = 31, dat_full = pine_river_full)
+  ## formatting for figure
+  # save arima model parameters
+  arimaKalman_MAR_df <- arima_kalman_MAR$arima_pars
+  arimaKalman_MAR_df$missingness <- 'MAR'
+  arimaKalman_MAR_df$type <- 'Kalman Filter'
+  arimaKalman_MAR_df$run_no <- CurSim
+  
+  # save arima forecasts
+  arimaKalman_MAR_preds <- map_df(arima_drop_MAR$arima_forecast, ~as.data.frame(.x),
+                                  .id = "missingprop_autocor")
+  arimaKalman_MAR_preds$missingness <- 'MAR'
+  arimaKalman_MAR_preds$type <- 'Kalman Filter'
+  arimaKalman_MAR_preds$run_no <- CurSim
+  
+  # Run models w/ Multiple Imputations --------------------------------------
+  
+  arima_mi_MAR <-  fit_arima_MI(gauss_real_randMiss[[CurSim]]$y,gauss_real_randMiss[[CurSim]]$sim_params, imputationsnum=5,
+                                forecast = TRUE, forecast_days = 31,
+                                dat_full = pine_river_full)
+  ## formatting for figure
+  # save arima model parameters
+  arimaMI_MAR_df <- arima_mi_MAR$arima_pars
+  arimaMI_MAR_df$missingness <- 'MAR'
+  arimaMI_MAR_df$type <- 'Multiple Imputations'
+  arimaMI_MAR_df$run_no <- CurSim
+  
+  # save arima forecasts
+  arimaMI_MAR_preds <- map_df(arima_drop_MAR$arima_forecast, ~as.data.frame(.x),
+                              .id = "missingprop_autocor")
+  arimaMI_MAR_preds$missingness <- 'MAR'
+  arimaMI_MAR_preds$type <- 'Multiple Imputations'
+  arimaMI_MAR_preds$run_no <- CurSim
+  
+  # Combine output data and save --------------------------------------------
+  
+  paramarimaall_df<-rbind(arimadrop_MAR_df, arimadropCC_MAR_df, arimaKalman_MAR_df, arimaMI_MAR_df)
+  
+  Output <- matrix(data=NA, nrow=nrow(paramarimaall_df), ncol=ncol(paramarimaall_df))
+  
+  # Save the results of the current script's simulation to the appropriate column of output
+  Output<- paramarimaall_df
+  
+  # add all the output data together
+  Output2<-cbind(CurSim,Output)
+  
+  # Write the output to the folder which will contain all output files as separate csv
+  #    files with a single line of data.
+  write.csv(Output2, file = OutFile_params, row.names = FALSE)
+  
+  ## save prediction data
+  
+  paramarimaall_preds<-rbind(arimadrop_MAR_preds, arimadropCC_MAR_preds, arimaKalman_MAR_preds, arimaMI_MAR_preds)
+  
+  Output3 <- matrix(data=NA, nrow=nrow(paramarimaall_preds), ncol=ncol(paramarimaall_preds))
+  
+  # Save the results of the current script's simulation to the appropriate column of output
+  Output3<- paramarimaall_preds
+  
+  # add all the output data together
+  Output4<-cbind(CurSim,Output3)
+  
+  # Write the output to the folder which will contain all output files as separate csv
+  #    files with a single line of data.
+  write.csv(Output4, file = OutFile_preds, row.names = FALSE)
+  
   
 }
 
-# Run models with drop missing + arima ------------------------------------
+# compile script output and save 
+predNames <- list.files("./data/model_results/gauss_real_MAR_arima_modResults/", pattern = "preds.csv")
+predsAll <- map_df(predNames, function(x) {
+         read_csv(paste0("./data/model_results/gauss_real_MAR_arima_modResults/", x))
+})
+write.csv(predsAll, file = "./data/model_results/gauss_real_MAR_arima_FORECASTpreds.csv")
 
-arima_drop_MAR <- fit_arima_dropmissing(gauss_real_randMiss[[CurSim]]$y,gauss_real_randMiss[[CurSim]]$sim_params, forecast = TRUE, forecast_days = 31, dat_full = pine_river_full)
-
-## formatting for figure
-# save arima model parameters
-arimadrop_MAR_df <- map_df(arima_drop_MAR$arima_pars, ~as.data.frame(.x),
-                           .id = "missingprop_autocor")
-arimadrop_MAR_df$missingness <- 'MAR'
-arimadrop_MAR_df$type <- 'dropNA_simple'
-arimadrop_MAR_df$run_no <- CurSim
-
-# save arima forecasts
-arimadrop_MAR_preds <- map_df(arima_drop_MAR$arima_forecast, ~as.data.frame(.x),
-                           .id = "missingprop_autocor")
-arimadrop_MAR_preds$missingness <- 'MAR'
-arimadrop_MAR_preds$type <- 'dropNA_simple'
-arimadrop_MAR_preds$run_no <- CurSim
-
-# Run models with drop missing complete case + arima ------------------------------------
-
-arima_dropCC_MAR <- fit_arima_dropmissing_CC(gauss_real_randMiss[[CurSim]]$y,gauss_real_randMiss[[CurSim]]$sim_params, forecast = TRUE, forecast_days = 31, dat_full = pine_river_full)
-
-## formatting for figure
-# save arima model parameters
-arimadropCC_MAR_df <- map_df(arima_dropCC_MAR, ~as.data.frame(.x),
-                           .id = "missingprop_autocor")
-arimadropCC_MAR_df$missingness <- 'MAR'
-arimadropCC_MAR_df$type <- 'dropNA_simple'
-arimadropCC_MAR_df$run_no <- CurSim
-
-# save arima forecasts
-arimadropCC_MAR_preds <- map_df(arima_drop_MAR$arima_forecast, ~as.data.frame(.x),
-                              .id = "missingprop_autocor")
-arimadropCC_MAR_preds$missingness <- 'MAR'
-arimadropCC_MAR_preds$type <- 'dropNA_simple'
-arimadropCC_MAR_preds$run_no <- CurSim
-
-# Run models w/ Kalman filter + arima fxn ---------------------------------
-
-arima_kalman_MAR<- fit_arima_Kalman(gauss_real_randMiss[[CurSim]]$y,gauss_real_randMiss[[CurSim]]$sim_params)
-
-## pull out and label what we need ###
-
-names(arima_kalman_MAR) <- names(gauss_real_randMiss[[CurSim]][["y"]])
-
-modelNAparamlist<-purrr::map(arima_kalman_MAR , ~.["arima_pars"])
-modelNASElist<-purrr::map(arima_kalman_MAR , ~.["arima_errors"])
-
-modelNAparamlist2 <- lapply(modelNAparamlist, function(x) as.data.frame(do.call(rbind, x)))
-modelNASElist2 <- lapply(modelNASElist, function(x) as.data.frame(do.call(rbind, x)))
-
-
-modelNAparamdf <- map_df(modelNAparamlist2, ~as.data.frame(.x), .id="missingprop_autocor")
-modelNASEdf <- map_df(modelNASElist2, ~as.data.frame(.x), .id="missingprop_autocor")
-
-
-modelNAdf<-modelNAparamdf  %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2) %>% select(missingprop_autocor, ar1, intercept, light, discharge, sigma) %>% mutate(missingness="MAR") %>% mutate(type="Kalman filter")
-
-modelNASEdf<-modelNASEdf  %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2) %>% select(missingprop_autocor, ar1, intercept, light, discharge) %>% mutate(missingness="MAR") %>% mutate(type="Kalman filter")
-
-## long form ##
-
-paramNAlong <- gather(modelNAdf, param, value, ar1:sigma, factor_key=TRUE)
-paramNAlong$missingnessVersion <- rep.int(c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"), times = 5)
-
-paramNASElong <- gather(modelNASEdf, param, SE, ar1:discharge, factor_key=TRUE)
-paramNASElong$missingnessVersion <- rep.int(c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"), times = 4)
-
-paramNAlong2<-full_join(paramNAlong, paramNASElong)
-
-
-
-# Run models w/ Multiple Imputations --------------------------------------
-
-arima_mi_MAR <-  fit_arima_MI(gauss_real_randMiss[[CurSim]]$y,gauss_real_randMiss[[CurSim]]$sim_params, imputationsnum=5)
-
-##pulls out parameters and ses ##
-
-paramlistsim<-arima_mi_MAR[[1]]
-
-selistsim<-arima_mi_MAR[[2]]
-
-avgparamdf <- map_df(paramlistsim, ~as.data.frame(.x), .id="missingprop_autocor")
-avglSEdf <- map_df(selistsim, ~as.data.frame(.x), .id="missingprop_autocor")
-
-
-avgparamdf2 <- avgparamdf %>% 
-  dplyr::rename(light=xreg1, discharge=xreg2) %>%  
-  select(missingprop_autocor,  ar1, intercept, light, discharge, sigma)  %>% 
-  mutate(missingness="MAR") %>% mutate(type="Multiple imputations")
-
-avglSEdf2 <-avglSEdf  %>% dplyr::rename(light=xreg1, discharge=xreg2) %>%  
-  select(missingprop_autocor,  ar1, intercept, light, discharge)   %>% 
-  mutate(missingness="MAR") %>% mutate(type="Multiple imputations")
-
-
-paramMIlong <- gather(avgparamdf2, param, value, ar1:sigma, factor_key=TRUE)
-paramMIlong$missingnessVersion <- rep.int(c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"), times = 5)
-
-paramMISElong <- gather(avglSEdf2, param, SE, ar1:discharge, factor_key=TRUE)
-paramMISElong$missingnessVersion <- rep.int(c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"), times = 4)
-
-paramMIlong2 <-full_join(paramMIlong,paramMISElong)
-
-
-
-# Combine output data and save --------------------------------------------
-
-paramarimaall<-rbind(paramdroplong2, paramNAlong2, paramMIlong2)
-
-Output <- matrix(data=NA, nrow=nrow(paramarimaall), ncol=ncol(paramarimaall))
-
-# Save the results of the current script's simulation to the appropriate column of output
-Output<- paramarimaall
-
-# add all the output data together
-Output2<-cbind(CurSim,Output)
-
-# Write the output to the folder which will contain all output files as separate csv
-#    files with a single line of data.
-write.csv(Output2, file = OutFile, row.names = FALSE)
-
-###################################################
-#### SAVE #########
-#################################################
-# Write the output to the folder which will contain all output files as separate csv
-#    files with a single line of data.
-write_csv(brms_MAR_df, file = OutFile)
-write_csv(brms_MAR_preds, file = OutFile_preds)
-
+valNames <- list.files("./data/model_results/gauss_real_MAR_arima_modResults/", pattern = "vals.csv")
+valsAll <- map_df(valNames, function(x) {
+  read_csv(paste0("./data/model_results/gauss_real_MAR_arima_modResults/", x))
+})
+write.csv(valsAll, file = "./data/model_results/gauss_real_MAR_arima_FORECASTvals.csv")
 
 # Once the job finishes, you can use the following command from within the folder
 #    containing all single line csv files to compile them into a single csv file:
