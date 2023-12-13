@@ -18,7 +18,7 @@ module load arcc/1.0 gcc/12.2.0 r/4.2.2
 
 cd /project/modelscape/analyses/MissingTS/missing-data
 
-config="Model Runs/RickerConfig.txt"
+config="Model_Runs/RickerConfig.txt"
 
 oldName=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $2}' $config)
 datFile=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $3}' $config)
