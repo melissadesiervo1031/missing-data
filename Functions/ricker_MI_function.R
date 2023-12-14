@@ -206,8 +206,9 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
   } 
   
     if(amelia1sim$code!=1){
-    warning("Amelia was unable to fit for reason other than timeout")
-    return(list(
+      cat("we should be returning NA, code is not 1")
+      warning("Amelia was unable to fit for reason other than timeout")
+      return(list(
       NA,
       reason = paste("Amelia internal fitting error, code",amelia1sim$code)
     ))
