@@ -10,7 +10,6 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
 
   CurSim <- 1
    
-  # Drop missing (simple case) + arima function ---------------------------------------------------
   
   fit_arima_dropmissing <- function(sim_list, sim_pars, 
                                     forecast = TRUE, forecast_days = 31,
@@ -34,8 +33,8 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
     # fit arima models to list of datasets
     Arimaoutputdrop <- lapply(seq_along(sim_missing_list_drop ), function(j) {
       xreg1<-sim_missing_list_drop [[j]][["light"]]
-      xreg2<-sim_missing_list_drop [[j]][["discharge"]]
-      modeldrop <- arima(sim_missing_list_drop [[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2))
+      xreg2<-sim_missing_list_drop [[j]][["Q"]]
+      modeldrop <- Arima(sim_missing_list_drop [[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2))
       arimacoefsdrop <-c(modeldrop$coef, modeldrop$sigma2)
       names(arimacoefsdrop) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
       arimasesdrop<-sqrt(diag(vcov(modeldrop)))
@@ -65,14 +64,13 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
         rename("xreg1" = "light", "xreg2" = "Q")
       xreg1 <- dat_forecast$xreg1
       xreg2 <- dat_forecast$xreg2
-      predictions <- lapply(Arimaoutputdrop, function(mod){
-        predict(mod$arima_model, n.ahead = forecast_days+1, 
-                newxreg = dat_forecast[,c(3,4)]) %>%
-          as.data.frame() %>% mutate(date = dat_forecast$date,
-                                     GPP = dat_forecast$GPP)
-      })
+      predictions <- map_df(Arimaoutputdrop, function(mod){
+        data.frame(predict(mod$arima_model, n.ahead = forecast_days+1, 
+                           newxreg = dat_forecast[,c(3,4)]),
+                   "date" = dat_forecast$date,
+                   "GPP" = dat_forecast$GPP)
+      },.id = "missingprop_autocor") 
       
-      names(predictions) <- names(simmissingdf)
       return(list(arima_forecast = predictions,
                   arima_pars = arima_pars,
                   sim_params = sim_pars))
@@ -113,7 +111,7 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
     # fit arima models to list of datasets
     Arimaoutputdrop <- lapply(seq_along(sim_missing_list_drop ), function(j) {
       xreg1<-sim_missing_list_drop [[j]][["light"]]
-      xreg2<-sim_missing_list_drop [[j]][["discharge"]]
+      xreg2<-sim_missing_list_drop [[j]][["Q"]]
       modeldrop <- arima(sim_missing_list_drop [[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2))
       arimacoefsdrop <-c(modeldrop$coef, modeldrop$sigma2)
       names(arimacoefsdrop) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
@@ -146,14 +144,13 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
         rename(xreg1 = "light", xreg2 = "Q")
       xreg1 <- dat_forecast$xreg1
       xreg2 <- dat_forecast$xreg2
-      predictions <- lapply(Arimaoutputdrop, function(mod){
-        predict(mod$arima_model, n.ahead = forecast_days+1, 
-                newxreg = dat_forecast[,c(3,4)]) %>%
-          as.data.frame() %>% mutate(date = dat_forecast$date,
-                                     GPP = dat_forecast$GPP)
-      })
+      predictions <- map_df(Arimaoutputdrop, function(mod){
+        data.frame(predict(mod$arima_model, n.ahead = forecast_days+1, 
+                           newxreg = dat_forecast[,c(3,4)]),
+                   "date" = dat_forecast$date,
+                   "GPP" = dat_forecast$GPP)
+      },.id = "missingprop_autocor") 
       
-      names(predictions) <- names(simmissingdf)
       return(list(arima_forecast = predictions,
                   arima_pars = arima_pars,
                   sim_params = sim_pars))
@@ -180,7 +177,7 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
     ## fit ARIMA with the missing values as NAS . Applies KALMAN FILTER###
     ArimaoutputNAs <- lapply(seq_along(simmissingdf), function(j) {
       xreg1<-simmissingdf [[j]][["light"]]
-      xreg2<-simmissingdf [[j]][["discharge"]]
+      xreg2<-simmissingdf [[j]][["Q"]]
       modelNAs <- arima(simmissingdf[[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2))
       arimacoefsNAs <- c(modelNAs$coef, modelNAs$sigma2)
       names(arimacoefsNAs) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
@@ -214,14 +211,13 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
         rename(xreg1 = "light", xreg2 = "Q")
       xreg1 <- dat_forecast$xreg1
       xreg2 <- dat_forecast$xreg2
-      predictions <- lapply(ArimaoutputNAs, function(mod){
-        predict(mod$arima_model, n.ahead = forecast_days+1, 
-                newxreg = dat_forecast[,c(3,4)]) %>%
-          as.data.frame() %>% mutate(date = dat_forecast$date,
-                                     GPP = dat_forecast$GPP)
-      })
+      predictions <- map_df(ArimaoutputNAs, function(mod){
+        data.frame(predict(mod$arima_model, n.ahead = forecast_days+1, 
+                           newxreg = dat_forecast[,c(3,4)]),
+                   "date" = dat_forecast$date,
+                   "GPP" = dat_forecast$GPP)
+      },.id = "missingprop_autocor") 
       
-      names(predictions) <- names(simmissingdf)
       return(list(arima_forecast = predictions,
                   arima_pars = arima_pars,
                   sim_params = sim_pars))
@@ -264,7 +260,7 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
       mod_a <- list()
       for (j in seq_along(amelias11sim[[i]])) {
         xreg1<-amelias11sim [[i]][[j]][["light"]]
-        xreg2<-amelias11sim [[i]][[j]][["discharge"]]
+        xreg2<-amelias11sim [[i]][[j]][["Q"]]
         tempobj=arima(amelias11sim[[i]][[j]]$GPP, order = c(1,0,0), xreg = matrix(c(xreg1, xreg2), ncol = 2))
         arimacoefs<-c(tempobj$coef, tempobj$sigma2)
         names(arimacoefs) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
@@ -333,14 +329,14 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
         rename(xreg1 = "light", xreg2 = "Q")
       xreg1 <- dat_forecast$xreg1
       xreg2 <- dat_forecast$xreg2
-      predictions <- lapply(forecastList, function(mod){
-        predict(mod, n.ahead = forecast_days+1, 
-                newxreg = dat_forecast[,c(3,4)]) %>%
-          as.data.frame() %>% mutate(date = dat_forecast$date,
-                                     GPP = dat_forecast$GPP)
-      })
+      predictions <- map_df(forecastList, function(mod){
+        data.frame(predict(mod, n.ahead = forecast_days+1, 
+                           newxreg = dat_forecast[,c(3,4)]),
+                   "date" = dat_forecast$date,
+                   "GPP" = dat_forecast$GPP)
+      },.id = "missingprop_autocor") 
       
-      names(predictions) <- names(simmissingdf)
+      
       return(list(arima_forecast = predictions,
                   arima_pars = paramlistsim,
                   arima_se = selistsim,
@@ -351,6 +347,7 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
                 selistsim
     ))
   }
+  
   
   # Run models with drop missing + arima ------------------------------------
   
@@ -364,8 +361,7 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
   arimadrop_MAR_df$run_no <- CurSim
   
   # save arima forecasts
-  arimadrop_MAR_preds <- map_df(arima_drop_MAR$arima_forecast, ~as.data.frame(.x),
-                                .id = "missingprop_autocor")
+  arimadrop_MAR_preds <- arima_drop_MAR$arima_forecast
   arimadrop_MAR_preds$missingness <- 'MAR'
   arimadrop_MAR_preds$type <- 'dropNA_simple'
   arimadrop_MAR_preds$run_no <- CurSim
@@ -382,8 +378,7 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
   arimadropCC_MAR_df$run_no <- CurSim
   
   # save arima forecasts
-  arimadropCC_MAR_preds <- map_df(arima_drop_MAR$arima_forecast, ~as.data.frame(.x),
-                                  .id = "missingprop_autocor")
+  arimadropCC_MAR_preds <- arima_dropCC_MAR$arima_forecast
   arimadropCC_MAR_preds$missingness <- 'MAR'
   arimadropCC_MAR_preds$type <- 'dropNA_complete'
   arimadropCC_MAR_preds$run_no <- CurSim
@@ -400,8 +395,7 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
   arimaKalman_MAR_df$run_no <- CurSim
   
   # save arima forecasts
-  arimaKalman_MAR_preds <- map_df(arima_drop_MAR$arima_forecast, ~as.data.frame(.x),
-                                  .id = "missingprop_autocor")
+  arimaKalman_MAR_preds <- arima_kalman_MAR$arima_forecast
   arimaKalman_MAR_preds$missingness <- 'MAR'
   arimaKalman_MAR_preds$type <- 'Kalman Filter'
   arimaKalman_MAR_preds$run_no <- CurSim
@@ -419,7 +413,7 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
   arimaMI_MAR_df$run_no <- CurSim
   
   # save arima forecasts
-  arimaMI_MAR_preds <- map_df(arima_drop_MAR$arima_forecast, ~as.data.frame(.x),
+  arimaMI_MAR_preds <- map_df(arima_mi_MAR$arima_forecast, ~as.data.frame(.x),
                               .id = "missingprop_autocor")
   arimaMI_MAR_preds$missingness <- 'MAR'
   arimaMI_MAR_preds$type <- 'Multiple Imputations'
