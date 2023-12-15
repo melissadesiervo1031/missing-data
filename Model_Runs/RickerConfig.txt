@@ -1,101 +1,13 @@
 ArrayTaskID datFile parFile clsize saveFile index1 index2
-1 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable21_1.rds 50001 50100
-2 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable21_2.rds 50101 50200
-3 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable21_3.rds 50201 50300
-4 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable21_4.rds 50301 50400
-5 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable21_5.rds 50401 50500
-6 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable21_6.rds 50501 50600
-7 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable21_7.rds 50601 50700
-8 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable21_8.rds 50701 50800
-9 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable21_9.rds 50801 50900
-10 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable21_10.rds 50901 51000
-11 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable21_11.rds 51001 51100
-12 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable21_12.rds 51101 51200
-13 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable21_13.rds 51201 51300
-14 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable21_14.rds 51301 51400
-15 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable21_15.rds 51401 51500
-16 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable21_16.rds 51501 51600
-17 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable21_17.rds 51601 51700
-18 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable21_18.rds 51701 51800
-19 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable21_19.rds 51801 51900
-20 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable21_20.rds 51901 52000
-21 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable21_21.rds 52001 52100
-22 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable21_22.rds 52101 52200
-23 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable21_23.rds 52201 52300
-24 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable21_24.rds 52301 52400
-25 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable21_25.rds 52401 52500
-26 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable26_1.rds 62501 62600
-27 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable26_2.rds 62601 62700
-28 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable26_3.rds 62701 62800
-29 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable26_4.rds 62801 62900
-30 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable26_5.rds 62901 63000
-31 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable26_6.rds 63001 63100
-32 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable26_7.rds 63101 63200
-33 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable26_8.rds 63201 63300
-34 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable26_9.rds 63301 63400
-35 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable26_10.rds 63401 63500
-36 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable26_11.rds 63501 63600
-37 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable26_12.rds 63601 63700
-38 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable26_13.rds 63701 63800
-39 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable26_14.rds 63801 63900
-40 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable26_15.rds 63901 64000
-41 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable26_16.rds 64001 64100
-42 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable26_17.rds 64101 64200
-43 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable26_18.rds 64201 64300
-44 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable26_19.rds 64301 64400
-45 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable26_20.rds 64401 64500
-46 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable26_21.rds 64501 64600
-47 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable26_22.rds 64601 64700
-48 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable26_23.rds 64701 64800
-49 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable26_24.rds 64801 64900
-50 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable26_25.rds 64901 65000
-51 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable27_1.rds 65001 65100
-52 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable27_2.rds 65101 65200
-53 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable27_3.rds 65201 65300
-54 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable27_4.rds 65301 65400
-55 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable27_5.rds 65401 65500
-56 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable27_6.rds 65501 65600
-57 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable27_7.rds 65601 65700
-58 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable27_8.rds 65701 65800
-59 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable27_9.rds 65801 65900
-60 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable27_10.rds 65901 66000
-61 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable27_11.rds 66001 66100
-62 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable27_12.rds 66101 66200
-63 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable27_13.rds 66201 66300
-64 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable27_14.rds 66301 66400
-65 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable27_15.rds 66401 66500
-66 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable27_16.rds 66501 66600
-67 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable27_17.rds 66601 66700
-68 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable27_18.rds 66701 66800
-69 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable27_19.rds 66801 66900
-70 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable27_20.rds 66901 67000
-71 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable27_21.rds 67001 67100
-72 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable27_22.rds 67101 67200
-73 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable27_23.rds 67201 67300
-74 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable27_24.rds 67301 67400
-75 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable27_25.rds 67401 67500
-76 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable28_1.rds 67501 67600
-77 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable28_2.rds 67601 67700
-78 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable28_3.rds 67701 67800
-79 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable28_4.rds 67801 67900
-80 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable28_5.rds 67901 68000
-81 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable28_6.rds 68001 68100
-82 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable28_7.rds 68101 68200
-83 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable28_8.rds 68201 68300
-84 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable28_9.rds 68301 68400
-85 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable28_10.rds 68401 68500
-86 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable28_11.rds 68501 68600
-87 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable28_12.rds 68601 68700
-88 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable28_13.rds 68701 68800
-89 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable28_14.rds 68801 68900
-90 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable28_15.rds 68901 69000
-91 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable28_16.rds 69001 69100
-92 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable28_17.rds 69101 69200
-93 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable28_18.rds 69201 69300
-94 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable28_19.rds 69301 69400
-95 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable28_20.rds 69401 69500
-96 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable28_21.rds 69501 69600
-97 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable28_22.rds 69601 69700
-98 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable28_23.rds 69701 69800
-99 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable28_24.rds 69801 69900
-100 Model_Runs/modelruns_ricker.R data/missingDatasets/pois_sim_randMiss_A.rds 5 Model_Runs/RickerA_resultTable28_25.rds 69901 70000
+
+
+
+
+
+44 data/missingDatasets/pois_sim_randMiss_B.rds data/missingDatasets/pois_sim_params.rds 5 Model_Runs/RickerB_resultTable26_19.rds 64301 64400
+
+
+
+
+
+
