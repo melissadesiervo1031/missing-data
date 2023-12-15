@@ -4,6 +4,7 @@
 
 # load packages
 library(tidyverse)
+library(Metrics)
 
 
 # read in prediction data ------------------------------------------------------------
@@ -40,7 +41,9 @@ allDat <- rbind(MAR_arima, MAR_brms, MNAR_arima, MNAR_brms)
 
 # remove runs w/ no missingness (missingprop_autocor = "y)
 allDat <- allDat %>% 
-  filter(missingprop_autocor != "y")
+  filter(missingprop_autocor != "y") %>% 
+  filter(!is.na(Estimate)) # remove NAs in Estimate column (12/31)
+
 # reformat data -----------------------------------------------------------
 # retrieve proportion missing and amount autocor from names
 allDat <- allDat %>% 
@@ -61,25 +64,49 @@ RMSE <- allDat %>%
 allDat <- allDat %>% 
   left_join(RMSE)
 
-
 # Make figure of predictions ----------------------------------------------
 
-allDat_fig <- allDat 
+allDat_fig <- allDat %>% 
+  group_by(date, missingness, type, round(propMiss,1)) %>% 
+  summarize(Estimate_mean = mean(Estimate),
+            Estimate_sd = sd(Estimate),
+            Est.Error_mean = mean(Est.Error)) %>% 
+  rename(propMiss = "round(propMiss, 1)")
+  
 # calculate low, med, and high autocorr
   
-ggplot() + 
-  facet_grid(.~as.factor(missingness)) +
-  geom_line(data = realData[lubridate::month(realData$date) %in% c(lubridate::month(1:11)),], aes(x = date, y = GPP)) + 
-  geom_line(data = allDat, aes(x = date, y = Estimate, col = type)) +
-  theme_classic()
-
-
+forecastFig <- ggplot() + 
+  facet_grid(.~as.factor(missingness) ~ as.factor(type)) +
+  geom_line(data = realData[lubridate::month(realData$date) %in% c(lubridate::month(10:12)),], aes(x = date, y = GPP)) + 
+  geom_line(data = allDat_fig, aes(x = date, y = Estimate_mean, col = propMiss, group = propMiss), alpha = .8) +
+  theme_classic() 
+# save figure
+png(file = "./figures/forecastAccuracy_gaussian.png", width = 9, height = 6, units = "in", res = 700)
+forecastFig
+dev.off()
 # RMSE figure -------------------------------------------------------------
-ggplot(data = RMSE) +
+rmse_fig <- ggplot(data = RMSE) +
   facet_grid(.~missingness) +
   geom_point(aes(x = propMiss, y = RMSE, col = type), alpha = .5) +
-  geom_smooth(aes(x = propMiss, y = RMSE, col = type), method = "lm") +
-  theme_classic()
+  geom_smooth(aes(x = propMiss, y = RMSE, col = type), method = "lm", se = FALSE) +
+  theme_classic() +
+  ylim(c(0,1.5))
+# save figure
+png(file = "./figures/RMSE_gaussian.png", width = 8, height = 4, units = "in", res = 700)
+rmse_fig
+dev.off()
+
+
+# figure of mean predictions across all amounts missingness for one type  --------
+kalmanDat_fig <- allDat_fig %>% 
+  filter(type == "Kalman Filter",
+         propMiss <=0.5)
+ggplot() + 
+  facet_grid(.~as.factor(missingness)~ as.factor(propMiss)) +
+  geom_ribbon(data = kalmanDat_fig, aes(x = date, ymin = Estimate_mean - 1.96 * Est.Error_mean, ymax = Estimate_mean + 1.96 * Est.Error_mean, fill = propMiss, group = propMiss), alpha = .8) +
+  geom_line(data = realData[lubridate::month(realData$date) %in% c(lubridate::month(10:12)),], aes(x = date, y = GPP)) + 
+  geom_line(data = kalmanDat_fig, aes(x = date, y = Estimate_mean, col = propMiss, group = propMiss)) +
+  theme_classic() 
 
 
       
