@@ -76,7 +76,7 @@ fit_brms_model <- function(sim_list, sim_pars,
       rename(discharge = Q)
     
     predictions <- lapply(bmod, function(mod){
-      predict(mod, newdata = dat_forecast[,-2]) %>%
+      predict(mod, newdata = dat_forecast[,-2], n.ahead = forecast_days+1) %>%
         as.data.frame() %>% mutate(date = dat_forecast$date,
                                    GPP = dat_forecast$GPP)
     })
@@ -125,9 +125,10 @@ unique(brms_MNAR_preds$missingprop_autocor)
 namesActual <- data.frame("missingprop_autocor" = as.character(c(1:16)),
                           "actualName" =unique(names(gauss_real_MNAR[[1]]$y)))
 
-brms_MNAR_preds <- left_join(brms_MNAR_preds, namesActual) %>% 
-  select(-missingprop_autocor) %>% 
-  rename(missingprop_autocor = actualName) %>% 
+brms_MNAR_preds <- brms_MNAR_preds %>% 
+  #left_join(brms_MNAR_preds, namesActual) %>% 
+  #select(-missingprop_autocor) %>% 
+  #rename(missingprop_autocor = actualName) %>% 
   select("missingprop_autocor", "Estimate", "Est.Error", "Q2.5", "Q97.5", "date", "GPP", "missingness", "type", "run_no")
   
 ###################################################
