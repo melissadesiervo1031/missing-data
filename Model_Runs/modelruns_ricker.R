@@ -24,10 +24,11 @@ lapply(f_list, source)
 # Should include (1) data file (2) parameter file (3) number of nodes for cluster (4) save file location
 # (5) beginnning index (6) ending index (7) optional- model list
 in_args <- commandArgs(trailingOnly = T)
-
+cat(in_args)
 # read in datafile
 dat <- readRDS(here(in_args[1]))
 pars <- readRDS(here(in_args[2]))
+cat("data has been loaded")
 
 # count number of missingness proportions
 nmiss_props <- length(dat[[1]]$y)

@@ -188,6 +188,12 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
         NA,
         reason = "Amelia time out"
       ))
+    }, error=function(e){
+      warning("Amelia unable to fit the model, likely due to too little data")
+      return(list(
+        NA,
+        reason="Amelia fitting error"
+      ))
     }
   )
   
@@ -196,6 +202,15 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
     return(list(
       NA,
       reason = "Amelia fitting error"
+    ))
+  } 
+  
+    if(amelia1sim$code!=1){
+      cat("we should be returning NA, code is not 1")
+      warning("Amelia was unable to fit for reason other than timeout")
+      return(list(
+      NA,
+      reason = paste("Amelia internal fitting error, code",amelia1sim$code)
     ))
   } 
   
@@ -208,15 +223,25 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
     ))
   } 
   
+  if(any(is.na(amelia1sim$imputations))){
+    warning("Amelia has timed out, likely due to exceptionally high missingness")
+    return(list(
+      NA,
+      reason = "Amelia fitting error"
+    ))
+  } 
+  
+  
   fit=list()
   # fit model over all imputations
   for(i in 1:imputationsnum){
     
     # compile into sliced dataframe in preparation for 
-    dat <- data.frame(
+    dat =data.frame(
       yt = amelia1sim$imputations[[i]][2:(n-1),2],
       ytm1 = amelia1sim$imputations[[i]][1:(n - 2),2]
     )
+    
     
     # fit ricker model with poisson
     if(fam == "poisson"){
@@ -227,8 +252,8 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
           offset = log(ytm1)
         )
       },error=function(cond){
-        message(paste("we have had an error in the model fitting"))
-        return(NA)
+        message(paste("we have had an error in the model fitting X2"))
+        return(list(NA, reason="model fitting error"))
       }
       )
       
@@ -243,7 +268,7 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
         )
       },error=function(cond){
         message(paste("we have had an error in the model fitting"))
-        return(NA)
+        return(list(NA, reason="model fitting error"))
       }) 
     }
     
@@ -285,3 +310,5 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
   ))
   
 }
+
+
