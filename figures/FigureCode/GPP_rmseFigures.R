@@ -98,14 +98,14 @@ dev.off()
 
 
 # figure of mean predictions across all amounts missingness for one type  --------
-kalmanDat_fig <- allDat_fig %>% 
-  filter(type == "Kalman Filter",
+second_fig <- allDat_fig %>% 
+  filter(
          propMiss <=0.5)
 ggplot() + 
   facet_grid(.~as.factor(missingness)~ as.factor(propMiss)) +
-  geom_ribbon(data = kalmanDat_fig, aes(x = date, ymin = Estimate_mean - 1.96 * Est.Error_mean, ymax = Estimate_mean + 1.96 * Est.Error_mean, fill = propMiss, group = propMiss), alpha = .8) +
-  geom_line(data = realData[lubridate::month(realData$date) %in% c(lubridate::month(10:12)),], aes(x = date, y = GPP)) + 
-  geom_line(data = kalmanDat_fig, aes(x = date, y = Estimate_mean, col = propMiss, group = propMiss)) +
+  #geom_ribbon(data = second_fig, aes(x = date, ymin = Estimate_mean - 1.96 * Est.Error_mean, ymax = Estimate_mean + 1.96 * Est.Error_mean, fill = type, group =type), alpha = .3) +
+  geom_line(data = realData[lubridate::month(realData$date) %in% c(lubridate::month(11:12)),], aes(x = date, y = GPP)) + 
+  geom_line(data = second_fig, aes(x = date, y = Estimate_mean, col = type, group = type)) +
   theme_classic() 
 
 
