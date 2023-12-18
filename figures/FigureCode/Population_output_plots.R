@@ -6,7 +6,7 @@
 # Load packages
 library(tidyverse)
 library(ggpubr)
-
+library(RColorBrewer)
 
 ## read in data 
 ricDat_tempA <- readRDS("./data/model_results/RickerA_resultTableAll.rds")
@@ -198,7 +198,7 @@ ricDat_long[ricDat_long$actAutoCorr >0.3 & ricDat_long$actAutoCorr <0.6 & !is.na
 ricDat_long[ricDat_long$actAutoCorr  >= 0.6 & !is.na(ricDat_long$actAutoCorr), "missingness"] <- "MAR_highAutoCor"
 
 # save data to file for use later...
-write_rds(ricDat_long, file = "./data/model_results/ricker_sim_ModelResultsLong.rds")
+#write_rds(ricDat_long, file = "./data/model_results/ricker_sim_ModelResultsLong.rds")
 
 # generate summary statistics for each 
 ricDat_lines <- ricDat_long %>% 
@@ -215,7 +215,7 @@ ricDat_lines <- ricDat_long %>%
 
 # Figure of parameter recovery (mean and sd in separate panels) -----------
 # figure of means for each model type and level of missingness (with shortened x-axis)
-(pois_sim_MedsFig_trimmed <- ggplot(data = ricDat_lines, aes(x = amtMiss, y = paramDiff_med)) +
+(pois_sim_MedsFig_trimmed <- ggplot(data = ricDat_lines, aes(x = amtMiss, y = paramDiff_mean)) +
    facet_grid(~factor(param, levels = c( "alpha", "r")) 
               ~ factor(missingness, levels = c("MAR_lowAutoCor", "MAR_medAutoCor", "MAR_highAutoCor")),
               scales = "free_y") + 
@@ -227,14 +227,11 @@ ricDat_lines <- ricDat_long %>%
    theme_classic() +
    xlab("Proportion of missing data")+ 
    theme(legend.position="top", legend.title=element_blank())+
-   ylab("Median of standardized parameter recovery estimate")+ 
+   ylab("Mean of standardized parameter recovery")+ 
    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) #+
    #ylim(c(-0.85,0.55))
 )
 
-## make a sub-dataframe that includes points for SDs that are >5 
-largeSD <- ricDat_lines[ricDat_lines$amtMiss <= 0.5 & 
-                          ricDat_lines$paramDiff_SD > 5,]
 
 # figure of SD for each model type and level of missingness
 (pois_sim_SDFig_trimmed <- ggplot(data = ricDat_lines, aes(x = amtMiss, y = paramDiff_SD)) +
@@ -247,7 +244,7 @@ largeSD <- ricDat_lines[ricDat_lines$amtMiss <= 0.5 &
     xlab("Proportion of missing data")+ 
     theme(legend.position="top")+
     theme(legend.title=element_blank())+
-    ylab("SD of standardized parameter recovery estimate")+ 
+    ylab("SD of standardized parameter recovery")+ 
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))#+
     #xlim(c(-0.05,.55)) + 
     #ylim(c(0,5)) +
@@ -292,7 +289,7 @@ ricDat_verylong <- ricDat_long %>%
     xlab("Proportion of missing data")+ 
     theme(legend.position="top")+
     theme(legend.title=element_blank())+
-    ylab("Median of standardized parameter recovery estimate")+ 
+    ylab("Median of standardized parameter recovery")+ 
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) 
 )
 # figure of SD for each model type and level of missingness
@@ -307,7 +304,7 @@ ricDat_verylong <- ricDat_long %>%
     xlab("Proportion of missing data")+ 
     theme(legend.position="top")+
     theme(legend.title=element_blank())+
-    ylab("SD of standardized parameter recovery estimate")+ 
+    ylab("SD of standardized parameter recovery")+ 
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))
   ) 
 # put into one figure
