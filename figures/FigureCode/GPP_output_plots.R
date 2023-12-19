@@ -24,7 +24,11 @@ figDat_lines <- figDat_temp %>%
   filter(param != "sigma") %>%
   filter(missingness %in% c("MAR: High AC", "MAR: Low AC", "MAR: Med. AC", "MNAR")) %>% 
   mutate(autoCor = round(autoCor, 1), 
-         amtMiss = round(amtMiss, 1)) %>% 
+         amtMiss = round(amtMiss, 1),
+         param = replace(param, param %in% c("discharge", "light"), "Beta covariates"),
+         param = replace(param, param == "intercept", "Intercept"),
+         param = replace(param, param == "phi", "Phi")
+         ) %>% 
   group_by(missingness, type, param, amtMiss) %>% 
   summarize(paramDiff_mean = mean(paramDiff, na.rm = TRUE),
             paramDiff_med = median(paramDiff, na.rm = TRUE),
@@ -36,8 +40,8 @@ figDat_lines <- figDat_temp %>%
 
 # Figure of parameter recovery (mean and sd in separate panels) -----------
 # figure of means for each model type and level of missingness (with shortened x-axis)
-(gauss_sim_MeansFig_trimmed <- ggplot(data = figDat_lines, aes(x = amtMiss, y = paramDiff_mean)) +
-  facet_grid(~factor(param, levels = c( "intercept","phi", "light", "discharge")) 
+(gauss_sim_MedsFig_trimmed <- ggplot(data = figDat_lines, aes(x = amtMiss, y = paramDiff_med)) +
+  facet_grid(~factor(param, levels = c( "Intercept","Phi", "Beta covariates")) 
                                        ~ factor(missingness, levels = c("MAR: Low AC", "MAR: Med. AC", "MAR: High AC", "MNAR")),
              scales = "free_y") + 
   geom_hline(aes(yintercept = 0), colour = "grey") + 
@@ -51,7 +55,7 @@ figDat_lines <- figDat_temp %>%
   xlab("Proportion of missing data")+ 
   theme(legend.position="top")+
   theme(legend.title=element_blank())+
-  ylab("Mean of standardized parameter recovery")+ 
+  ylab("Median of parameter bias across sims.")+ 
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) +
    xlim(c(-0.03,0.55)) + 
   scale_color_discrete(type = c("#1B9E77", "#E7298A","#D95F02", "#7570B3",  "#66A61E", "#E6AB02"),
@@ -64,7 +68,7 @@ largeSD <- figDat_lines[figDat_lines$amtMiss <= 0.5 &
   
 # figure of SDfor each model type and level of missingness
 (gauss_sim_SDFig_trimmed <- ggplot(data = figDat_lines, aes(x = amtMiss, y = paramDiff_SD)) +
-  facet_grid(~factor(param, levels = c("intercept","phi", "light", "discharge")) 
+  facet_grid(~factor(param, levels = c("Intercept","Phi", "Beta covariates")) 
              ~ factor(missingness, levels = c("MAR: Low AC", "MAR: Med. AC", "MAR: High AC", "MNAR"))) + 
   geom_line(aes(color = as.factor(type)), position = position_dodge(width=0.03)) + 
   geom_point(aes(color = as.factor(type)), alpha = .8, position = position_dodge(width=0.03)) +
@@ -72,7 +76,7 @@ largeSD <- figDat_lines[figDat_lines$amtMiss <= 0.5 &
   xlab("Proportion of missing data")+ 
   theme(legend.position="top")+
   theme(legend.title=element_blank())+
-  ylab("SD of standardized parameter recovery")+ 
+  ylab("SD of parameter bias across sims.")+ 
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))+ 
     scale_color_discrete(type = c("#1B9E77", "#E7298A","#D95F02", "#7570B3",  "#66A61E", "#E6AB02"),
                          labels = c("Data Augmentation", "Data Deletion", "Kalman Filter", "Multiple Imputations"))
@@ -84,10 +88,10 @@ largeSD <- figDat_lines[figDat_lines$amtMiss <= 0.5 &
   ) 
 
 # put into one figure
-  Gauss_paramRecov_trimmed <- ggarrange(gauss_sim_MeansFig_trimmed, gauss_sim_SDFig_trimmed, common.legend = TRUE)
+  Gauss_paramRecov_trimmed <- ggarrange(gauss_sim_MedsFig_trimmed, gauss_sim_SDFig_trimmed, common.legend = TRUE)
 
 ## save results
-png(file = "./figures/parameterRecovery_sim_Guassian_meansSD_trimmed.png", width = 9, height = 4, units = "in", res = 700)
+png(file = "./figures/parameterRecovery_sim_Guassian_medsSD_trimmed.png", width = 9, height = 4, units = "in", res = 700)
 Gauss_paramRecov_trimmed
 dev.off()
 
@@ -97,7 +101,10 @@ figDat_long <- figDat_temp %>%
   filter(param != "sigma") %>%
   filter(missingness %in% c("MAR: High AC", "MAR: Med. AC", "MAR: Low AC", "MNAR")) %>% 
   mutate(autoCor = round(autoCor, 1), 
-         amtMiss = round(amtMiss, 1)) %>% 
+         amtMiss = round(amtMiss, 1),
+         param = replace(param, param %in% c("discharge", "light"), "Beta covariates"),
+         param = replace(param, param == "intercept", "Intercept"),
+         param = replace(param, param == "phi", "Phi")) %>% 
   group_by(missingness, type, param, amtMiss) %>% 
   summarize(paramDiff_mean = mean(paramDiff, na.rm = TRUE),
             paramDiff_med = median(paramDiff, na.rm = TRUE),
@@ -107,8 +114,8 @@ figDat_long <- figDat_temp %>%
 
 # make a figure like the one above, but without a trimmed x axis
 # figure of means for each model type and level of missingness
-(gauss_sim_MeansFig_reg<- ggplot(data = figDat_long, aes(x = amtMiss, y = paramDiff_mean)) +
-    facet_grid(~factor(param, levels = c("intercept", "phi", "light", "discharge")) 
+(gauss_sim_MedsFig_reg<- ggplot(data = figDat_long, aes(x = amtMiss, y = paramDiff_med)) +
+    facet_grid(~factor(param, levels = c("Intercept", "Phi", "Beta covariates")) 
                ~ factor(missingness, levels = c("MAR: Low AC", "MAR: Med. AC", "MAR: High AC", "MNAR"))) + 
     geom_hline(aes(yintercept = 0), colour = "grey") + 
     #geom_errorbar(aes(ymin=paramDiff_mean - paramDiff_SD, ymax=paramDiff_mean + paramDiff_SD, color = as.factor(type)), 
@@ -120,7 +127,7 @@ figDat_long <- figDat_temp %>%
     xlab("Proportion of missing data")+ 
     theme(legend.position="top")+
     theme(legend.title=element_blank())+
-    ylab("Mean of standardized parameter recovery")+ 
+    ylab("Mean of parameter bias across sims.")+ 
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) + 
     scale_color_discrete(type = c("#1B9E77", "#E7298A","#D95F02", "#7570B3",  "#66A61E", "#E6AB02"),
                          labels = c("Data Augmentation", "Data Deletion", "Kalman Filter", "Multiple Imputations"))
@@ -129,7 +136,7 @@ figDat_long <- figDat_temp %>%
 
 # figure of SD for each model type and level of missingness
 (gauss_sim_SDFig_reg<- ggplot(data = figDat_long, aes(x = amtMiss, y = paramDiff_SD)) +
-    facet_grid(~factor(param, levels = c("intercept", "phi", "light", "discharge")) 
+    facet_grid(~factor(param, levels = c("Intercept", "Phi", "Beta covariates")) 
                ~ factor(missingness, levels = c("MAR: Low AC", "MAR: Med. AC", "MAR: High AC", "MNAR"))) + 
     geom_hline(aes(yintercept = 0), colour = "grey") + 
     geom_line(aes(color = as.factor(type)), position = position_dodge(width=0.03)) + 
@@ -139,17 +146,17 @@ figDat_long <- figDat_temp %>%
     xlab("Proportion of missing data")+ 
     theme(legend.position="top")+
     theme(legend.title=element_blank())+
-    ylab("SD of standardized parameter recovery")+ 
+    ylab("SD of parameter bias across sims.")+ 
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))+ 
     scale_color_discrete(type = c("#1B9E77", "#E7298A","#D95F02", "#7570B3",  "#66A61E", "#E6AB02"),
                          labels = c("Data Augmentation", "Data Deletion", "Kalman Filter", "Multiple Imputations"))
   
 ) 
 # put into one figure
-Gauss_paramRecov <- ggarrange(gauss_sim_MeansFig_reg, gauss_sim_SDFig_reg, common.legend = TRUE)
+Gauss_paramRecov <- ggarrange(gauss_sim_MedsFig_reg, gauss_sim_SDFig_reg, common.legend = TRUE)
 
 ## save results
-png(file = "./figures/parameterRecovery_sim_Guassian_meansSD.png", width = 9, height = 4, units = "in", res = 700)
+png(file = "./figures/parameterRecovery_sim_Guassian_medsSD.png", width = 9, height = 4, units = "in", res = 700)
 Gauss_paramRecov
 dev.off()
 # 
