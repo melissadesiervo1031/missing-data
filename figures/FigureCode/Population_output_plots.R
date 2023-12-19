@@ -215,7 +215,7 @@ ricDat_lines <- ricDat_long %>%
 
 # Figure of parameter recovery (mean and sd in separate panels) -----------
 # figure of means for each model type and level of missingness (with shortened x-axis)
-(pois_sim_MedsFig_trimmed <- ggplot(data = ricDat_lines, aes(x = amtMiss, y = paramDiff_mean)) +
+(pois_sim_MedsFig_trimmed <- ggplot(data = ricDat_lines, aes(x = amtMiss, y = paramDiff_med)) +
    facet_grid(~factor(param, levels = c( "alpha", "r")) 
               ~ factor(missingness, levels = c("MAR: Low AC", "MAR: Med. AC", "MAR: High AC")),
               scales = "free_y") + 
@@ -227,13 +227,13 @@ ricDat_lines <- ricDat_long %>%
    theme_classic() +
    xlab("Proportion of missing data")+ 
    theme(legend.position="top", legend.title=element_blank())+
-   ylab("Mean of standardized parameter recovery")+ 
+   ylab("Median of parameter bias across sims.")+ 
    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) + 
    scale_color_discrete(type = c("#66A61E","#1B9E77", "#E7298A", "#E6AB02","#7570B3"),
                         labels = c("Data Del.-Complete", "Data Aug.", "Data Del.-Simple", "Expectation Max.", "Multiple Imp."))#+
    #ylim(c(-0.85,0.55))
 )
-# figure of SD for each model type and level of missingness
+ # figure of SD for each model type and level of missingness
 (pois_sim_SDFig_trimmed <- ggplot(data = ricDat_lines, aes(x = amtMiss, y = paramDiff_SD)) +
     facet_grid(~factor(param, levels = c( "alpha", "r")) 
                ~ factor(missingness, levels = c("MAR: Low AC", "MAR: Med. AC", "MAR: High AC")),
@@ -244,7 +244,7 @@ ricDat_lines <- ricDat_long %>%
     xlab("Proportion of missing data")+ 
     theme(legend.position="top")+
     theme(legend.title=element_blank())+
-    ylab("SD of standardized parameter recovery")+ 
+    ylab("SD of parameter bias across sims.")+ 
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) + 
     scale_color_discrete(type = c("#66A61E","#1B9E77", "#E7298A", "#E6AB02","#7570B3"),
                          labels = c("Data Del.-Complete", "Data Aug.", "Data Del.-Simple", "Expectation Max.", "Multiple Imp."))    
@@ -254,7 +254,7 @@ ricDat_lines <- ricDat_long %>%
 pois_paramRecov_trimmed <- ggarrange(pois_sim_MedsFig_trimmed, pois_sim_SDFig_trimmed, common.legend = TRUE)
 
 ## save results
-png(file = "./figures/parameterRecovery_sim_Poisson_meansSD_trimmed.png", width = 9, height = 4, units = "in", res = 700)
+png(file = "./figures/parameterRecovery_sim_Poisson_medsSD_trimmed.png", width = 9, height = 4, units = "in", res = 700)
 pois_paramRecov_trimmed
 dev.off()
 
@@ -287,7 +287,7 @@ ricDat_verylong <- ricDat_long %>%
     xlab("Proportion of missing data")+ 
     theme(legend.position="top")+
     theme(legend.title=element_blank())+
-    ylab("Median of standardized parameter recovery")+ 
+    ylab("Median of parameter bias across sims.")+ 
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) + 
     scale_color_discrete(type = c("#66A61E","#1B9E77", "#E7298A", "#E6AB02","#7570B3"),
                          labels = c("Data Del.-Complete", "Data Aug.", "Data Del.-Simple", "Expectation Max.", "Multiple Imp."))
@@ -305,7 +305,7 @@ ricDat_verylong <- ricDat_long %>%
     xlab("Proportion of missing data")+ 
     theme(legend.position="top")+
     theme(legend.title=element_blank())+
-    ylab("SD of standardized parameter recovery")+ 
+    ylab("SD of parameter bias across sims.")+ 
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) + 
     scale_color_discrete(type = c("#66A61E","#1B9E77", "#E7298A", "#E6AB02","#7570B3"),
                          labels = c("Data Del.-Complete", "Data Aug.", "Data Del.-Simple", "Expectation Max.", "Multiple Imp."))
@@ -328,18 +328,19 @@ ricDat_violin <- ricDat_long %>%
 
 (pois_sim_violin <- ggplot(data = ricDat_violin) +
     facet_grid(~factor(param, levels = c( "alpha", "r")) 
-               ~ factor(missingness, levels = c("MAR: Low AC", "MAR: Med. AC", "MAR: High AC")),
+               #~ factor(missingness, levels = c("MAR: Low AC", "MAR: Med. AC", "MAR: High AC")),
+               ~ factor(type),
                scales = "free_y") + 
-    #geom_point(aes(x = as.factor(amtMiss), y = paramDiff, color = type), alpha = .8, position = position_dodge(width=0.07)) +
+    geom_point(aes(x = as.factor(amtMiss), y = paramDiff, color = type), alpha = .8, position = position_dodge(width=0.07)) +
     geom_hline(aes(yintercept = 0), colour = "grey") + 
-    geom_violin(aes(x = as.factor(amtMiss), y = paramDiff, color = type)) +
+    geom_violin(aes(x = as.factor(amtMiss), y = paramDiff, color = type), draw_quantiles = c(.50)) +
     theme_classic() +
     xlab("Proportion of missing data")+ 
     theme(legend.position="top")+
     theme(legend.title=element_blank())+
     ylab("Mean standardized parameter estimate")+ 
-    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))# +
-    #ylim(c(-10,50))
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) +
+    ylim(c(-8,8))
 )
 
 ## save figure
