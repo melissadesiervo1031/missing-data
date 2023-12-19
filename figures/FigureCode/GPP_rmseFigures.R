@@ -75,22 +75,26 @@ allDat_fig <- allDat %>%
   
 # calculate low, med, and high autocorr
   
-forecastFig <- ggplot() + 
+(forecastFig <- ggplot() + 
   facet_grid(.~as.factor(missingness) ~ as.factor(type)) +
   geom_line(data = realData[lubridate::month(realData$date) %in% c(lubridate::month(10:12)),], aes(x = date, y = GPP)) + 
   geom_line(data = allDat_fig, aes(x = date, y = Estimate_mean, col = propMiss, group = propMiss), alpha = .8) +
   theme_classic() 
+  )
 # save figure
 png(file = "./figures/forecastAccuracy_gaussian.png", width = 9, height = 6, units = "in", res = 700)
 forecastFig
 dev.off()
 # RMSE figure -------------------------------------------------------------
-rmse_fig <- ggplot(data = RMSE) +
+(rmse_fig <- ggplot(data = RMSE) +
   facet_grid(.~missingness) +
   geom_point(aes(x = propMiss, y = RMSE, col = type), alpha = .5) +
   geom_smooth(aes(x = propMiss, y = RMSE, col = type), method = "lm", se = FALSE) +
   theme_classic() +
-  ylim(c(0,1.5))
+  ylim(c(0,1.5)) + 
+   scale_color_discrete(type = c("#66A61E","#1B9E77", "#E7298A", "#E6AB02","#7570B3"),
+                        labels = c("Data Del.-Complete", "Data Aug.", "Data Del.-Simple", "Expectation Max.", "Multiple Imp.")) 
+ )
 # save figure
 png(file = "./figures/RMSE_gaussian.png", width = 8, height = 4, units = "in", res = 700)
 rmse_fig
@@ -107,6 +111,23 @@ ggplot() +
   geom_line(data = realData[lubridate::month(realData$date) %in% c(lubridate::month(11:12)),], aes(x = date, y = GPP)) + 
   geom_line(data = second_fig, aes(x = date, y = Estimate_mean, col = type, group = type)) +
   theme_classic() 
+
+
+# figure of preds vs. full real time series -------------------------------
+allDat_all <- allDat %>% 
+  mutate(ID = paste0(type, missingness, propMiss, amtAutoCorr))
+
+# calculate low, med, and high autocorr
+
+(forecastFig <- ggplot() + 
+    geom_line(data = realData, aes(x = date, y = GPP)) + 
+    geom_line(data = allDat_all, aes(x = date, y = Estimate, col = type, group = ID), alpha = .3) +
+    theme_classic() + 
+    scale_color_discrete(type = c("#66A61E","#1B9E77", "#E7298A", "#E6AB02","#7570B3"),
+                         labels = c("Data Del.-Complete", "Data Aug.", "Data Del.-Simple", "Expectation Max.", "Multiple Imp.")) 
+  
+)
+
 
 
       
