@@ -230,7 +230,7 @@ ricDat_lines <- ricDat_long %>%
    ylab("Median of parameter bias across sims.")+ 
    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) + 
    scale_color_discrete(type = c("#66A61E","#1B9E77", "#E7298A", "#E6AB02","#7570B3"),
-                        labels = c("Data Del.-Complete", "Data Aug.", "Data Del.-Simple", "Expectation Max.", "Multiple Imp."))#+
+                        labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Expectation Maximization", "Multiple Imputation"))#+
    #ylim(c(-0.85,0.55))
 )
  # figure of SD for each model type and level of missingness
@@ -247,10 +247,10 @@ ricDat_lines <- ricDat_long %>%
     ylab("SD of parameter bias across sims.")+ 
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) + 
     scale_color_discrete(type = c("#66A61E","#1B9E77", "#E7298A", "#E6AB02","#7570B3"),
-                         labels = c("Data Del.-Complete", "Data Aug.", "Data Del.-Simple", "Expectation Max.", "Multiple Imp."))    
+                         labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Expectation Maximization", "Multiple Imputation"))    
 ) 
 
-# put into one figure
+ # put into one figure
 pois_paramRecov_trimmed <- ggarrange(pois_sim_MedsFig_trimmed, pois_sim_SDFig_trimmed, common.legend = TRUE)
 
 ## save results
@@ -290,7 +290,7 @@ ricDat_verylong <- ricDat_long %>%
     ylab("Median of parameter bias across sims.")+ 
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) + 
     scale_color_discrete(type = c("#66A61E","#1B9E77", "#E7298A", "#E6AB02","#7570B3"),
-                         labels = c("Data Del.-Complete", "Data Aug.", "Data Del.-Simple", "Expectation Max.", "Multiple Imp."))
+                         labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Expectation Maximization", "Multiple Imputation"))
   
 )
 # figure of SD for each model type and level of missingness
@@ -308,7 +308,7 @@ ricDat_verylong <- ricDat_long %>%
     ylab("SD of parameter bias across sims.")+ 
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) + 
     scale_color_discrete(type = c("#66A61E","#1B9E77", "#E7298A", "#E6AB02","#7570B3"),
-                         labels = c("Data Del.-Complete", "Data Aug.", "Data Del.-Simple", "Expectation Max.", "Multiple Imp."))
+                         labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Expectation Maximization", "Multiple Imputation"))
   ) 
 # put into one figure
 poiss_paramRecov <- ggarrange(poiss_sim_MedsFig_reg, poiss_sim_SDFig_reg, common.legend = TRUE)
