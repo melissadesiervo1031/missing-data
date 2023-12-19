@@ -101,7 +101,7 @@ rmse_fig
 dev.off()
 
 
-# figure of mean predictions across all amounts missingness for one type  --------
+# figure of mean predictions across all amounts missingness for each type  --------
 second_fig <- allDat_fig %>% 
   filter(
          propMiss <=0.5)
@@ -112,6 +112,20 @@ ggplot() +
   geom_line(data = second_fig, aes(x = date, y = Estimate_mean, col = type, group = type)) +
   theme_classic() 
 
+# figure of mean predictions across all amounts of missingness for each type  --------
+third_fig <- allDat_fig %>% 
+  filter(propMiss <=0.5) %>% 
+  group_by(date, missingness, type) %>% 
+  summarize(Estimate_mean = mean(Estimate_mean),
+            Est.Error_mean = mean(Est.Error_mean))
+  
+ggplot() + 
+  facet_grid(.~as.factor(missingness)~ as.factor(type)) +
+  geom_ribbon(data = third_fig, aes(x = date, ymin = Estimate_mean - 1.96 * Est.Error_mean, ymax = Estimate_mean + 1.96 * Est.Error_mean, fill = type, group =type), alpha = .3) +
+  geom_line(data = realData[lubridate::month(realData$date) %in% c(lubridate::month(11:12)),], aes(x = date, y = GPP)) + 
+  geom_line(data = third_fig, aes(x = date, y = Estimate_mean, col = type, group = type)) +
+  theme_classic() 
+
 
 # figure of preds vs. full real time series -------------------------------
 allDat_all <- allDat %>% 
@@ -119,7 +133,7 @@ allDat_all <- allDat %>%
 
 # calculate low, med, and high autocorr
 
-(forecastFig <- ggplot() + 
+( ggplot() + 
     geom_line(data = realData, aes(x = date, y = GPP)) + 
     geom_line(data = allDat_all, aes(x = date, y = Estimate, col = type, group = ID), alpha = .3) +
     theme_classic() + 
