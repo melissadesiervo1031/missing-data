@@ -151,7 +151,7 @@ ricker_EM <- function(y, init_theta, fam = "poisson", tol = 1e-5, max_iter = 50)
 fit_ricker_EM <- function(y, fam = "poisson", ...){
   
   # Check for population extinction
-  if(any(y==0,na.rm=T)){
+  if(sum(y==0,na.rm=T)>1){
     warning("population extinction caused a divide by zero problem, returning NA")
     return(list(
       NA,

@@ -31,7 +31,7 @@ library(R.utils)
 fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2samelia=0, ameliatimeout=60){
   
   # Check for population extinction
-  if(any(y==0,na.rm=T)){
+  if(sum(y==0,na.rm=T)>1){
     warning("population extinction caused a divide by zero problem, returning NA")
     return(list(
       NA,
