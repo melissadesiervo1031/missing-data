@@ -16,25 +16,26 @@ ricDat_temp <- rbind(ricDat_tempA, ricDat_tempB)
 ricDat_temp <- ricDat_temp[ricDat_temp$SimNumber != 176,]
 
 ## for now, remove rows where simulated population went extinct (was 13% of data!)
-badRows <- as.vector(sapply(ricDat_temp$drop_fits, function(x)
-  ifelse(sum(str_detect(names(x), pattern = "cause"))>=1, 
-             yes = "bad", 
-             no = "good")
-))
-ricDat_temp <- ricDat_temp[rownames(ricDat_temp) %in% which(badRows == "good"),]
+# badRows <- as.vector(sapply(ricDat_temp$drop_fits, function(x)
+#   ifelse(sum(str_detect(names(x), pattern = "cause"))>=1, 
+#              yes = "bad", 
+#              no = "good")
+# ))
+# ricDat_temp <- ricDat_temp[rownames(ricDat_temp) %in% which(badRows == "good"),]
 # rename columns 
 ricDat_temp <- ricDat_temp %>% 
   rename(r_sim = r, alpha_sim = alpha, N0_sim = N0)
 # put input autoCor and propMiss data into one column
 ricDat_temp <- ricDat_temp %>% 
   mutate(input_args = paste0("a=", actAutoCorr, "_", "p=", actPropMiss)) %>% 
-  select(-actAutoCorr, -actPropMiss)
+  select(-autoCorr, -propMiss) %>% 
+  rename("autoCorr" = "actAutoCorr", "propMiss" = "actPropMiss")
 
 # extract parameter information from the list columns
 ricDat <- rbind(
 #drop na fits
-cbind(ricDat_temp[,c("SimNumber", "r", "alpha", 
-                     "N0","input_args", "autoCorr", "propMiss")], 
+cbind(ricDat_temp[,c("SimNumber", "r_sim", "alpha_sim", 
+                     "N0_sim","input_args", "autoCorr", "propMiss")], 
   map_df(ricDat_temp$drop_fits, function(x) 
     ##
     if (length(names(x)) < 3) {
@@ -58,8 +59,8 @@ cbind(ricDat_temp[,c("SimNumber", "r", "alpha",
   data.frame("listName" = names(ricDat_temp$drop_fits))
 ),
 #dropNA complete case fits
-cbind(ricDat_temp[,c("SimNumber", "r", "alpha", 
-                     "N0","input_args", "autoCorr", "propMiss")], 
+cbind(ricDat_temp[,c("SimNumber", "r_sim", "alpha_sim", 
+                     "N0_sim","input_args", "autoCorr", "propMiss")], 
       map_df(ricDat_temp$cc_fits, function(x) 
         if (length(names(x)) < 3) {
           data.frame(
@@ -82,8 +83,8 @@ cbind(ricDat_temp[,c("SimNumber", "r", "alpha",
       data.frame("listName" = names(ricDat_temp$drop_fits))
 ),
 #EM fits
-cbind(ricDat_temp[,c("SimNumber", "r", "alpha", 
-                     "N0","input_args", "autoCorr", "propMiss")], 
+cbind(ricDat_temp[,c("SimNumber", "r_sim", "alpha_sim", 
+                     "N0_sim","input_args", "autoCorr", "propMiss")], 
       map_df(ricDat_temp$EM_fits, function(x) 
         if (length(names(x)) < 3) {
           data.frame(
@@ -107,8 +108,8 @@ cbind(ricDat_temp[,c("SimNumber", "r", "alpha",
       
 ),
 #DA fits
-cbind(ricDat_temp[,c("SimNumber", "r", "alpha", 
-                     "N0","input_args", "autoCorr", "propMiss")], 
+cbind(ricDat_temp[,c("SimNumber", "r_sim", "alpha_sim", 
+                     "N0_sim","input_args", "autoCorr", "propMiss")], 
       map_df(ricDat_temp$DA_fits, function(x) 
         if (length(names(x)) < 3) {
           data.frame(
@@ -132,8 +133,8 @@ cbind(ricDat_temp[,c("SimNumber", "r", "alpha",
       
 ),
 #MI fits
-cbind(ricDat_temp[,c("SimNumber", "r", "alpha", 
-                     "N0","input_args", "autoCorr", "propMiss")], 
+cbind(ricDat_temp[,c("SimNumber", "r_sim", "alpha_sim", 
+                     "N0_sim","input_args", "autoCorr", "propMiss")], 
       map_df(ricDat_temp$MI_fits, function(x) 
         if (length(names(x)) < 3) {
           data.frame(
@@ -170,20 +171,20 @@ ricDat$actAutoCorr <- as.numeric(str_split(ricDat$listName, pattern = "_", simpl
                values_to = "paramEst", 
                names_to = "param", 
                names_transform = function(x) str_split(string = x, pattern = "_", simplify = TRUE)[,1]) %>% 
-   select(-r, -alpha, -N0, -r_se, -alpha_se)
+   select(-r_sim, -alpha_sim, -N0_sim, -r_se, -alpha_se)
 paramSimLong <- ricDat %>% 
-  pivot_longer(cols = c(r, alpha), 
+  pivot_longer(cols = c(r_sim, alpha_sim), 
                values_to = "paramSim", 
                names_to = "param", 
                names_transform = function(x) str_split(string = x, pattern = "_", simplify = TRUE)[,1]) %>% 
-  select(-r_est, -alpha_est, -N0, -r_se, -alpha_se)
+  select(-r_est, -alpha_est, -N0_sim, -r_se, -alpha_se)
 
 paramSELong <- ricDat %>% 
   pivot_longer(cols = c(r_se, alpha_se), 
                values_to = "paramSE", 
                names_to = "param", 
                names_transform = function(x) str_split(string = x, pattern = "_", simplify = TRUE)[,1]) %>% 
-  select(-r, -alpha, -N0, -r_est, -alpha_est)
+  select(-r_sim, -alpha_sim, -N0_sim, -r_est, -alpha_est)
 
 ricDat_long <- left_join(paramEstLong, paramSimLong) %>% 
   left_join(paramSELong)
@@ -193,12 +194,14 @@ ricDat_long <- ricDat_long %>%
 mutate("paramDiff" = (paramEst - paramSim)/abs(paramSim))
 
 # filter for low and high autocor
-ricDat_long[ricDat_long$actAutoCorr <=0.3 & !is.na(ricDat_long$actAutoCorr), "missingness"] <- "MAR: Low AC"
-ricDat_long[ricDat_long$actAutoCorr >0.3 & ricDat_long$actAutoCorr <0.6 & !is.na(ricDat_long$actAutoCorr), "missingness"] <- "MAR: Med. AC"
-ricDat_long[ricDat_long$actAutoCorr  >= 0.6 & !is.na(ricDat_long$actAutoCorr), "missingness"] <- "MAR: High AC"
+ricDat_long[ricDat_long$autoCorr <=0.3 & !is.na(ricDat_long$autoCorr), "missingness"] <- "MAR: Low AC"
+ricDat_long[ricDat_long$autoCorr >0.3 & ricDat_long$autoCorr <0.6 & !is.na(ricDat_long$autoCorr), "missingness"] <- "MAR: Med. AC"
+ricDat_long[ricDat_long$autoCorr  >= 0.6 & !is.na(ricDat_long$autoCorr), "missingness"] <- "MAR: High AC"
 
-# save data to file for use later...
-#write_rds(ricDat_long, file = "./data/model_results/ricker_sim_ModelResultsLong.rds")
+# ricDat_long <- ricDat_long %>% 
+#   select(-actAutoCorr)
+# # save data to file for use later...
+# write_rds(ricDat_long, file = "./data/model_results/ricker_sim_ModelResultsLong.rds")
 
 # generate summary statistics for each 
 ricDat_lines <- ricDat_long %>% 
@@ -347,3 +350,11 @@ ricDat_violin <- ricDat_long %>%
 png(file = "./figures/parameterRecovery_sim_Guassian_95CIs.png", width = 9, height = 4, units = "in", res = 700)
 ErrorBarPlots
 dev.off()
+
+
+# Make Figure of Actual Parameter Values ----------------------------------
+
+ggplot(data = ricDat_long) + 
+  facet_wrap(.~param, scales = "free")+
+  geom_density(aes(paramSim, col = param), lty = 2) +
+  geom_density(aes(paramEst, col = param))
