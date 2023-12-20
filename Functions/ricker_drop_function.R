@@ -16,7 +16,7 @@
 fit_ricker_cc <- function(y, fam = "poisson"){
   
   # Check for population extinction
-  if(any(y==0,na.rm=T)){
+  if(sum(y==0,na.rm=T)>1){
     warning("population extinction caused a divide by zero problem, returning NA")
     return(list(
       NA,
