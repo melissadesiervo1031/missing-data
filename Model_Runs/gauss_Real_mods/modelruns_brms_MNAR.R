@@ -14,8 +14,8 @@ pine_river_full <- read_csv('./data/pine_river_data_prepped.csv')
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
-OutFile <- ("gauss_real_MNAR_brms_FORECASTresults.csv")
-OutFile_preds <- ("gauss_real_MNAR_brms_FORECASTpreds.csv")
+OutFile <- ("gauss_real_MNAR_brms_FORECASTresults_normPriorNB.csv")
+OutFile_preds <- ("gauss_real_MNAR_brms_FORECASTpreds_normPriorNB.csv")
 
 #########################################################################################
 ### MY ARIMA FUNCTIONS #####
@@ -39,7 +39,7 @@ fit_brms_model <- function(sim_list, sim_pars,
   
   # Make the model formula and priors
   bform <- brms::bf(GPP | mi() ~ light + discharge + ar(p = 1))
-  bprior <- c(prior(normal(0,1), class = 'ar', lb = 0, ub = 1),
+  bprior <- c(prior(normal(0,1), class = 'ar'),
               prior(normal(0,5), class = 'b'))
   
   # fit model to list of datasets
@@ -76,7 +76,7 @@ fit_brms_model <- function(sim_list, sim_pars,
       rename(discharge = Q)
     
     predictions <- lapply(bmod, function(mod){
-      predict(mod, newdata = dat_forecast[,-2]) %>%
+      predict(mod, newdata = dat_forecast[,-2], n.ahead = forecast_days+1) %>%
         as.data.frame() %>% mutate(date = dat_forecast$date,
                                    GPP = dat_forecast$GPP)
     })
@@ -125,9 +125,10 @@ unique(brms_MNAR_preds$missingprop_autocor)
 namesActual <- data.frame("missingprop_autocor" = as.character(c(1:16)),
                           "actualName" =unique(names(gauss_real_MNAR[[1]]$y)))
 
-brms_MNAR_preds <- left_join(brms_MNAR_preds, namesActual) %>% 
-  select(-missingprop_autocor) %>% 
-  rename(missingprop_autocor = actualName) %>% 
+brms_MNAR_preds <- brms_MNAR_preds %>% 
+  #left_join(brms_MNAR_preds, namesActual) %>% 
+  #select(-missingprop_autocor) %>% 
+  #rename(missingprop_autocor = actualName) %>% 
   select("missingprop_autocor", "Estimate", "Est.Error", "Q2.5", "Q97.5", "date", "GPP", "missingness", "type", "run_no")
   
 ###################################################

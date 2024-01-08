@@ -2,7 +2,7 @@
 #make sure these are already in the folder on supercomputer where I need them ##
 
 # .libPaths("/pfs/tc1/project/modelscape/users/mdesierv")
-setwd('/project/modelscape/users/acarte26/missing-data/')
+setwd('/project/modelscape/users/astears/')
 
 library(tidyverse)
 library(brms)
@@ -19,11 +19,11 @@ CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
 ## read in the autocor_01 list ##
   
 # gauss_sim_randMiss_autoCorr_01 <- readRDS("data/missingDatasets/forBeartooth/gauss_sim_randMiss_A.rds")
-gauss_sim_randMiss_autoCorr_01 <- readRDS("/project/modelscape/users/acarte26/missing-data/data/gauss_sim_randMiss_A.rds")
+gauss_sim_randMiss_autoCorr_01 <- readRDS("/project/modelscape/users/astears/gauss_sim_randMiss_A.rds")
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
-OutFile <- paste0("gauss_sim_MAR_A_brms_results_normPrior/", CurSim, "brmsvals.csv")
+OutFile <- paste0("gauss_sim_MAR_A_brms_results_normPriorNB/", CurSim, "brmsvals.csv")
 
 #########################################################################################
 ### MY ARIMA FUNCTIONS #####
@@ -39,7 +39,7 @@ fit_brms_model <- function(sim_list, sim_pars,
   
   # Make the model formula and priors
   bform <- brms::bf(GPP | mi() ~ light + discharge + ar(p = 1))
-  bprior <- c(prior(normal(0,1), class = 'ar', lb = 0, ub = 1),
+  bprior <- c(prior(normal(0,1), class = 'ar'),
               prior(normal(0,5), class = 'b'))
   
   # fit model to list of datasets
