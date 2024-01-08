@@ -44,6 +44,7 @@ fit_ricker_cc <- function(y, fam = "poisson"){
   
   n <- length(y)
   
+  
   # compile into sliced dataframe
   dat <- data.frame(
     yt = y[2:n],
@@ -53,7 +54,7 @@ fit_ricker_cc <- function(y, fam = "poisson"){
   # drop incomplete cases
   dat_cc <- dat[complete.cases(dat), ]
   
-  if(nrow(dat_cc) < 2){
+  if(nrow(dat_cc) < 5){
     return(list(
       NA,
       reason = "missingness limit"
@@ -119,7 +120,7 @@ fit_ricker_cc <- function(y, fam = "poisson"){
 fit_ricker_drop <- function(y, fam = "poisson"){
   
   # Check for population extinction
-  if(any(y==0,na.rm=T)){
+  if(sum(y==0,na.rm=T)>1){
     warning("population extinction caused a divide by zero problem, returning NA")
     return(list(
       NA,
@@ -145,7 +146,17 @@ fit_ricker_drop <- function(y, fam = "poisson"){
     ))
   }
   
+  
   y <- y[complete.cases(y)]
+  
+  # fail if trimmed time series is too small 
+  if (length(y) <=5) {
+    warning("Time series with NAs dropped is too short! Model can't fit well")
+    return(list(
+      NA,
+      reason = "ts too short"
+    ))
+  }
   
   if(length(y) < 3){
     return(list(

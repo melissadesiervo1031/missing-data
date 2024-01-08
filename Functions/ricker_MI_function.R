@@ -57,6 +57,14 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
     ))
   }
   
+  # check that there actually are missing values 
+  if(any(is.na(y)) == FALSE) {
+    warning("cannot fit a model with Amelia, there are no missing values to impute!")
+    return(list(
+      NA, 
+      reason = "no missing values"
+    ))
+  }
   
   # get length of time series
   n <- length(y)
