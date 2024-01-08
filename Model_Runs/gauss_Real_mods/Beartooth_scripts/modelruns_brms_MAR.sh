@@ -6,7 +6,7 @@
 #SBATCH --account=modelscape
 #SBATCH --output=modelruns_brms_MAR_gaussian_real_ex01_%A.out
 #SBATCH --array=0-9
-#SBATCH --mem=4G           # total memory per node
+#SBATCH --mem=5G           # total memory per node
 
 echo "SLURM_JOB_ID:" $SLURM_JOB_ID
 echo "SLURM_JOB_NAME:" $SLURM_JOB_NAME
@@ -17,5 +17,5 @@ module load gcc/12.2.0 arcc/1.0 r/4.2.2
 
 cd /project/modelscape/users/astears/
 
-Rscript --vanilla modelruns_brms_MAR.R $SLURM_ARRAY_TASK_ID
+Rscript --vanilla gauss_real/modelruns_brms_MAR.R $SLURM_ARRAY_TASK_ID
 
