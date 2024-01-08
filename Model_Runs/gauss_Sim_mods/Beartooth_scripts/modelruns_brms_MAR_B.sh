@@ -4,7 +4,7 @@
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=astears@uwyo.edu
 #SBATCH --account=modelscape
-#SBATCH --output=modelruns_brms_MAR_ex01_%A.out
+#SBATCH --output=modelruns_brms_MAR_B_normPriorNB_ex01_%A.out
 #SBATCH --array=0-4999
 
 echo "SLURM_JOB_ID:" $SLURM_JOB_ID
@@ -14,7 +14,7 @@ echo "SLURM_ARRAY_TASK_ID:" $SLURM_ARRAY_TASK_ID
 
 module load gcc/12.2.0 arcc/1.0 r/4.2.2
 
-cd /project/modelscape/users/acarte26/missing-data
+cd /project/modelscape/users/astears
 
-Rscript --vanilla modelruns_brms_MAR.R $SLURM_ARRAY_TASK_ID
+Rscript --vanilla modelruns_brms_MAR_B.R $SLURM_ARRAY_TASK_ID
 

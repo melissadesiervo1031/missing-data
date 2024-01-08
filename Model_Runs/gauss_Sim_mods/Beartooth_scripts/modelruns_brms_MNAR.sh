@@ -1,10 +1,10 @@
 #!/bin/bash -l
-#SBATCH --job-name modelruns_brms_MNAR
+#SBATCH --job-name modelruns_brms_MNAR_normPriorNB
 #SBATCH --time=12:00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=astears@uwyo.edu
 #SBATCH --account=modelscape
-#SBATCH --output=output/modelruns_brms_MNAR_ex01_%A.out
+#SBATCH --output=output/modelruns_brms_MNAR_normPriorNB_ex01_%A.out
 #SBATCH --array=0-999
 #SBATCH --mem=5G           # total memory per node
 
