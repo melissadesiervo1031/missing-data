@@ -148,7 +148,7 @@ names(params) <- c("SimNumber", "phi_sim", "beta1_sim", "beta2_sim", "beta3_sim"
 
 outData_MNAR_final <- left_join(outData_MNAR, params, by = c("CurSim" = "SimNumber"))
 
-# change curSim to "simNumber" (the same thing)
+# change curSim to "simNumber" (the same thing, in this case)
 outData_MNAR_arima <- outData_MNAR_final %>% 
   rename("simName" = "CurSim") %>%
   mutate("2.5%" = NA, "50%" = NA, "97.5%" = NA) %>% 
@@ -188,10 +188,39 @@ outData_MAR_brms <- outData_MAR_brms %>%
 
 # gauss_sim_MAR_brms models w/ Normal Prior on Phi  -----------------------
 brms_MAR_A_norm <- read.csv("./data/model_results/gauss_sim_MAR_A_brms_results_normPrior.csv")
+brms_MAR_B_norm <- read.csv('./data/model_results/gauss_sim_MAR_B_brms_results_normPrior.csv')
+# add in simulation data
+simDF <- data.frame("run_no" = 1:5000, 
+                    "simName" = rep.int(1:1000, times = 5))
+
 # reformat data to be consistent w/ uniform prior on phi version
 outData_MAR_brms_norm <- brms_MAR_A_norm %>% 
-  rename("2.5%" = "X2.5.", "50%" = "X50.", "97.5%" = "X97.5.", 
-         "simName" = "run_no", "value" = "mean", "param" = "parameter", "SE" = "sd") %>% 
+  rbind(brms_MAR_B_norm) %>% 
+  left_join(simDF) %>% 
+  select(-run_no) %>% 
+  rename("2.5%" = "X2.5.", "50%" = "X50.", "97.5%" = "X97.5.",  "value" = "mean", "param" = "parameter", "SE" = "sd") %>% 
+  select(simName, missingprop_autocor, missingness, type, param, value, SE, "2.5%", "50%", "97.5%") %>% 
+  left_join(params, by = c("simName" = "SimNumber")) %>% #add back in simulation parameters
+  mutate(param = replace(param, param == "b_Intercept", "intercept")) %>% 
+  mutate(param = replace(param, param == "b_light", "light")) %>% 
+  mutate(param = replace(param, param == "b_discharge", "discharge")) %>% 
+  rename("intercept_sim" = "beta1_sim", 
+         "light_sim" = "beta2_sim", 
+         "discharge_sim" = "beta3_sim")
+
+# gauss_sim_MAR_brms models w/ Normal Prior on Phi w/ no boundaries -----------------------
+brms_MAR_A_normNB <- read.csv("./data/model_results/gauss_sim_MAR_A_brms_results_normPriorNB.csv")
+brms_MAR_B_normNB <- read.csv('./data/model_results/gauss_sim_MAR_B_brms_results_normPriorNB.csv')
+# add in simulation data
+simDF <- data.frame("run_no" = 1:5000, 
+                    "simName" = rep.int(1:1000, times = 5))
+
+# reformat data to be consistent w/ uniform prior on phi version
+outData_MAR_brms_normNB <- brms_MAR_A_normNB %>% 
+  rbind(brms_MAR_B_normNB) %>% 
+  left_join(simDF) %>% 
+  select(-run_no) %>% 
+  rename("2.5%" = "X2.5.", "50%" = "X50.", "97.5%" = "X97.5.",  "value" = "mean", "param" = "parameter", "SE" = "sd") %>% 
   select(simName, missingprop_autocor, missingness, type, param, value, SE, "2.5%", "50%", "97.5%") %>% 
   left_join(params, by = c("simName" = "SimNumber")) %>% #add back in simulation parameters
   mutate(param = replace(param, param == "b_Intercept", "intercept")) %>% 
@@ -203,9 +232,9 @@ outData_MAR_brms_norm <- brms_MAR_A_norm %>%
 
 # gauss_sim_MNAR_brms models ----------------------------------------------
 #brms_MNAR <- read_csv("data/model_results/00_combined_gauss_sim_minMaxMiss.csv", show_col_types = FALSE) # 80999 X 10 # 
-brms_MNAR <- read_csv("data/model_results/gauss_sim_MNAR_brms_results_normPrior.csv")
+brms_MNAR_normNB <- read_csv("data/model_results/gauss_sim_MNAR_brms_results_normPriorNB.csv")
 # combine together
-outData_MNAR_brms <- brms_MNAR %>% 
+outData_MNAR_brms <- brms_MNAR_normNB %>% 
   rename("param" = "parameter", "value" = "mean", "SE" = "sd") %>% 
   select("missingprop_autocor", "missingness", "type", "param", "value", "SE", "2.5%", "50%", "97.5%", "run_no") %>% 
   filter( missingness != "missingness") %>%  # remove rows that have column names (??)
@@ -275,12 +304,12 @@ gauss_sim_figDat <- gauss_sim_figDat %>%
 
 saveRDS(gauss_sim_figDat, file = "./data/model_results/gauss_sim_ModelResults.rds")
 
-# save model outputs for Gaussian simulation models w/ brms that use Normal priors ----------------------------
+# save model outputs for Gaussian simulation models w/ brms that use Normal priors w/ no Bounds----------------------------
 
 ## combine all of the model results for gaussian simulated data
 outData_gauss_sim_normPrior <- rbind(outData_MAR_arima, 
                                      outData_MNAR_arima, 
-                                     outData_MAR_brms_norm, outData_MNAR_brms)
+                                     outData_MAR_brms_normNB, outData_MNAR_brms)
 
 ## clean up, and calculate simulation data
 outData_gauss_sim_normPrior <- unique(outData_gauss_sim_normPrior)
