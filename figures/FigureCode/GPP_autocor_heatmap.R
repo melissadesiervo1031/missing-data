@@ -99,7 +99,7 @@ figDat <- gauss_sim_figDat %>%
           axis.text.y = element_blank(),
           axis.ticks.y = element_blank(),
           axis.title.y = element_blank()) +
-    ggtitle("Mean of standardized parameter estimates")) 
+    ggtitle("Median of standardized parameter estimates")) 
 
 ## make heatmap for SD of parameter recovery
 (heatMap_SD_MNAR <-ggplot(data = figDat, aes(x=amtMiss, y=autoCor)) + 
