@@ -192,11 +192,13 @@ dev.off()
 
 # select and prepare dataset for using in manuscript
 sites
-site_id = sites$site_name[]
+# We're using 2012-2014 in Au Sable River (2) and  2014-2016 Badger Mill Creek (4)
+site_id = sites$site_name[2]
 ss <- filter(dat, site_name == site_id) %>%
   select(-Q) %>%
   arrange(date)
-dates <- data.frame(date = seq(ss$date[1], ss$date[nrow(ss)], by = 'day'))
+dates <- data.frame(date = seq(as.Date('2012-01-01'), as.Date('2014-12-31'), 
+                               by = 'day'))
 ss <- left_join(dates, ss, by = 'date') %>%
   mutate(site_name = ss$site_name[1],
          long_name = ss$long_name[1], 
@@ -214,5 +216,36 @@ q <- dataRetrieval::readNWISdata(sites = substr(site_id, 6, nchar(site_id)),
 
 ss <- left_join(ss, select(q, date, Q), by = 'date') %>%
   mutate(Q = log(Q),
+         GPP = log(GPP),
          light = zoo::na.approx(light))
 
+write_csv(ss, 'data/au_sable_river_prepped.csv')
+
+
+site_id = sites$site_name[4]
+ss <- filter(dat, site_name == site_id) %>%
+  select(-Q) %>%
+  arrange(date)
+dates <- data.frame(date = seq(as.Date('2013-01-01'), as.Date('2015-12-30'), 
+                               by = 'day'))
+ss <- left_join(dates, ss, by = 'date') %>%
+  mutate(site_name = ss$site_name[1],
+         long_name = ss$long_name[1], 
+         Year = year(date),
+         DOY = format(date, '%j'))
+
+q <- dataRetrieval::readNWISdata(sites = substr(site_id, 6, nchar(site_id)),
+                                 parameterCd = "00060",
+                                 service = "dv",
+                                 startDate = ss$date[1], 
+                                 endDate = ss$date[nrow(ss)]) %>%
+  select(date = dateTime,
+         discharge_cfs = X_00060_00003) %>%
+  mutate(Q = discharge_cfs / (3.28084)^3 ) # convert discharge to cms
+
+ss <- left_join(ss, select(q, date, Q), by = 'date') %>%
+  mutate(Q = log(Q),
+         GPP = log(GPP),
+         light = zoo::na.approx(light))
+
+write_csv(ss, 'data/badger_mill_creek_prepped.csv')

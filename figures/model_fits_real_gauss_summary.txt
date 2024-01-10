@@ -23,6 +23,8 @@ sigma     1.65      0.03     1.59     1.71 1.00    15950     6416
 Draws were sampled using sampling(NUTS). For each parameter, Bulk_ESS
 and Tail_ESS are effective sample size measures, and Rhat is the potential
 scale reduction factor on split chains (at convergence, Rhat = 1).
+
+
 AU SABLE RIVER NEAR AU SABLE, MI
  Family: gaussian 
   Links: mu = identity; sigma = identity 
@@ -48,6 +50,8 @@ sigma     1.04      0.02     1.01     1.08 1.00    15821     5546
 Draws were sampled using sampling(NUTS). For each parameter, Bulk_ESS
 and Tail_ESS are effective sample size measures, and Rhat is the potential
 scale reduction factor on split chains (at convergence, Rhat = 1).
+
+
 OSWEGO RIVER AT LOCK 7, OSWEGO NY
  Family: gaussian 
   Links: mu = identity; sigma = identity 
@@ -73,6 +77,8 @@ sigma     4.77      0.09     4.59     4.95 1.00     7370     5918
 Draws were sampled using sampling(NUTS). For each parameter, Bulk_ESS
 and Tail_ESS are effective sample size measures, and Rhat is the potential
 scale reduction factor on split chains (at convergence, Rhat = 1).
+
+
 BADGER MILL CREEK AT VERONA, WI
  Family: gaussian 
   Links: mu = identity; sigma = identity 
@@ -98,6 +104,8 @@ sigma     1.31      0.02     1.27     1.34 1.00     9477     5773
 Draws were sampled using sampling(NUTS). For each parameter, Bulk_ESS
 and Tail_ESS are effective sample size measures, and Rhat is the potential
 scale reduction factor on split chains (at convergence, Rhat = 1).
+
+
 Medina Rv nr Macdona, TX
  Family: gaussian 
   Links: mu = identity; sigma = identity 
