@@ -8,7 +8,7 @@ sites <- dat %>% group_by(site_name, Year) %>%
   filter(n > 330) %>%
   select(site_name) 
 
-dat %>% filter(site_name %in% sites$site_name) %>%
+dat %>% filter(site_name %in% sites$site) %>%
   group_by(site_name, Year) %>%
   summarize(n = sum(!is.na(GPP))/365) %>%
   mutate(above90 = case_when(n>=0.9 ~ 1,
@@ -45,5 +45,17 @@ dat_sub <- dat %>% filter(site_name %in% sites) %>%
   filter(!site_year %in% c('nwis_08180700_2013', 'nwis_02169000_2016', 
                            'nwis_04137500_2016', 'nwis_08211200_2016')) 
   
+dd <- dat %>% 
+  mutate(site_year = paste(site_name, Year, sep = '_')) %>%
+  filter(site_year %in% dat_sub$site_year)
+  
+# edit dataframe to have relevant covariates:
+glimpse(dd)
+dd <- dd %>%
+  group_by(site_name) %>%
+  mutate(light = Stream_PAR / max(Stream_PAR, na.rm = T)) %>%
+  select(site_name, long_name, date, Year, DOY, 
+         GPP = GPP_filled, ER = ER_filled,
+         light, Q = discharge) 
 
-write_csv(dat_sub, 'data/NWIS_MissingTS_subset_new.csv')
+write_csv(dd, 'data/NWIS_MissingTS_subset_new.csv')
