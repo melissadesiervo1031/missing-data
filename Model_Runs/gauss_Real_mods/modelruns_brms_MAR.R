@@ -17,9 +17,9 @@ CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
 
 ## read in the autocor_01 list ##
   
-#gauss_real_randMiss <- readRDS("data/missingDatasets/gauss_real_randMiss.rds")
+# gauss_real_randMiss <- readRDS("data/missingDatasets/gauss_real_randMiss.rds")
 gauss_real_randMiss <- readRDS("/project/modelscape/users/astears/gauss_real_randMiss.rds")
-pine_river_full <- read_csv('/project/modelscape/users/astears/pine_river_data_prepped.csv')
+au_sable_full <- read_csv('/project/modelscape/users/astears/au_sable_river_prepped.csv')
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
@@ -32,7 +32,7 @@ OutFile_preds <- paste0("gauss_real/gauss_real_MAR_brms_modelResults_normPriorNB
 ### Function to fit a BRMS model on a time series ###
 fit_brms_model <- function(sim_list, sim_pars, 
                            iter = 4000, include_missing = FALSE,
-                           forecast = TRUE, forecast_days = 31,
+                           forecast = TRUE, forecast_days = 365,
                            dat_full ){
   simmissingdf <-lapply(X = sim_list, 
                         FUN = function(X) cbind.data.frame(GPP = X, 
@@ -41,7 +41,7 @@ fit_brms_model <- function(sim_list, sim_pars,
   
   if(forecast){
     simmissingdf <- lapply(simmissingdf, function(df) {
-      df[1:(366-forecast_days), ]  # Remove to save these for forecasting
+      df[1:(nrow(df)-forecast_days), ]  # Remove to save these for forecasting
     })
   }
   
@@ -107,8 +107,8 @@ fit_brms_model <- function(sim_list, sim_pars,
 
 brms_MAR <- fit_brms_model(sim_list = gauss_real_randMiss[[CurSim]]$y,
                            sim_pars = gauss_real_randMiss[[CurSim]]$sim_params,
-                           forecast = TRUE, forecast_days = 31, 
-                           dat_full = pine_river_full)
+                           forecast = TRUE, forecast_days = 365, 
+                           dat_full = au_sable_full)
 
 
 ########### formatting for figure #############
