@@ -2,19 +2,22 @@
 # Author: AM Carter
 
 library(tidyverse)
+library(knitr)
 library(rstan)
+library(brms)
 options(mc.cores = parallel::detectCores())
 
-dat <- read_csv('data/NWIS_MissingTS_subset.csv')
-mdat <- read_csv('data/NWIS_MissingTSinfo_subset.csv')
+dat <- read_csv('data/NWIS_MissingTS_subset_new.csv')
+# mdat <- read_csv('data/NWIS_MissingTSinfo_subset.csv')
 
-plot_gpp <- function(df, pp_fit = FALSE){
+# functions
+plot_gpp <- function(df, forecast = NA, pp_fit = FALSE){
     ratio_QL <- max(df$light)/max(df$Q)
     GPP_plot <- ggplot(df, aes(date, GPP))+
       #geom_errorbar(aes(ymin = GPP.lower, ymax = GPP.upper), width=0.2,color="chartreuse4")+
-      geom_point(size = 2, color="chartreuse4") + 
-      geom_line(size = 1, color="chartreuse4")+
-      labs(y=expression('GPP (g '*~O[2]~ m^-2~d^-1*')'), title=df$site_name[1])+
+      geom_point(size = 1, color="chartreuse4") + 
+      geom_line(size = 0.8, color="chartreuse4")+
+      labs(y=expression('GPP (g '*~O[2]~ m^-2~d^-1*')'), title=df$long_name[1])+
       theme(legend.position = "none",
             panel.background = element_rect(color = "black", fill=NA, size=1),
             axis.title.x = element_blank(), axis.text.x = element_blank(),
@@ -22,18 +25,22 @@ plot_gpp <- function(df, pp_fit = FALSE){
             axis.title.y = element_text(size=12))
     if(pp_fit){
         GPP_plot <- df %>%
-          rename('posterior estimate' = GPP_rep)%>%
-          pivot_longer(cols = c('GPP', 'posterior estimate'), 
+          left_join(dplyr::select(forecast, date, post_est = Estimate,
+                           post_err = Est.Error), by = 'date')%>%
+          mutate(GPP.lower = post_est - post_err,
+                 GPP.upper = post_est + post_err) %>%
+          pivot_longer(cols = c('GPP', 'post_est'), 
                        names_to = 'GPP', values_to = 'value') %>%
           ggplot(aes(date, value, col = GPP))+
-          geom_errorbar(aes(ymin = GPP_rep.lower, ymax = GPP_rep.upper), 
+          geom_errorbar(aes(ymin = GPP.lower, 
+                            ymax = GPP.upper), 
                         width=0.2,color="grey")+
-          geom_point(size=2) + geom_line(size=1)+
+          geom_point(size=1) + geom_line(size=0.8)+
           scale_color_manual(values = c('chartreuse4', 'grey35'))+
-          labs(y=expression('GPP (g '*~O[2]~ m^-2~d^-1*')'), title=df$site_name[1])+
+          labs(y=expression('GPP (g '*~O[2]~ m^-2~d^-1*')'), title=df$long_name[1])+
           theme(legend.position = 'top', legend.title = element_blank(),
                 panel.background = element_rect(color = "black", fill=NA, size=1),
-                axis.title.x = element_blank(), axis.text.x = element_blank(),
+            axis.title.x = element_blank(), axis.text.x = element_blank(),
                 axis.text.y = element_text(size=12),
                 axis.title.y = element_text(size=12))
     }
@@ -51,98 +58,161 @@ plot_gpp <- function(df, pp_fit = FALSE){
             strip.background = element_rect(fill="white", color="black"),
             strip.text = element_text(size=15))
     
-    pp <- ggpubr::ggarrange(GPP_plot, data_plot, ncol = 1, align = 'v')
+    pp <- ggpubr::ggarrange(GPP_plot, data_plot, ncol = 1, align = 'v', 
+                            heights = c(1, 0.5))
     
     return(pp)
     
 }
 
-# start with pine river
+fit_brms_model <- function(df, iter = 4000,
+                           forecast = TRUE, forecast_days = 365){
 
-id <- mdat$site_name[4]
-pr <- filter(dat, site_name == id)
-
-# calculate observation error based on 95% CIs
-
-sigma_obs <- (pr$GPP.upper - pr$GPP.lower)/3.92
-pr <- pr %>%
-  select(date, GPP, light, Q) %>%
-  mutate(across(-date, ~zoo::na.approx(.)))%>%
-  mutate(light.rel = light/max(light))
-
-
-pr %>% mutate(site_name = 'Pine River') %>% plot_gpp()
-
-#Prep models ####
-# model file: "model types/fixed_oi_light_centered.stan"
-model_l <- stan_model("GPP sim and real/Stan_code/AR1_light_centered.stan")
-model_lq <- stan_model("GPP sim and real/Stan_code/AR1_light_Q_centered.stan")
-
-#Create data object
-data <- list(N = nrow(pr), P_obs = pr$GPP,
-             sdo = sigma_obs, light = pr$light.rel)
-
-#Run Stan
-fit_l <- rstan::sampling(object=model_l, data = data,  
-                       iter = 4000, chains = 4)
-
-#Create data object
-data <- list(N = nrow(pr), P_obs = pr$GPP,
-             sdo = sigma_obs, light = pr$light.rel, Q = pr$Q,
-             miss_vec = rep(1, nrow(pr)))
-
-#Run Stan
-fit_lq <- rstan::sampling(object=model_lq, data = data,  
-                       iter = 4000, chains = 4)
-
-##beta 1: 1.18, beta 2: 2.93, beta 3:-1.27, phi: 0.63, sdp = 1.18 ####
-
-fit_l# examine model outputs
-traceplot(fit_l, pars=c("phi", "sdp", "beta"))
-pairs(fit_l, pars=c("phi", "sdp","beta","lp__"))
-stan_dens(fit_l, pars=c("phi", "sdp", "beta"))
-
-traceplot(fit_lq, pars=c("phi", "sdp", "beta"))
-pairs(fit_lq, pars=c("phi", "sdp","beta","lp__"))
-plot(fit_lq, pars=c("phi", "sdp", "beta"))
-
-
-# look at posterior predictions:
-get_pp <- function(fit){
-    fit_extract <- rstan::extract(fit)
-    pp <- t(apply(fit_extract$GPP_rep, 2, 
-            function(x) quantile(x, probs = c(0.025, 0.5, 0.975), names = F))) %>%
-      data.frame() 
-    names(pp) <- c('GPP_rep.lower', 'GPP_rep', 'GPP_rep.upper')
+  if(forecast){
+    df_sub <- df[1:(nrow(df)-forecast_days), ]  # Remove to save these for forecasting
+  }
+  
+  # Make the model formula and priors
+  bform <- brms::bf(GPP | mi() ~ light + Q + ar(p = 1))
+  bprior <- c(prior(normal(0,1), class = 'ar'),
+              prior(normal(0,5), class = 'b'))
+  
+  # fit model to list of datasets
+  bmod <- brms::brm(bform, data = df_sub, 
+                    prior = bprior, iter = iter)
+  
+  extract_brms_pars <- function(bfit){
+    bsum <- brms::posterior_summary(bfit, probs = c(0.025, 0.5, 0.975))
+    bsum <- as.data.frame(bsum) %>%
+      mutate(parameter = row.names(bsum)) %>%
+      filter(!(parameter %in% c('lprior', 'lp__'))) %>%
+      mutate(parameter = case_when(parameter == 'ar[1]' ~ 'phi',
+                                   TRUE ~ parameter)) %>%
+      select(parameter, mean = Estimate, sd = Est.Error, 
+             '2.5%' = Q2.5, '50%' = Q50, '97.5%' = Q97.5)
     
-    return(pp)
+    row.names(bsum) <- NULL
+    bsum <- bsum[grep('^Ymi', bsum$parameter, invert = TRUE),]
     
+    return(bsum)
+  }
+  
+  bpars <- extract_brms_pars(bmod)
+  
+  if(forecast){  
+    # dat_forecast <- df %>%
+    #   slice((nrow(df)-forecast_days):nrow(df)) %>%
+    #   select(date, GPP, light, Q)
+    
+    predictions <- predict(bmod, newdata = df[,-2]) %>%
+        as.data.frame() %>% mutate(date = df$date,
+                                   GPP = df$GPP)
+    
+    return(list(brms_fit = bmod, 
+                brms_forecast = predictions,
+                brms_pars = bpars))
+  }
+  
+  return(list(brms_fit = bmod,
+              brms_forecast = predictions,
+              brms_pars = bpars))
+  
 }
 
-pr_l <- bind_cols(pr, get_pp(fit_l))
-plot_gpp(pr_l, pp_fit = TRUE)
+# site list:
+sites <- dat %>% select(site_name, long_name) %>%
+  unique()
 
-pr_q <- bind_cols(pr, get_pp(fit_lq))
-plot_gpp(pr_q, pp_fit = TRUE)
+# Fit site and plot 
+fit_site <- function(site_id){
+  ss <- filter(dat, site_name == site_id) %>%
+    select(-Q) %>%
+    arrange(date)
+  dates <- data.frame(date = seq(ss$date[1], ss$date[nrow(ss)], by = 'day'))
+  ss <- left_join(dates, ss, by = 'date') %>%
+    mutate(site_name = ss$site_name[1],
+           long_name = ss$long_name[1], 
+           Year = year(date),
+           DOY = format(date, '%j'))
+  
+  q <- dataRetrieval::readNWISdata(sites = substr(site_id, 6, nchar(site_id)),
+                                   parameterCd = "00060",
+                                   service = "dv",
+                                   startDate = ss$date[1], 
+                                   endDate = ss$date[nrow(ss)]) %>%
+    select(date = dateTime,
+           discharge_cfs = X_00060_00003) %>%
+    mutate(Q = discharge_cfs / (3.28084)^3 ) # convert discharge to cms
+  
+  ss <- left_join(ss, select(q, date, Q), by = 'date') %>%
+    mutate(Q = log(Q),
+           light = zoo::na.approx(light))
+  
+  fit <- fit_brms_model(ss, forecast_days = 365)
+  
+  # p <- plot_gpp(ss, forecast = fit$brms_forecast, pp_fit = TRUE)
+  # print(p)
+  
+  return(list(fit = fit,
+              dat = ss))
+  
+}
 
 
-### fit models Arima R ### compare results ## (MD 3/10/23)
+# individual site fits:
 
-library(forecast)
-library(xts)
-library(nlme)
-library(tidyverse)
+pdf('figures/model_fits_to_real_gauss_datasets.pdf')
+mod_list <- vector("list", nrow(sites))
 
 
-head(pr)
+for(i in 1:nrow(sites)){
+ 
+  fit <- fit_site(sites$site_name[i])
+  
+  p <- plot_gpp(fit$dat, forecast = fit$fit$brms_forecast, pp_fit = TRUE)
+  print(p)
 
-X = matrix(c(pr$light.rel, pr$Q), ncol = 2)
+  
+  file_path <- "figures/model_fits_real_gauss_summary.txt"
+  con <- file(file_path, "a")  # "a" stands for append mode
+  
+  # Write (append) the text to the file
+  model_summary <- capture.output(summary(fit$fit$brms_fit))  # Capture the summary output
+  writeLines(sites$long_name[i], con)
+  writeLines(model_summary, con)
+  
+  # Close the file connection
+  close(con)
+  mod_list[[i]] <- fit
+  
 
-fit <- Arima(xts(pr$GPP, order.by = pr$date), order = c(1,0,0), xreg = X)
-
-##works, but not fitting exactly like our stan model...I need to work on this more / ask for help### 
-
-##ar = 0.7139, x1 (light)= 5.27, x2 (Q)=-1.65 ## ##theres an intercept..#
+}
+dev.off()
 
 
+# select and prepare dataset for using in manuscript
+sites
+site_id = sites$site_name[]
+ss <- filter(dat, site_name == site_id) %>%
+  select(-Q) %>%
+  arrange(date)
+dates <- data.frame(date = seq(ss$date[1], ss$date[nrow(ss)], by = 'day'))
+ss <- left_join(dates, ss, by = 'date') %>%
+  mutate(site_name = ss$site_name[1],
+         long_name = ss$long_name[1], 
+         Year = year(date),
+         DOY = format(date, '%j'))
+
+q <- dataRetrieval::readNWISdata(sites = substr(site_id, 6, nchar(site_id)),
+                                 parameterCd = "00060",
+                                 service = "dv",
+                                 startDate = ss$date[1], 
+                                 endDate = ss$date[nrow(ss)]) %>%
+  select(date = dateTime,
+         discharge_cfs = X_00060_00003) %>%
+  mutate(Q = discharge_cfs / (3.28084)^3 ) # convert discharge to cms
+
+ss <- left_join(ss, select(q, date, Q), by = 'date') %>%
+  mutate(Q = log(Q),
+         light = zoo::na.approx(light))
 
