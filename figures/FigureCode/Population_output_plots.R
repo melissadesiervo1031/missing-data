@@ -203,183 +203,187 @@ ricDat_long[ricDat_long$autoCorr  >= 0.6 & !is.na(ricDat_long$autoCorr), "missin
 # # save data to file for use later...
 # write_rds(ricDat_long, file = "./data/model_results/ricker_sim_ModelResultsLong.rds")
 
-# add in extinct ts data --------------------------------------------------
-ricDat_ext <- readRDS("./data/model_results/RickerExtinct_resultTableAll.rds")
-ricDat_ext <- ricDat_ext %>% 
-  rename(r_sim = r, alpha_sim = alpha, N0_sim = N0)
-# put input autoCor and propMiss data into one column
-ricDat_ext <- ricDat_ext %>% 
-  mutate(input_args = paste0("a=", actAutoCorr, "_", "p=", actPropMiss))
-
-# extract parameter information from the list columns
-ricDat_extinctAll <- rbind(
-  #drop na fits
-  cbind(ricDat_ext[,c("simNumber", "r_sim", "alpha_sim", 
-                       "N0_sim","input_args", "actAutoCorr", "actPropMiss")], 
-        map_df(ricDat_ext$drop_fits, function(x) 
-          ##
-          if (length(names(x)) < 3) {
-            data.frame(
-              "type" = "dropNA",
-              "r_est" =NA, 
-              "alpha_est" = NA,
-              "r_se" = NA,
-              "alpha_se" = NA,
-              "status" = "missingnessLimitReached")
-          } else {
-            data.frame(
-              "type" = "dropNA",
-              "r_est" = x$estim["r"], 
-              "alpha_est" = x$estim["alpha"],
-              "r_se" = x$se["r"],
-              "alpha_se" = x$se["alpha"],
-              "status" = "good")
-          }
-        ),
-        data.frame("listName" = names(ricDat_ext$drop_fits))
-  ),
-  #dropNA complete case fits
-  cbind(ricDat_ext[,c("simNumber", "r_sim", "alpha_sim", 
-                       "N0_sim","input_args", "actAutoCorr", "actPropMiss")], 
-        map_df(ricDat_ext$cc_fits, function(x) 
-          if (length(names(x)) < 3) {
-            data.frame(
-              "type" = NA,
-              "r_est" =NA, 
-              "alpha_est" = NA,
-              "r_se" = NA,
-              "alpha_se" = NA,
-              "status" = "missingnessLimitReached")
-          } else {
-            data.frame(
-              "type" = "CompleteCaseDropNA",
-              "r_est" = x$estim["r"], 
-              "alpha_est" = x$estim["alpha"],
-              "r_se" = x$se["r"],
-              "alpha_se" = x$se["alpha"],
-              "status" = "good")
-          }
-        ),
-        data.frame("listName" = names(ricDat_ext$drop_fits))
-  ),
-  #EM fits
-  cbind(ricDat_ext[,c("simNumber", "r_sim", "alpha_sim", 
-                       "N0_sim","input_args", "actAutoCorr", "actPropMiss")], 
-        map_df(ricDat_ext$EM_fits, function(x) 
-          if (length(names(x)) < 3) {
-            data.frame(
-              "type" = NA,
-              "r_est" =NA, 
-              "alpha_est" = NA,
-              "r_se" = NA,
-              "alpha_se" = NA,
-              "status" = "missingnessLimitReached")
-          } else {
-            data.frame(
-              "type" = "ExpectationMaximization",
-              "r_est" = x$estim["r"], 
-              "alpha_est" = x$estim["alpha"],
-              "r_se" = x$se["r"],
-              "alpha_se" = x$se["alpha"],
-              "status" = "good")
-          }
-        ),
-        data.frame("listName" = names(ricDat_ext$drop_fits))
-        
-  ),
-  #DA fits
-  # cbind(ricDat_ext[,c("simNumber", "r_sim", "alpha_sim", 
-  #                      "N0_sim","input_args", "actAutoCorr", "actPropMiss")], 
-  #       map_df(ricDat_ext$DA_fits, function(x) 
-  #         if (length(names(x)) < 3) {
-  #           data.frame(
-  #             "type" = NA,
-  #             "r_est" =NA, 
-  #             "alpha_est" = NA,
-  #             "r_se" = NA,
-  #             "alpha_se" = NA,
-  #             "status" = "missingnessLimitReached")
-  #         } else {
-  #           data.frame(
-  #             "type" = "DataAugmentation",
-  #             "r_est" = x$estim["r"], 
-  #             "alpha_est" = x$estim["alpha"],
-  #             "r_se" = x$se["r"],
-  #             "alpha_se" = x$se["alpha"],
-  #             "status" = "good")
-  #         }
-  #       ),
-  #       data.frame("listName" = names(ricDat_ext$drop_fits))
-  #       
-  # ),
-  #MI fits
-  cbind(ricDat_ext[,c("simNumber", "r_sim", "alpha_sim", 
-                       "N0_sim","input_args", "actAutoCorr", "actPropMiss")], 
-        map_df(ricDat_ext$MI_fits, function(x) 
-          if (length(names(x)) < 3) {
-            data.frame(
-              "type" = NA,
-              "r_est" =NA, 
-              "alpha_est" = NA,
-              "r_se" = NA,
-              "alpha_se" = NA,
-              "status" = "missingnessLimitReached")
-          } else {
-            data.frame(
-              "type" = "MultipleImputations",
-              "r_est" = x$estim["r"], 
-              "alpha_est" = x$estim["alpha"],
-              "r_se" = x$se["r"],
-              "alpha_se" = x$se["alpha"],
-              "status" = "good")
-          }
-        ),
-        data.frame("listName" = names(ricDat_ext$drop_fits))
-        
-  )
-)
-
-# remove NAs (from missingness Limit Reached issue)
-ricDat_extinctAll <- ricDat_extinctAll[ricDat_extinctAll$status != "missingnessLimitReached",]
-
-#make into long data.frame 
-paramEstLong_ext <- ricDat_extinctAll %>% 
-  #select(SimNumber, r_sim, actAutoCorr, actPropMiss, type, r_est, r_se, status, r_paramDiff) %>% 
-  pivot_longer(cols = c(r_est, alpha_est), 
-               values_to = "paramEst", 
-               names_to = "param", 
-               names_transform = function(x) str_split(string = x, pattern = "_", simplify = TRUE)[,1]) %>% 
-  select(-r_sim, -alpha_sim, -N0_sim, -r_se, -alpha_se)
-paramSimLong_ext <- ricDat_extinctAll %>% 
-  pivot_longer(cols = c(r_sim, alpha_sim), 
-               values_to = "paramSim", 
-               names_to = "param", 
-               names_transform = function(x) str_split(string = x, pattern = "_", simplify = TRUE)[,1]) %>% 
-  select(-r_est, -alpha_est, -N0_sim, -r_se, -alpha_se)
-
-paramSELong_ext <- ricDat_extinctAll %>% 
-  pivot_longer(cols = c(r_se, alpha_se), 
-               values_to = "paramSE", 
-               names_to = "param", 
-               names_transform = function(x) str_split(string = x, pattern = "_", simplify = TRUE)[,1]) %>% 
-  select(-r_sim, -alpha_sim, -N0_sim, -r_est, -alpha_est)
-
-ricDat_extinctAll_long <- left_join(paramEstLong_ext, paramSimLong_ext) %>% 
-  left_join(paramSELong_ext)
-
-#calculate standardized parameter estimates
-ricDat_extinctAll_long <- ricDat_extinctAll_long %>%
-  mutate("paramDiff" = (paramEst - paramSim)/abs(paramSim))
-
-# filter for low and high autocor
-ricDat_extinctAll_long[ricDat_extinctAll_long$actAutoCorr <=0.3 & !is.na(ricDat_extinctAll_long$actAutoCorr), "missingness"] <- "MAR: Low AC"
-ricDat_extinctAll_long[ricDat_extinctAll_long$actAutoCorr >0.3 & ricDat_extinctAll_long$actAutoCorr <0.6 & !is.na(ricDat_extinctAll_long$actAutoCorr), "missingness"] <- "MAR: Med. AC"
-ricDat_extinctAll_long[ricDat_extinctAll_long$actAutoCorr  >= 0.6 & !is.na(ricDat_extinctAll_long$actAutoCorr), "missingness"] <- "MAR: High AC"
+# # add in extinct ts data --------------------------------------------------
+# ricDat_ext <- readRDS("./data/model_results/RickerExtinct_resultTableAll.rds")
+# ricDat_ext <- ricDat_ext %>% 
+#   rename(r_sim = r, alpha_sim = alpha, N0_sim = N0)
+# # put input autoCor and propMiss data into one column
+# ricDat_ext <- ricDat_ext %>% 
+#   mutate(input_args = paste0("a=", actAutoCorr, "_", "p=", actPropMiss))
+# 
+# # extract parameter information from the list columns
+# ricDat_extinctAll <- rbind(
+#   #drop na fits
+#   cbind(ricDat_ext[,c("simNumber", "r_sim", "alpha_sim", 
+#                        "N0_sim","input_args", "actAutoCorr", "actPropMiss")], 
+#         map_df(ricDat_ext$drop_fits, function(x) 
+#           ##
+#           if (length(names(x)) < 3) {
+#             data.frame(
+#               "type" = "dropNA",
+#               "r_est" =NA, 
+#               "alpha_est" = NA,
+#               "r_se" = NA,
+#               "alpha_se" = NA,
+#               "status" = "missingnessLimitReached")
+#           } else {
+#             data.frame(
+#               "type" = "dropNA",
+#               "r_est" = x$estim["r"], 
+#               "alpha_est" = x$estim["alpha"],
+#               "r_se" = x$se["r"],
+#               "alpha_se" = x$se["alpha"],
+#               "status" = "good")
+#           }
+#         ),
+#         data.frame("listName" = names(ricDat_ext$drop_fits))
+#   ),
+#   #dropNA complete case fits
+#   cbind(ricDat_ext[,c("simNumber", "r_sim", "alpha_sim", 
+#                        "N0_sim","input_args", "actAutoCorr", "actPropMiss")], 
+#         map_df(ricDat_ext$cc_fits, function(x) 
+#           if (length(names(x)) < 3) {
+#             data.frame(
+#               "type" = NA,
+#               "r_est" =NA, 
+#               "alpha_est" = NA,
+#               "r_se" = NA,
+#               "alpha_se" = NA,
+#               "status" = "missingnessLimitReached")
+#           } else {
+#             data.frame(
+#               "type" = "CompleteCaseDropNA",
+#               "r_est" = x$estim["r"], 
+#               "alpha_est" = x$estim["alpha"],
+#               "r_se" = x$se["r"],
+#               "alpha_se" = x$se["alpha"],
+#               "status" = "good")
+#           }
+#         ),
+#         data.frame("listName" = names(ricDat_ext$drop_fits))
+#   ),
+#   #EM fits
+#   cbind(ricDat_ext[,c("simNumber", "r_sim", "alpha_sim", 
+#                        "N0_sim","input_args", "actAutoCorr", "actPropMiss")], 
+#         map_df(ricDat_ext$EM_fits, function(x) 
+#           if (length(names(x)) < 3) {
+#             data.frame(
+#               "type" = NA,
+#               "r_est" =NA, 
+#               "alpha_est" = NA,
+#               "r_se" = NA,
+#               "alpha_se" = NA,
+#               "status" = "missingnessLimitReached")
+#           } else {
+#             data.frame(
+#               "type" = "ExpectationMaximization",
+#               "r_est" = x$estim["r"], 
+#               "alpha_est" = x$estim["alpha"],
+#               "r_se" = x$se["r"],
+#               "alpha_se" = x$se["alpha"],
+#               "status" = "good")
+#           }
+#         ),
+#         data.frame("listName" = names(ricDat_ext$drop_fits))
+#         
+#   ),
+#   #DA fits
+#   # cbind(ricDat_ext[,c("simNumber", "r_sim", "alpha_sim", 
+#   #                      "N0_sim","input_args", "actAutoCorr", "actPropMiss")], 
+#   #       map_df(ricDat_ext$DA_fits, function(x) 
+#   #         if (length(names(x)) < 3) {
+#   #           data.frame(
+#   #             "type" = NA,
+#   #             "r_est" =NA, 
+#   #             "alpha_est" = NA,
+#   #             "r_se" = NA,
+#   #             "alpha_se" = NA,
+#   #             "status" = "missingnessLimitReached")
+#   #         } else {
+#   #           data.frame(
+#   #             "type" = "DataAugmentation",
+#   #             "r_est" = x$estim["r"], 
+#   #             "alpha_est" = x$estim["alpha"],
+#   #             "r_se" = x$se["r"],
+#   #             "alpha_se" = x$se["alpha"],
+#   #             "status" = "good")
+#   #         }
+#   #       ),
+#   #       data.frame("listName" = names(ricDat_ext$drop_fits))
+#   #       
+#   # ),
+#   #MI fits
+#   cbind(ricDat_ext[,c("simNumber", "r_sim", "alpha_sim", 
+#                        "N0_sim","input_args", "actAutoCorr", "actPropMiss")], 
+#         map_df(ricDat_ext$MI_fits, function(x) 
+#           if (length(names(x)) < 3) {
+#             data.frame(
+#               "type" = NA,
+#               "r_est" =NA, 
+#               "alpha_est" = NA,
+#               "r_se" = NA,
+#               "alpha_se" = NA,
+#               "status" = "missingnessLimitReached")
+#           } else {
+#             data.frame(
+#               "type" = "MultipleImputations",
+#               "r_est" = x$estim["r"], 
+#               "alpha_est" = x$estim["alpha"],
+#               "r_se" = x$se["r"],
+#               "alpha_se" = x$se["alpha"],
+#               "status" = "good")
+#           }
+#         ),
+#         data.frame("listName" = names(ricDat_ext$drop_fits))
+#         
+#   )
+# )
+# 
+# # remove NAs (from missingness Limit Reached issue)
+# ricDat_extinctAll <- ricDat_extinctAll[ricDat_extinctAll$status != "missingnessLimitReached",]
+# 
+# #make into long data.frame 
+# paramEstLong_ext <- ricDat_extinctAll %>% 
+#   #select(SimNumber, r_sim, actAutoCorr, actPropMiss, type, r_est, r_se, status, r_paramDiff) %>% 
+#   pivot_longer(cols = c(r_est, alpha_est), 
+#                values_to = "paramEst", 
+#                names_to = "param", 
+#                names_transform = function(x) str_split(string = x, pattern = "_", simplify = TRUE)[,1]) %>% 
+#   select(-r_sim, -alpha_sim, -N0_sim, -r_se, -alpha_se)
+# paramSimLong_ext <- ricDat_extinctAll %>% 
+#   pivot_longer(cols = c(r_sim, alpha_sim), 
+#                values_to = "paramSim", 
+#                names_to = "param", 
+#                names_transform = function(x) str_split(string = x, pattern = "_", simplify = TRUE)[,1]) %>% 
+#   select(-r_est, -alpha_est, -N0_sim, -r_se, -alpha_se)
+# 
+# paramSELong_ext <- ricDat_extinctAll %>% 
+#   pivot_longer(cols = c(r_se, alpha_se), 
+#                values_to = "paramSE", 
+#                names_to = "param", 
+#                names_transform = function(x) str_split(string = x, pattern = "_", simplify = TRUE)[,1]) %>% 
+#   select(-r_sim, -alpha_sim, -N0_sim, -r_est, -alpha_est)
+# 
+# ricDat_extinctAll_long <- left_join(paramEstLong_ext, paramSimLong_ext) %>% 
+#   left_join(paramSELong_ext)
+# 
+# #calculate standardized parameter estimates
+# ricDat_extinctAll_long <- ricDat_extinctAll_long %>%
+#   mutate("paramDiff" = (paramEst - paramSim)/abs(paramSim))
+# 
+# # filter for low and high autocor
+# ricDat_extinctAll_long[ricDat_extinctAll_long$actAutoCorr <=0.3 & !is.na(ricDat_extinctAll_long$actAutoCorr), "missingness"] <- "MAR: Low AC"
+# ricDat_extinctAll_long[ricDat_extinctAll_long$actAutoCorr >0.3 & ricDat_extinctAll_long$actAutoCorr <0.6 & !is.na(ricDat_extinctAll_long$actAutoCorr), "missingness"] <- "MAR: Med. AC"
+# ricDat_extinctAll_long[ricDat_extinctAll_long$actAutoCorr  >= 0.6 & !is.na(ricDat_extinctAll_long$actAutoCorr), "missingness"] <- "MAR: High AC"
 
 ## add the regular data to the extinct data data frame
-ricDat_long_all <- ricDat_extinctAll_long %>% 
-  rename(SimNumber = simNumber, autoCorr = actAutoCorr, propMiss = actPropMiss) %>% 
-  bind_rows(ricDat_long)
+ricDat_long_all <- ricDat_long #ricDat_extinctAll_long %>% 
+  #rename(SimNumber = simNumber, autoCorr = actAutoCorr, propMiss = actPropMiss) %>% 
+  #bind_rows(ricDat_long)
+
+## save data for later (regular runs + runs for extinct data)
+# # save data to file for use later...
+#write_rds(ricDat_long_all, file = "./data/model_results/rickerRegAndExtinct_sim_ModelResultsLong.rds")
 
 # Make Figures ------------------------------------------------------------
 ##compare the parameter estimates to the true values 
@@ -431,8 +435,8 @@ ricDat_lines <- ricDat_long_all %>%
  # figure of SD for each model type and level of missingness
 (pois_sim_SDFig_trimmed <- ggplot(data = ricDat_lines, aes(x = amtMiss, y = paramDiff_SD)) +
     facet_grid(~factor(param, levels = c( "alpha", "r")) 
-               ~ factor(missingness, levels = c("MAR: Low AC", "MAR: Med. AC", "MAR: High AC")),
-               scales = "free_y") + 
+               ~ factor(missingness, levels = c("MAR: Low AC", "MAR: Med. AC", "MAR: High AC")))+# ,
+               #scales = "free_y") + 
     geom_line(aes(color = as.factor(type)), position = position_dodge(width=0.03)) + 
     geom_point(aes(color = as.factor(type)), alpha = .8, position = position_dodge(width=0.03)) +
     geom_hline(aes(yintercept = 0), colour = "grey") + theme_classic() +
@@ -537,3 +541,4 @@ ricDat_violin <- ricDat_long_all %>%
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) +
     ylim(c(-8,8))
 )
+
