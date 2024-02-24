@@ -27,11 +27,10 @@ in_args <- commandArgs(trailingOnly = T)
 cat(in_args)
 
 # read in datafile
-dat <- readRDS("./data/missingDatasets/pois_sim_randMiss_extinctions.rds")
-pars <- readRDS("./data/missingDatasets/pois_sim_params.rds")
+dat <- readRDS("./data/missingDatasets/pois_real_randMiss.rds")
 
 
-# count number of missingness proportions
+# count number of missingness proportions (within each level of autocorrelation)
 nmiss_props <- length(dat[[1]]$y)
 
 # get vector of actual proportion missing
@@ -50,113 +49,66 @@ dat_flat <- map(
 ) %>% list_flatten()
 
 
-## get rid of time series that are fewer than 5 observations (arbitrary thing here?)
-dat_flat <- keep(dat_flat, function(x) length(x) >= 5)
+### leaving out data for forecasting (last 5 years)
+dat_complete <- dat_flat
+dat_trimmed <- map(dat_flat, function(x) {
+  x[1:54]
+})
 
 # double check the autocorrelation of each timeseries
-autoCorr_actual <- map(dat_flat, 
-    function(x) {
-      x[!is.na(x)] <- 0
-      x[is.na(x)] <- 1 
-      return(round(acf(x, plot = FALSE)$acf[2],2))
-    }
-  )
-propMissing_actual <- map(dat_flat,
+autoCorr_actual_full <- map(dat_flat, 
+                       function(x) {
+                         x[!is.na(x)] <- 0
+                         x[is.na(x)] <- 1 
+                         return(round(acf(x, plot = FALSE)$acf[2],2))
+                       }
+)
+propMissing_actual_full <- map(dat_flat,
                           function(x){
                             return(round(sum(is.na(x))/length(x),2))
                           })
 
 # make a lookup table w/ the new names (to fix the names later)
 namesDF <- data.frame("oldName" = names(dat_flat),
-                      "actAutoCorr" = unlist(autoCorr_actual),
-                      "actPropMiss" = unlist(propMissing_actual))
+                      "actAutoCorr_full" = unlist(autoCorr_actual_full),
+                      "actPropMiss_full" = unlist(propMissing_actual_full))
 # make new names
 namesDF$newName_partial <- apply(as.matrix(str_split(namesDF$oldName, pattern = "_", simplify = TRUE)[,1:3]), MARGIN = 1, 
                                  function(x) {
                                    str_flatten(x, collapse = "_")
                                  })
-namesDF$newName <- paste0(namesDF$newName_partial, 
-                          "autoCorr_", namesDF$actAutoCorr, 
-                          "propMiss_", namesDF$actPropMiss)
+namesDF$newName_full <- paste0(namesDF$newName_partial, 
+                          "autoCorr_", namesDF$actAutoCorr_full, 
+                          "_propMiss_", namesDF$actPropMiss_full)
 
-# if(!is.null(names(dat))){
-# 
-#   # get input autocorrelation from names
-#   autocorrs <- str_extract(
-#     names(dat),
-#     "autoCorr_\\d+"
-#   ) %>% str_extract(
-#     .,
-#     pattern = "\\d+"
-#   ) %>% as.numeric() / 100
-# 
-#   # get actual autocorrelation from names
-#   autocorr_act <- map(
-#     dat,
-#     ~ str_extract(
-#       names(.x$y),
-#       "Corr_0.\\d+"
-#     ) %>% str_extract(
-#       pattern = "0.\\d+"
-#     ) %>% as.numeric()
-#   ) %>% unlist()
-# 
-#   # get number of different autocorrelations
-#   n_autocorrs <- length(unique(autocorrs))
-# 
-#   pars_full <- pars[rep(1:nrow(pars), n_autocorrs), ]
-#   pars_full <- pars_full[rep(1:nrow(pars_full), each = nmiss_props), ]
-# 
-#   pars_full <- pars_full %>% mutate(
-#     id = 1:length(dat_flat),
-#     autoCorr = rep(autocorrs, each = 15),
-#     propMiss = rep(
-#       seq(0.05, 0.75, by = 0.05),
-#       nrow(pars) * n_autocorrs
-#     ),
-#     actAutoCorr = autocorr_act,
-#     actPropMiss = prop_miss
-#   )
-# 
-# } else {
-# 
-#   pars_full <- pars[rep(1:nrow(pars), each = nmiss_props), ]
-#   pars_full <- pars_full %>% mutate(
-#     id = 1:length(dat_flat),
-#     propMiss = rep(
-#       seq(0.05, 0.75, by = 0.05),
-#       nrow(pars)
-#     ),
-#     actPropMiss = prop_miss
-#   )
-# 
-# }
-# 
-# # # find any problem cases and drop from both the parameter
-# # # dataframe and the data list
-# # probs <- unique(c(
-# #   which(
-# #     sapply(dat_flat, function(x){sum(is.infinite(x))}) > 0
-# #   ),
-# #   which(
-# #     sapply(dat_flat, function(x){sum(is.nan(x))}) > 0
-# #   ),
-# #   which(sapply(dat_flat, function(x){sum(x == 0, na.rm = T)}) > 0)
-# # ))
-# 
-# # dat_flat_complete <- dat_flat[-probs]
-# # pars_complete <- pars_full[-probs, ]
-# 
-# # time testing only
-# dat_flat <- dat_flat[as.numeric(in_args[5]):as.numeric(in_args[6])]
-# pars_full <- pars_full[as.numeric(in_args[5]):as.numeric(in_args[6]),]
-# 
+# double check the autocorrelation of each timeseries
+autoCorr_actual_trim <- map(dat_trimmed, 
+                            function(x) {
+                              x[!is.na(x)] <- 0
+                              x[is.na(x)] <- 1 
+                              return(round(acf(x, plot = FALSE)$acf[2],2))
+                            }
+)
+propMissing_actual_trim <- map(dat_trimmed,
+                               function(x){
+                                 return(round(sum(is.na(x))/length(x),2))
+                               })
 
+# make a lookup table w/ the new names (to fix the names later)
+namesDF <- left_join(namesDF, 
+                          data.frame("oldName" = names(dat_trimmed),
+                                     "actAutoCorr_trim" = unlist(autoCorr_actual_trim),
+                                     "actPropMiss_trim" = unlist(propMissing_actual_trim)), 
+                          by = "oldName")
+namesDF$newName_trimmed <- paste0(namesDF$newName_partial, 
+                                    "autoCorr_", namesDF$actAutoCorr_trim, 
+                                    "_propMiss_", namesDF$actPropMiss_trim)
+  
 ### fitting the models ###
- # few enough that I think I can run locally... 
+# few enough that I think I can run locally... 
 
 # dropNA simple case
-dropNA_fits <- map(dat_flat, function(x) fit_ricker_drop(x, fam = "poisson"))
+dropNA_fits <- map(dat_trimmed, function(x) fit_ricker_drop(x, fam = "poisson"))
 
 # dropNA complete case
 dropNAcc_fits <- map(dat_flat, function(x) fit_ricker_cc(y = x, fam = "poisson")) 
@@ -190,7 +142,7 @@ dropNAcc_fits_df <- dropNAcc_fits_df[!(dropNAcc_fits_df$name %in% dups$oldName),
 
 # get names of MI_fits data
 MI_fits_df <- data.frame("name" = names(MI_fits),
-                             "MI_fits" = NA)
+                         "MI_fits" = NA)
 MI_fits_df$MI_fits <- MI_fits
 #drop any duplicated rows
 MI_fits_df <- MI_fits_df[!(MI_fits_df$name %in% dups$oldName),]
@@ -222,7 +174,7 @@ allDat <- allDat %>%
 # get simulation number in it's own column
 allDat <- allDat %>% 
   mutate(simNumber = as.integer(str_split(allDat$name, "_", simplify = TRUE)[,2] %>% 
-           str_extract("\\d+"))) %>% 
+                                  str_extract("\\d+"))) %>% 
   select(name, simNumber, actAutoCorr, actPropMiss, drop_fits, cc_fits, MI_fits, EM_fits)
 
 # add back in the simulation parameters 
