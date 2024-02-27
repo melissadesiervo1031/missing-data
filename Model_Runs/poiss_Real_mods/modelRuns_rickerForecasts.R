@@ -279,7 +279,40 @@ allDat$forecasts <- (apply(allDat, MARGIN = 1, FUN = function(x) {
 }
  ))
 
-mu_t <- N[t - 1] * exp(r - alpha * N[t - 1])
+#plot the results for one output 
+plot(x = as.numeric(row.names(allDat[1,"forecasts"][[1]])), 
+     y = allDat[1,"forecasts"][[1]][,"real_ts"], 
+     type = "l")
+lines(x = 1:59, 
+      y = allDat[1,"forecasts"][[1]][,"dropNA_est"], col = "red")
+lines(x = 1:59, 
+      y = allDat[1,"forecasts"][[1]][,"dropCC_est"], col = "orange")
+lines(x = 1:59, 
+      y = allDat[1,"forecasts"][[1]][,"MI_est"], col = "green")
+lines(x = 1:59, 
+      y = allDat[1,"forecasts"][[1]][,"EM_est"], col = "blue")
+lines(x = 1:59, 
+      y = allDat[1,"forecasts"][[1]][,"DA_est"], col = "purple")
+
+
+# Calculate RMSE  ---------------------------------------------------------
+allDat$RMSE <- lapply(allDat$forecasts, FUN = function(x) {
+  # get starting index
+  startTimeStep <- which(!is.na(x$timeStep))[2]
+  # calculate RMSE for dropNA
+  RMSE_dropNA <- sqrt(mean((x$dropNA_est[startTimeStep:59] - x$real_ts[startTimeStep:59])^2))
+  # calculate RMSE for dropNA_cc
+  RMSE_dropCC <- sqrt(mean((x$dropCC_est[startTimeStep:59] - x$real_ts[startTimeStep:59])^2))
+  # calculate RMSE for MI
+  RMSE_MI <- sqrt(mean((x$MI_est[startTimeStep:59] - x$real_ts[startTimeStep:59])^2))
+  # calculate RMSE for EM
+  RMSE_EM <- sqrt(mean((x$EM_est[startTimeStep:59] - x$real_ts[startTimeStep:59])^2))
+  # calculate RMSE for DA
+  RMSE_DA <- sqrt(mean((x$DA_est[startTimeStep:59] - x$real_ts[startTimeStep:59])^2))
+  return(c("dropNA" = RMSE_dropNA, "dropCC" = RMSE_dropCC, "MI" = RMSE_MI, "EM" = RMSE_EM, "DA" = RMSE_DA))
+  }
+)
+
 
 ## save the output     
-saveRDS(allDat, file = "./data/model_results/RickerExtinct_resultTableAll.rds")
+saveRDS(allDat, file = "./data/model_results/RickerForecast_resultTableAll.rds")
