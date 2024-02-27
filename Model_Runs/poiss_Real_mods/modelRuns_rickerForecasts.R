@@ -234,48 +234,6 @@ allDat$forecasts <- (apply(allDat, MARGIN = 1, FUN = function(x) {
   return(outDat)
   counter <- NULL
   outDat <- NULL
-  
-  # 
-  # N_54 <- 263
-  # # run forecast for drop NA simple case
-  #   N_55 <- rpois(1, lambda = N_54 * exp(x$drop_fits[[1]]["r"] - x$drop_fits[[1]]["alpha"]*N_54))
-  #   N_56 <- rpois(1, lambda = N_55 * exp(x$drop_fits[[1]]["r"] - x$drop_fits[[1]]["alpha"]*N_55))
-  #   N_57 <- rpois(1, lambda = N_56 * exp(x$drop_fits[[1]]["r"] - x$drop_fits[[1]]["alpha"]*N_56))
-  #   N_58 <- rpois(1, lambda = N_57 * exp(x$drop_fits[[1]]["r"] - x$drop_fits[[1]]["alpha"]*N_57))
-  #   N_59 <- rpois(1, lambda = N_58 * exp(x$drop_fits[[1]]["r"] - x$drop_fits[[1]]["alpha"]*N_58))
-  #   drop_fits_out <- c(N_54, N_55, N_56, N_57, N_58, N_59)
-  # # run forecast for drop NA complete case
-  #   N_55 <- rpois(1, lambda = N_54 * exp(x$cc_fits[[1]]["r"] - x$cc_fits[[1]]["alpha"]*N_54))
-  #   N_56 <- rpois(1, lambda = N_55 * exp(x$cc_fits[[1]]["r"] - x$cc_fits[[1]]["alpha"]*N_55))
-  #   N_57 <- rpois(1, lambda = N_56 * exp(x$cc_fits[[1]]["r"] - x$cc_fits[[1]]["alpha"]*N_56))
-  #   N_58 <- rpois(1, lambda = N_57 * exp(x$cc_fits[[1]]["r"] - x$cc_fits[[1]]["alpha"]*N_57))
-  #   N_59 <- rpois(1, lambda = N_58 * exp(x$cc_fits[[1]]["r"] - x$cc_fits[[1]]["alpha"]*N_58))
-  #   cc_fits_out <- c(N_54, N_55, N_56, N_57, N_58, N_59)
-  # # run forecast for multiple imputation
-  #   N_55 <- rpois(1, lambda = N_54 * exp(x$MI_fits[[1]]["r"] - x$MI_fits[[1]]["alpha"]*N_54))
-  #   N_56 <- rpois(1, lambda = N_55 * exp(x$MI_fits[[1]]["r"] - x$MI_fits[[1]]["alpha"]*N_55))
-  #   N_57 <- rpois(1, lambda = N_56 * exp(x$MI_fits[[1]]["r"] - x$MI_fits[[1]]["alpha"]*N_56))
-  #   N_58 <- rpois(1, lambda = N_57 * exp(x$MI_fits[[1]]["r"] - x$MI_fits[[1]]["alpha"]*N_57))
-  #   N_59 <- rpois(1, lambda = N_58 * exp(x$MI_fits[[1]]["r"] - x$MI_fits[[1]]["alpha"]*N_58))
-  #   MI_fits_out <- c(N_54, N_55, N_56, N_57, N_58, N_59)
-  # # run forecast for expectation maximization
-  #   N_55 <- rpois(1, lambda = N_54 * exp(x$EM_fits[[1]]["r"] - x$EM_fits[[1]]["alpha"]*N_54))
-  #   N_56 <- rpois(1, lambda = N_55 * exp(x$EM_fits[[1]]["r"] - x$EM_fits[[1]]["alpha"]*N_55))
-  #   N_57 <- rpois(1, lambda = N_56 * exp(x$EM_fits[[1]]["r"] - x$EM_fits[[1]]["alpha"]*N_56))
-  #   N_58 <- rpois(1, lambda = N_57 * exp(x$EM_fits[[1]]["r"] - x$EM_fits[[1]]["alpha"]*N_57))
-  #   N_59 <- rpois(1, lambda = N_58 * exp(x$EM_fits[[1]]["r"] - x$EM_fits[[1]]["alpha"]*N_58))
-  #   EM_fits_out <- c(N_54, N_55, N_56, N_57, N_58, N_59)
-  # # run forecast for data augmentation
-  #   N_55 <- rpois(1, lambda = N_54 * exp(x$DA_fits[[1]]["r"] - x$DA_fits[[1]]["alpha"]*N_54))
-  #   N_56 <- rpois(1, lambda = N_55 * exp(x$DA_fits[[1]]["r"] - x$DA_fits[[1]]["alpha"]*N_55))
-  #   N_57 <- rpois(1, lambda = N_56 * exp(x$DA_fits[[1]]["r"] - x$DA_fits[[1]]["alpha"]*N_56))
-  #   N_58 <- rpois(1, lambda = N_57 * exp(x$DA_fits[[1]]["r"] - x$DA_fits[[1]]["alpha"]*N_57))
-  #   N_59 <- rpois(1, lambda = N_58 * exp(x$DA_fits[[1]]["r"] - x$DA_fits[[1]]["alpha"]*N_58))
-  #   DA_fits_out <- c(N_54, N_55, N_56, N_57, N_58, N_59)
-  #   
-  #   return(data.frame("drop_fits_out" = drop_fits_out, "cc_fits_out" = cc_fits_out, 
-  #                     "MI_fits_out" = MI_fits_out, "EM_fits_out" = EM_fits_out, 
-  #                     "DA_fits_out" = DA_fits_out))
 }
  ))
 
