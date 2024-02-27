@@ -1,4 +1,4 @@
-###################################################################
+#///////////////////////////////////////////////////
 # This script is designed to run on a cluster and takes
 # arguments from the command line including:
 #   1. The file storing the list of datasets.ß
@@ -10,25 +10,22 @@
 # Results are stored in a tibble with simulation specs and a column
 # with fitted values for each of the methods used to fit
 # the models in the presence of missing data.
-###################################################################
+#///////////////////////////////////////////////////
 
 library(here)
 library(parallel)
 library(tidyverse)
 
 # source functions
-f_list <- list.files(here("Functions/"), full.names = T)
+f_list <- list.files("./Functions/", full.names = T)
+#f_list <- list.files(here("Functions/"), full.names = T)
 lapply(f_list, source)
 
-# arguments from the shell
-# Should include (1) data file (2) parameter file (3) number of nodes for cluster (4) save file location
-# (5) beginnning index (6) ending index (7) optional- model list
-in_args <- commandArgs(trailingOnly = T)
-cat(in_args)
+
+# Prepping data -----------------------------------------------------------
 
 # read in datafile
 dat <- readRDS("./data/missingDatasets/pois_real_randMiss.rds")
-
 
 # count number of missingness proportions (within each level of autocorrelation)
 nmiss_props <- length(dat[[1]]$y)
@@ -52,7 +49,19 @@ dat_flat <- map(
 ### leaving out data for forecasting (last 5 years)
 dat_complete <- dat_flat
 dat_trimmed <- map(dat_flat, function(x) {
-  x[1:54]
+  temp <- x[1:54]
+  # remove NAs at the end of the dataset (not a realistic scenario... will this
+  # be problematic? because the lenght of time series will be different?)
+  if (sum(is.na(temp)) > 0) {
+    if (max(which(!is.na(temp))) < 54) {
+      temp2 <- temp[1:max(which(!is.na(temp)))]
+    } else {
+      temp2 <- temp
+    }
+    return(temp2)
+  } else {
+     return(temp) 
+    }
 })
 
 # double check the autocorrelation of each timeseries
@@ -104,7 +113,10 @@ namesDF$newName_trimmed <- paste0(namesDF$newName_partial,
                                     "autoCorr_", namesDF$actAutoCorr_trim, 
                                     "_propMiss_", namesDF$actPropMiss_trim)
   
-### fitting the models ###
+# calculate the length of the trimmed time series
+namesDF$n_trimmed <- unlist(map(dat_trimmed, function(x) length(x)))
+
+# Fitting Models ----------------------------------------------------------
 # few enough that I think I can run locally... 
 
 # dropNA simple case
@@ -154,33 +166,120 @@ EM_fits_df$EM_fits <- EM_fits
 #drop any duplicated rows
 EM_fits_df <- EM_fits_df[!(EM_fits_df$name %in% dups$oldName),]
 
-# # get names of DA_fits data
-# DA_fits_df <- data.frame("name" = names(DA_fits),
-#                          "DA_fits" = NA)
-# DA_fits_df$DA_fits <- DA_fits
-# #drop any duplicated rows
-# DA_fits_df <- DA_fits_df[!(DA_fits_df$name %in% dups$oldName),]
+# get names of DA_fits data
+DA_fits_df <- data.frame("name" = names(DA_fits),
+                         "DA_fits" = NA)
+DA_fits_df$DA_fits <- DA_fits
+#drop any duplicated rows
+DA_fits_df <- DA_fits_df[!(DA_fits_df$name %in% dups$oldName),]
 
 # add all values together
 allDat <- full_join(dropNA_fits_df, dropNAcc_fits_df, by = c("name")) %>% 
-  left_join(MI_fits_df) %>% 
-  left_join(EM_fits_df)
+ left_join(MI_fits_df) %>% 
+  left_join(EM_fits_df) %>% 
+  left_join(DA_fits_df)
 # get new names w/ accurate autocorr and propMiss data
 allDat <- allDat %>% 
   rename(oldName = name) %>% 
   left_join(namesDF, by = "oldName") %>% 
-  select(newName, actAutoCorr, actPropMiss, drop_fits, cc_fits, MI_fits, EM_fits) %>% 
-  rename(name = newName)
-# get simulation number in it's own column
-allDat <- allDat %>% 
-  mutate(simNumber = as.integer(str_split(allDat$name, "_", simplify = TRUE)[,2] %>% 
-                                  str_extract("\\d+"))) %>% 
-  select(name, simNumber, actAutoCorr, actPropMiss, drop_fits, cc_fits, MI_fits, EM_fits)
+  select(newName_trimmed, oldName, actAutoCorr_trim, actPropMiss_trim, drop_fits, cc_fits, MI_fits, 
+         EM_fits, DA_fits) %>% 
+  rename(newName = newName_trimmed)
+# add in trimmed time series
+names(dat_trimmed) <- NULL
+allDat$trimmed_ts <- dat_trimmed
 
-# add back in the simulation parameters 
-allDat <- allDat %>% 
-  left_join(pars, by = c("simNumber" = "SimNumber")) 
+# Predict remaining values ------------------------------------------------
+# use 263 as the starting value, even though some of the missing datasets end in an NA
+#forecast_outputs <- 
+allDat$forecasts <- (apply(allDat, MARGIN = 1, FUN = function(x) {
+  # get starting value (last value of input time series)
+  N_tminus1 <-  x$trimmed_ts[length(x$trimmed_ts)]
+  counter <- length(x$trimmed_ts)
+  # make empty matrix to store values
+   outDat <- matrix(nrow = 59, ncol = 6)
+   # define starting values for each value
+  N_now_dropNA <- N_now_cc <- N_now_MI <- N_now_EM <-  N_now_DA <- N_tminus1
+  outDat[counter,] <- c(counter, N_now_dropNA, N_now_cc, N_now_MI, N_now_EM, N_now_DA)
+  while(counter < 59) {
+    # define the "next value" for each model type
+    N_next_dropNA <- rpois(1, lambda = N_now_dropNA * exp(x$drop_fits[[1]]["r"] - x$drop_fits[[1]]["alpha"]*N_now_dropNA))
+    N_next_cc <- rpois(1, lambda = N_now_cc * exp(x$drop_fits[[1]]["r"] - x$drop_fits[[1]]["alpha"]*N_now_cc))
+    N_next_MI <- rpois(1, lambda = N_now_MI * exp(x$drop_fits[[1]]["r"] - x$drop_fits[[1]]["alpha"]*N_now_MI))
+    N_next_EM <- rpois(1, lambda = N_now_EM * exp(x$drop_fits[[1]]["r"] - x$drop_fits[[1]]["alpha"]*N_now_EM))
+    N_next_DA <- rpois(1, lambda = N_now_DA * exp(x$drop_fits[[1]]["r"] - x$drop_fits[[1]]["alpha"]*N_now_DA))
+    # save values w/ the time step
+    outDat[counter+1,] <- c(counter+1, N_next_dropNA, N_next_cc, N_next_MI, N_next_EM, N_next_DA)
+    # update "now" values
+    N_now_dropNA <- N_next_dropNA
+    N_now_cc <- N_next_cc
+    N_now_MI <- N_next_MI
+    N_now_EM <- N_next_EM
+    N_now_DA <- N_next_DA
+    #udpate counter
+    counter <- counter+1
+  }
+  # add a column to "outDat" that has the intput time series
+  
+  outDat <- cbind(outDat, 
+                  # add in trimmed ds
+                  c(x$trimmed_ts,
+                            rep(NA, length.out = (61- length(x$trimmed_ts[[1]]))),recursive = TRUE),
+                  # add in complete time series
+                  c(dat$pois_real_randMiss_autoCor_0$y$y, NA, recursive = TRUE)
+                  ) 
+  outDat <- as.data.frame(outDat) 
+  names(outDat) <- c("timeStep", "dropNA_est", "dropCC_est", "MI_est", "EM_est", "DA_est", "trimmedInput_ts", "real_ts")
+  
+  return(outDat)
+  counter <- NULL
+  outDat <- NULL
+  
+  # 
+  # N_54 <- 263
+  # # run forecast for drop NA simple case
+  #   N_55 <- rpois(1, lambda = N_54 * exp(x$drop_fits[[1]]["r"] - x$drop_fits[[1]]["alpha"]*N_54))
+  #   N_56 <- rpois(1, lambda = N_55 * exp(x$drop_fits[[1]]["r"] - x$drop_fits[[1]]["alpha"]*N_55))
+  #   N_57 <- rpois(1, lambda = N_56 * exp(x$drop_fits[[1]]["r"] - x$drop_fits[[1]]["alpha"]*N_56))
+  #   N_58 <- rpois(1, lambda = N_57 * exp(x$drop_fits[[1]]["r"] - x$drop_fits[[1]]["alpha"]*N_57))
+  #   N_59 <- rpois(1, lambda = N_58 * exp(x$drop_fits[[1]]["r"] - x$drop_fits[[1]]["alpha"]*N_58))
+  #   drop_fits_out <- c(N_54, N_55, N_56, N_57, N_58, N_59)
+  # # run forecast for drop NA complete case
+  #   N_55 <- rpois(1, lambda = N_54 * exp(x$cc_fits[[1]]["r"] - x$cc_fits[[1]]["alpha"]*N_54))
+  #   N_56 <- rpois(1, lambda = N_55 * exp(x$cc_fits[[1]]["r"] - x$cc_fits[[1]]["alpha"]*N_55))
+  #   N_57 <- rpois(1, lambda = N_56 * exp(x$cc_fits[[1]]["r"] - x$cc_fits[[1]]["alpha"]*N_56))
+  #   N_58 <- rpois(1, lambda = N_57 * exp(x$cc_fits[[1]]["r"] - x$cc_fits[[1]]["alpha"]*N_57))
+  #   N_59 <- rpois(1, lambda = N_58 * exp(x$cc_fits[[1]]["r"] - x$cc_fits[[1]]["alpha"]*N_58))
+  #   cc_fits_out <- c(N_54, N_55, N_56, N_57, N_58, N_59)
+  # # run forecast for multiple imputation
+  #   N_55 <- rpois(1, lambda = N_54 * exp(x$MI_fits[[1]]["r"] - x$MI_fits[[1]]["alpha"]*N_54))
+  #   N_56 <- rpois(1, lambda = N_55 * exp(x$MI_fits[[1]]["r"] - x$MI_fits[[1]]["alpha"]*N_55))
+  #   N_57 <- rpois(1, lambda = N_56 * exp(x$MI_fits[[1]]["r"] - x$MI_fits[[1]]["alpha"]*N_56))
+  #   N_58 <- rpois(1, lambda = N_57 * exp(x$MI_fits[[1]]["r"] - x$MI_fits[[1]]["alpha"]*N_57))
+  #   N_59 <- rpois(1, lambda = N_58 * exp(x$MI_fits[[1]]["r"] - x$MI_fits[[1]]["alpha"]*N_58))
+  #   MI_fits_out <- c(N_54, N_55, N_56, N_57, N_58, N_59)
+  # # run forecast for expectation maximization
+  #   N_55 <- rpois(1, lambda = N_54 * exp(x$EM_fits[[1]]["r"] - x$EM_fits[[1]]["alpha"]*N_54))
+  #   N_56 <- rpois(1, lambda = N_55 * exp(x$EM_fits[[1]]["r"] - x$EM_fits[[1]]["alpha"]*N_55))
+  #   N_57 <- rpois(1, lambda = N_56 * exp(x$EM_fits[[1]]["r"] - x$EM_fits[[1]]["alpha"]*N_56))
+  #   N_58 <- rpois(1, lambda = N_57 * exp(x$EM_fits[[1]]["r"] - x$EM_fits[[1]]["alpha"]*N_57))
+  #   N_59 <- rpois(1, lambda = N_58 * exp(x$EM_fits[[1]]["r"] - x$EM_fits[[1]]["alpha"]*N_58))
+  #   EM_fits_out <- c(N_54, N_55, N_56, N_57, N_58, N_59)
+  # # run forecast for data augmentation
+  #   N_55 <- rpois(1, lambda = N_54 * exp(x$DA_fits[[1]]["r"] - x$DA_fits[[1]]["alpha"]*N_54))
+  #   N_56 <- rpois(1, lambda = N_55 * exp(x$DA_fits[[1]]["r"] - x$DA_fits[[1]]["alpha"]*N_55))
+  #   N_57 <- rpois(1, lambda = N_56 * exp(x$DA_fits[[1]]["r"] - x$DA_fits[[1]]["alpha"]*N_56))
+  #   N_58 <- rpois(1, lambda = N_57 * exp(x$DA_fits[[1]]["r"] - x$DA_fits[[1]]["alpha"]*N_57))
+  #   N_59 <- rpois(1, lambda = N_58 * exp(x$DA_fits[[1]]["r"] - x$DA_fits[[1]]["alpha"]*N_58))
+  #   DA_fits_out <- c(N_54, N_55, N_56, N_57, N_58, N_59)
+  #   
+  #   return(data.frame("drop_fits_out" = drop_fits_out, "cc_fits_out" = cc_fits_out, 
+  #                     "MI_fits_out" = MI_fits_out, "EM_fits_out" = EM_fits_out, 
+  #                     "DA_fits_out" = DA_fits_out))
+}
+ ))
 
+mu_t <- N[t - 1] * exp(r - alpha * N[t - 1])
 
 ## save the output     
 saveRDS(allDat, file = "./data/model_results/RickerExtinct_resultTableAll.rds")
