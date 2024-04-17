@@ -1,15 +1,5 @@
 #///////////////////////////////////////////////////
-# This script is designed to run on a cluster and takes
-# arguments from the command line including:
-#   1. The file storing the list of datasets.ß
-#   2. The file storing the dataframe of the parameters
-#     used to generate the data.
-#   3. Cluster size for parallel computing.
-#   4. file to which to save the results
-#   5. Optional argument to specify the method to use (default is all).
-# Results are stored in a tibble with simulation specs and a column
-# with fitted values for each of the methods used to fit
-# the models in the presence of missing data.
+# This script runs Poisson models with the last values held out for prediction
 #///////////////////////////////////////////////////
 
 library(here)
@@ -51,7 +41,7 @@ dat_complete <- dat_flat
 dat_trimmed <- map(dat_flat, function(x) {
   temp <- x[1:54]
   # remove NAs at the end of the dataset (not a realistic scenario... will this
-  # be problematic? because the lenght of time series will be different?)
+  # be problematic? because the length of time series will be different?)
   if (sum(is.na(temp)) > 0) {
     if (max(which(!is.na(temp))) < 54) {
       temp2 <- temp[1:max(which(!is.na(temp)))]
@@ -270,6 +260,14 @@ allDat$RMSE <- lapply(allDat$forecasts, FUN = function(x) {
   return(c("dropNA" = RMSE_dropNA, "dropCC" = RMSE_dropCC, "MI" = RMSE_MI, "EM" = RMSE_EM, "DA" = RMSE_DA))
   }
 )
+#test figure for one simulation
+ggplot(x) +
+  geom_line(aes(x = 1:59, y = real_ts)) +
+  geom_line(aes(x = 1:59, y = dropNA_est), col= "red") +
+  geom_line(aes(x = 1:59, y = dropCC_est),col=  "orange")+
+  geom_line(aes(x = 1:59, y = MI_est),col=  "green")+
+  geom_line(aes(x = 1:59, y = EM_est),col=  "blue")+
+  geom_line(aes(x = 1:59, y = DA_est),col=  "purple")
 
 
 ## save the output     
