@@ -9,7 +9,7 @@
 #SBATCH --mem-per-cpu=8G
 #SBATCH --mail-user=apatte12@uwyo.edu
 #SBATCH --job-name=DA_stepsize
-#SBATCH --array=1-5
+#SBATCH --array=1-20
 
 
 module load arcc/1.0 gcc/12.2.0 r/4.2.2
