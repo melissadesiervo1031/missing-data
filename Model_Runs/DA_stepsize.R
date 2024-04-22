@@ -59,14 +59,14 @@ dat <- dat %>% mutate(
   ) %>% flatten()
 )
 
-cat(stepSizeSeq[in_args[1]])
+cat(stepSizeSeq[in_args])
 
 # fit the models DA
 dat <- dat %>% mutate(
   estims_full_DA = lapply(
     y,
     FUN = fit_ricker_DA,
-    stepsize=stepSizeSeq[in_args[1]]
+    stepsize=stepSizeSeq[in_args]
   ),
   estims_miss_DA = lapply(
     y_miss,
