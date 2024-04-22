@@ -12,6 +12,7 @@ lapply(func_list, source)
 
 in_args <- commandArgs(trailingOnly = T)
 cat(in_args)
+in_args=as.integer(in_args)
 
 stepSizeSeq=seq(0.01,0.15,length.out=20)
 
