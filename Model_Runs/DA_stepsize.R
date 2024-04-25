@@ -75,6 +75,8 @@ dat <- dat %>% mutate(
   )
 )
 
+saveRDS(dat,file=here(paste0("data/DAchecks",in_args[1],".rds")))
+
 # fit the models EM
 dat <- dat %>% mutate(
   estims_full_EM = lapply(
