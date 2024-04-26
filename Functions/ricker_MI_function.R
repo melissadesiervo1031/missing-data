@@ -78,6 +78,19 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
     ))
   }
   
+  # check to see if the missingness limit has been met (i.e. if there are fewer than 3 non-missing values??)
+  # fail if trimmed time series is too small 
+  if (sum(!is.na(y)) <=5) {
+    warning("Time series with NAs dropped is too short! Model can't fit well")
+    return(list(
+      NA,
+      reason = "ts too short"
+    ))
+  }
+  # another missingness check... make sure that there are more than three consecutive pairs of real dat
+  if (sum(!is.na(y-lag(y))) <=3){
+    warning("too few consecutive time points (three or less)")
+  }
   
   # make data frame in prep for multiple imputation
   simmissingdf=cbind.data.frame(1:(n-1),y[2:n],y[1:(n - 1)])
@@ -291,6 +304,7 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
   }
   
   
+  sapply(fit, profile)
   # Averages models into 1 result, simplifies, renames
   estims1=sapply(fit,coef,simplify=T)
   estims=rowMeans(estims1)
