@@ -339,15 +339,23 @@ fit_ricker_DA <- function(
     cl <- parallel::makeCluster(chains)
     parallel::clusterEvalQ(
       cl,
-      {flist <- list.files(
-        here::here("Functions/"),
-        pattern = "ricker",
-        full.names = T
-      );
-      lapply(flist, source)}
+      {
+        source("./Functions/ricker_drop_function.R")
+        source("./Functions/ricker_count_MCMC.R")
+        source("./Functions/ricker_count_EM.R")
+        source("./Functions/ricker_count_likelihood_functions.R")
+      #   flist <- list.files(
+      #   #here::here("Functions/"),
+      #   "./Functions/",
+      #   pattern = "ricker",
+      #   full.names = T
+      # );
+      # lapply(flist, source)
+        }
     )
-    
+
     # export the remaining variables
+
     parallel::clusterExport(
       cl, 
       varlist = ls(envir = environment()), 
@@ -369,17 +377,24 @@ fit_ricker_DA <- function(
     parallel::stopCluster(cl)
   }
   
-  if(prop_miss > 0 & fam == "poisson"){
+  if(prop_miss > 0 & fam == "poisson" ){
     force(ls(envir = environment()))
     cl <- parallel::makeCluster(chains)
     parallel::clusterEvalQ(
       cl,
-      {flist <- list.files(
-        here::here("Functions/"),
-        pattern = "ricker",
-        full.names = T
-      );
-      lapply(flist, source)}
+      {
+        source("./Functions/ricker_drop_function.R")
+        source("./Functions/ricker_count_MCMC.R")
+        source("./Functions/ricker_count_EM.R")
+        source("./Functions/ricker_count_likelihood_functions.R")
+      #   flist <- list.files(
+      #   #here::here("Functions/"),
+      #   ("Functions/"),
+      #   pattern = "ricker",
+      #   full.names = T
+      # );
+      # lapply(flist, source)
+        }
     )
     
     # export the remaining variables
