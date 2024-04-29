@@ -19,7 +19,7 @@ CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
 ## read in the autocor_01 list ##
 
 gauss_sim_MNAR <- readRDS("/project/modelscape/analyses/MissingTS/gauss_sim_minMaxMiss.rds")
-
+#gauss_sim_MNAR <- readRDS("./data/missingDatasets/gauss_sim_minMaxMiss.rds")
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
 OutFile <- paste("gauss_sim_minMax_modResults/", CurSim, "arimavals.csv", sep = "")
@@ -42,6 +42,7 @@ fit_arima_dropmissing <- function(sim_list, sim_pars){
     drop_na(simmissingdf[[j]])
   })
   
+  
   # fit arima models to list of datasets
   Arimaoutputdrop <- lapply(seq_along(sim_missing_list_drop ), function(j) {
     xreg1<-sim_missing_list_drop [[j]][["light"]]
@@ -58,6 +59,43 @@ fit_arima_dropmissing <- function(sim_list, sim_pars){
                 sim_params = sim_pars))
   })
 }
+
+# fit complete case drop missing
+fit_arima_dropmissing_CC <- function(sim_list, sim_pars){
+  
+  simmissingdf <-lapply(X = sim_list, 
+                        FUN = function(X) cbind.data.frame(GPP = X, 
+                                                           light = sim_pars$X[,2], 
+                                                           discharge = sim_pars$X[,3]))
+  # remove data in a "complete case" way
+  # compile into sliced dataframe
+  sim_missing_list_drop <- map(simmissingdf, function(x) {
+    temp <- data.frame(
+      yt = x[2:nrow(x),],
+      ytm1 = x[1:(nrow(x)-1),]
+    )
+    # drop incomplete cases
+    x[complete.cases(temp),]
+  }
+  )
+  
+  # fit arima models to list of datasets
+  Arimaoutputdrop <- lapply(seq_along(sim_missing_list_drop ), function(j) {
+    xreg1<-sim_missing_list_drop [[j]][["light"]]
+    xreg2<-sim_missing_list_drop [[j]][["discharge"]]
+    modeldrop <- arima(sim_missing_list_drop [[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2))
+    arimacoefsdrop<-modeldrop$coef
+    names(arimacoefsdrop) <- c("ar1", "intercept", "xreg1", "xreg2")
+    arimasesdrop<-sqrt(diag(vcov(modeldrop)))
+    names(arimasesdrop) <- c("ar1", "intercept", "xreg1", "xreg2")
+    list(arimacoefsdrop=arimacoefsdrop, arimasesdrop=arimasesdrop)
+    
+    return(list(arima_pars = arimacoefsdrop,
+                arima_errors = arimasesdrop,
+                sim_params = sim_pars))
+  })
+}
+  
 
 
 ### Function that will have missing values as NA and then fit model using ARIMA w/ Kalman filter ###
@@ -171,9 +209,9 @@ modeldropSElist2 <- lapply(modeldropSElist, function(x) as.data.frame(do.call(rb
 modeldropparamdf <- map_df(modeldropparamlist2, ~as.data.frame(.x), .id="missingprop_autocor")
 modeldropSEdf <- map_df(modeldropSElist2, ~as.data.frame(.x), .id="missingprop_autocor")
 
-modeldropdf<-modeldropparamdf  %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2) %>%  select(missingprop_autocor, ar1, intercept, light, discharge)  %>% mutate(missingness="MNAR") %>% mutate(type="Data Deletion")
+modeldropdf<-modeldropparamdf  %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2) %>%  select(missingprop_autocor, ar1, intercept, light, discharge)  %>% mutate(missingness="MNAR") %>% mutate(type="Data Deletion Simple")
 
-modeldropSEdf<-modeldropSEdf  %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2)%>%   select(missingprop_autocor, ar1, intercept, light, discharge) %>% mutate(missingness="MNAR") %>% mutate(type="Data Deletion")
+modeldropSEdf<-modeldropSEdf  %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2)%>%   select(missingprop_autocor, ar1, intercept, light, discharge) %>% mutate(missingness="MNAR") %>% mutate(type="Data Deletion Simple")
 
 ## long form ##
 
@@ -183,6 +221,38 @@ paramdropSElong <- gather(modeldropSEdf, param, SE, ar1:discharge, factor_key=TR
 
 paramdroplong2<-merge(paramdroplong, paramdropSElong)
 
+#####################################################
+#### MODEL RUN ARIMA DROP --complete case ##############
+#########################################################
+
+arima_drop_CC_MNAR<- fit_arima_dropmissing_CC(gauss_sim_MNAR[[CurSim]]$y,gauss_sim_MNAR[[CurSim]]$sim_params)
+
+
+########### formatting for figure #############
+
+names(arima_drop_CC_MNAR) <- names(gauss_sim_MNAR[[CurSim]][["y"]])
+
+modeldropCCparamlist<-purrr::map(arima_drop_CC_MNAR , ~.["arima_pars"])
+modeldropCCSElist<-purrr::map(arima_drop_CC_MNAR , ~.["arima_errors"])
+
+modeldropCCparamlist2 <- lapply(modeldropCCparamlist, function(x) as.data.frame(do.call(rbind, x)))
+modeldropCCSElist2 <- lapply(modeldropCCSElist, function(x) as.data.frame(do.call(rbind, x)))
+
+
+modeldropCCparamdf <- map_df(modeldropCCparamlist2, ~as.data.frame(.x), .id="missingprop_autocor")
+modeldropCCSEdf <- map_df(modeldropCCSElist2, ~as.data.frame(.x), .id="missingprop_autocor")
+
+modeldropCCdf<-modeldropCCparamdf  %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2) %>%  select(missingprop_autocor, ar1, intercept, light, discharge)  %>% mutate(missingness="MNAR") %>% mutate(type="Data Deletion CC")
+
+modeldropCCSEdf<-modeldropCCSEdf  %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2)%>%   select(missingprop_autocor, ar1, intercept, light, discharge) %>% mutate(missingness="MNAR") %>% mutate(type="Data Deletion CC")
+
+## long form ##
+
+paramdropCClong <- gather(modeldropCCdf, param, value, ar1:discharge, factor_key=TRUE)
+
+paramdropCCSElong <- gather(modeldropCCSEdf, param, SE, ar1:discharge, factor_key=TRUE)
+
+paramdropCClong2<-merge(paramdropCClong, paramdropCCSElong)
 
 
 #####################################################
