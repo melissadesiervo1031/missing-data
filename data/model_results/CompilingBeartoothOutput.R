@@ -76,11 +76,11 @@ simDat_raw3$true_autoCorr <- simDat_raw3 %>%
 
 # gauss_sim_MAR_arima models ----------------------------------------------
 # read in first group of output files (stored outside of the Git)
-fileNames_A <- list.files("../BeartoothOutputs/gauss_sim_MAR_arima_modResults_A/")
+fileNames_A <- list.files("./data/model_results/gauss_sim_randMiss_modelResults_A/")
 
-for (i in 1:length(fileNames_A)) {
+for (i in 1:1000) {
   assign(x = "temp", 
-         value = read.csv(paste0("../BeartoothOutputs/gauss_sim_MAR_arima_modResults_A/",fileNames_A[i])))
+         value = read.csv(paste0("./data/model_results/gauss_sim_randMiss_modelResults_A/",fileNames_A[i])))
   if (i == 1){
     outData_A <- temp
   } else {
@@ -95,11 +95,11 @@ names(params) <- c("SimNumber", "phi_sim", "beta1_sim", "beta2_sim", "beta3_sim"
 outData_A_final <- left_join(outData_A, params, by = c("simName" = "SimNumber"))
 
 ## read in the group of output files (stored outside of the Git)
-fileNames_B <- list.files("../BeartoothOutputs/gauss_sim_MAR_arima_modResults_B/")
+fileNames_B <- list.files("./data/model_results/gauss_sim_randMiss_modelResults_B/")
 
-for (i in 1:length(fileNames_B)) {
+for (i in 1:1000) {
   assign(x = "temp", 
-         value = read.csv(paste0("../BeartoothOutputs/gauss_sim_MAR_arima_modResults_B/",fileNames_B[i])))
+         value = read.csv(paste0("./data/model_results/gauss_sim_randMiss_modelResults_B/",fileNames_B[i])))
   
   if (i == 1){
     outData_B <- temp
@@ -128,11 +128,11 @@ outData_MAR_arima <- rbind(outData_A_final, outData_B_final) %>%
 # gauss_sim_MNAR_arima models ---------------------------------------------------
 
 # read in the group of output files (stored outside of the Git)
-fileNames_MNAR <- list.files("../BeartoothOutputs/gauss_sim_MNAR_arima_modResults/", pattern = ".csv$")
+fileNames_MNAR <- list.files("./data/model_results/gauss_sim_minMax_modelResults/", pattern = ".csv$")
 
 for (i in 1:length(fileNames_MNAR)) {
   assign(x = "temp", 
-         value = read.csv(paste0("../BeartoothOutputs/gauss_sim_MNAR_arima_modResults/",fileNames_MNAR[i])))
+         value = read.csv(paste0("./data/model_results/gauss_sim_minMax_modelResults/",fileNames_MNAR[i])))
   
   if (i == 1){
     outData_MNAR <- temp
@@ -405,3 +405,4 @@ outData_real_MNAR_brms <- gauss_real_MNAR_brms %>%
 outData_gauss_real <- rbind(outData_real_MAR_arima, outData_real_MNAR_arima, outData_real_MAR_brms, outData_real_MNAR_brms)
 
 saveRDS(outData_gauss_real, file = "./data/model_results/gauss_real_ModelResults.rds")
+
