@@ -83,11 +83,12 @@ fit_arima_dropmissing_CC <- function(sim_list, sim_pars){
     xreg1<-sim_missing_list_drop [[j]][["light"]]
     xreg2<-sim_missing_list_drop [[j]][["discharge"]]
     modeldrop <- arima(sim_missing_list_drop [[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2))
-    arimacoefsdrop<-modeldrop$coef
+    arimacoefsdrop<-c(modeldrop$coef, modeldrop$sigma2)
     names(arimacoefsdrop) <- c("ar1", "intercept", "xreg1", "xreg2")
     arimasesdrop<-sqrt(diag(vcov(modeldrop)))
     names(arimasesdrop) <- c("ar1", "intercept", "xreg1", "xreg2")
     list(arimacoefsdrop=arimacoefsdrop, arimasesdrop=arimasesdrop)
+    
     
     return(list(arima_pars = arimacoefsdrop,
                 arima_errors = arimasesdrop,
@@ -243,7 +244,7 @@ for (i in 1:1000) {
   #### MODEL RUN ARIMA DROP --complete case ##############
   #########################################################
   
-  arima_drop_CC_MAR<- fit_arima_dropmissing_CC(gauss_sim_randMiss_autoCorr_01[[CurSim]]$y,gauss_sim_randMiss_autoCorr_01[[CurSim]]$sim_params)
+  arima_drop_CC_MAR <- fit_arima_dropmissing_CC(gauss_sim_randMiss_autoCorr_01[[CurSim]]$y,gauss_sim_randMiss_autoCorr_01[[CurSim]]$sim_params)
   
   
   ########### formatting for figure #############
@@ -260,18 +261,19 @@ for (i in 1:1000) {
   modeldropCCparamdf <- map_df(modeldropCCparamlist2, ~as.data.frame(.x), .id="missingprop_autocor")
   modeldropCCSEdf <- map_df(modeldropCCSElist2, ~as.data.frame(.x), .id="missingprop_autocor")
   
-  modeldropCCdf<-modeldropCCparamdf  %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2) %>%  select(missingprop_autocor, ar1, intercept, light, discharge)  %>% mutate(missingness="MAR") %>% mutate(type="Data Deletion CC")
+  modeldropCCdf<-modeldropCCparamdf  %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2, sigma=...5) %>%  select(missingprop_autocor, ar1, intercept, light, discharge, sigma)  %>% mutate(missingness="MAR") %>% mutate(type="Data Deletion CC")
   
   modeldropCCSEdf<-modeldropCCSEdf  %>% dplyr::rename(ar1=ar1, intercept=intercept, light=xreg1, discharge=xreg2)%>%   select(missingprop_autocor, ar1, intercept, light, discharge) %>% mutate(missingness="MAR") %>% mutate(type="Data Deletion CC")
   
   ## long form ##
   
-  paramdropCClong <- gather(modeldropCCdf, param, value, ar1:discharge, factor_key=TRUE)
+  paramdropCClong <- gather(modeldropCCdf, param, value, ar1:sigma, factor_key=TRUE)
+  paramdropCClong$missingnessVersion <- rep.int(c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O"), times = 5)
   
   paramdropCCSElong <- gather(modeldropCCSEdf, param, SE, ar1:discharge, factor_key=TRUE)
+  paramdropCCSElong$missingnessVersion <- rep.int(c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O"), times = 4)
   
-  paramdropCClong2<-merge(paramdropCClong, paramdropCCSElong)
-  
+  paramdropCClong2 <- full_join(paramdropCClong, paramdropCCSElong)
   
   #####################################################
   #### MODEL RUN KALMAN FILTER ##############
@@ -355,7 +357,7 @@ for (i in 1:1000) {
   #################################################
   
   ###
-  paramarimaall<-rbind(paramdroplong2, paramNAlong2, paramMIlong2)
+  paramarimaall<-rbind(paramdroplong2, paramdropCClong2,  paramNAlong2, paramMIlong2)
   
   
   # 
