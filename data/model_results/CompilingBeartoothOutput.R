@@ -293,7 +293,7 @@ simDat <- gauss_sim_figDat %>%
 # remove columns for simulation data
 gauss_sim_figDat <- gauss_sim_figDat %>% 
   select(-phi_sim, -intercept_sim, -light_sim, -discharge_sim)
-
+# add back in simulation parameter data
 gauss_sim_figDat <- gauss_sim_figDat %>% 
   left_join(simDat, by = c("simName", "param"))
 
