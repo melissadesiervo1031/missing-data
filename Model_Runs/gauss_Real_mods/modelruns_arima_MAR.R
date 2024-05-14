@@ -6,6 +6,7 @@
 library(tidyverse)
 #library(forecast) ## it hates this package...run with lowercase arima# 
 library(Amelia)
+library(here)
 
 
 # Prepare data  -----------------------------------------------------------
@@ -14,18 +15,20 @@ library(Amelia)
 
 ## read in the autocor_01 list ##
 
-gauss_real_randMiss <- readRDS("data/missingDatasets/gauss_real_randMiss.rds")
-pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
+gauss_real_randMiss <- readRDS(here("data/missingDatasets/gauss_real_randMiss.rds"))
+au_sable_river_full <- read_csv(here("data/au_sable_river_prepped.csv"))
+badger_mill_creek_full <- read_csv(here("data/badger_mill_Creek_prepped.csv"))
+
 #gauss_real_randMiss <- readRDS("/project/modelscape/users/astears/gauss_real_randMiss.rds")
-#pine_river_full <- read_csv('/project/modelscape/users/astears/pine_river_data_prepped.csv')
+#pine_river_full <- read_csv(here("data/pine_river_data_prepped.csv"))
 
 
-# Functions for missing data approaches -----------------------------------
+# Functions for missing data# approaches -----------------------------------
 
 # Drop missing (simple case) + arima function ---------------------------------------------------
 
 fit_arima_dropmissing <- function(sim_list, sim_pars, 
-                                  forecast = TRUE, forecast_days = 31,
+                                  forecast = TRUE, forecast_days = 365,
                                   dat_full){
   
   simmissingdf <-lapply(X = sim_list, 
@@ -35,7 +38,7 @@ fit_arima_dropmissing <- function(sim_list, sim_pars,
   ## holdout data for forecasting
   if(forecast){
     simmissingdf <- lapply(simmissingdf, function(df) {
-      df[1:(366-forecast_days), ]  # Remove to save these for forecasting
+      df[1:(nrow(dat_full)-forecast_days), ]  # Remove to save these for forecasting
     })
   }
   ## drop the missing values ###
@@ -94,7 +97,7 @@ fit_arima_dropmissing <- function(sim_list, sim_pars,
 # Drop missing (complete case) + arima function ---------------------------------------------------
 
 fit_arima_dropmissing_CC <- function(sim_list, sim_pars, 
-                                     forecast = TRUE, forecast_days = 31,
+                                     forecast = TRUE, forecast_days = 365,
                                      dat_full){
   
   simmissingdf <-lapply(X = sim_list, 
@@ -105,7 +108,7 @@ fit_arima_dropmissing_CC <- function(sim_list, sim_pars,
   ## holdout data for forecasting
   if(forecast){
     simmissingdf <- lapply(simmissingdf, function(df) {
-      df[1:(366-forecast_days), ]  # Remove to save these for forecasting
+      df[1:(nrow(dat_full)-forecast_days), ]  # Remove to save these for forecasting
     })
   }
   # remove data in a "complete case" way
@@ -173,7 +176,7 @@ fit_arima_dropmissing_CC <- function(sim_list, sim_pars,
 
 # arima + Kalman filter function ------------------------------------------
 
-fit_arima_Kalman <- function(sim_list, sim_pars, forecast = TRUE, forecast_days = 31,
+fit_arima_Kalman <- function(sim_list, sim_pars, forecast = TRUE, forecast_days = 365,
                              dat_full){
   
   simmissingdf <-lapply(X = sim_list, 
@@ -183,7 +186,7 @@ fit_arima_Kalman <- function(sim_list, sim_pars, forecast = TRUE, forecast_days 
   ## holdout data for forecasting
   if(forecast){
     simmissingdf <- lapply(simmissingdf, function(df) {
-      df[1:(366-forecast_days), ]  # Remove to save these for forecasting
+      df[1:(nrow(dat_full)-forecast_days), ]  # Remove to save these for forecasting
     })
   }
   
@@ -239,10 +242,10 @@ fit_arima_Kalman <- function(sim_list, sim_pars, forecast = TRUE, forecast_days 
 
 # multiple imputations + Arima function -----------------------------------
 
-fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, forecast_days = 31,
+fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, forecast_days = 365,
                          dat_full){
   
-  days<-seq(1, 366)
+  days<-seq(1, nrow(dat_full))
   
   simmissingdf <-lapply(X = sim_list, 
                         FUN = function(X) cbind.data.frame(days= days,
@@ -252,7 +255,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
   ## holdout data for forecasting
   if(forecast){
     simmissingdf <- lapply(simmissingdf, function(df) {
-      df[1:(366-forecast_days), ]  # Remove to save these for forecasting
+      df[1:(nrow(dat_full)-forecast_days), ]  # Remove to save these for forecasting
     })
   }
   
@@ -366,18 +369,35 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
-if (!dir.exists("data/model_results/gauss_real_MAR_arima_modResults/")) {
-  dir.create("data/model_results/gauss_real_MAR_arima_modResults/")
+if (!dir.exists("data/model_results/gauss_real_MAR_arima_modResults/au_sable")) {
+  dir.create("data/model_results/gauss_real_MAR_arima_modResults/au_sable")
 }
+
+if (!dir.exists("data/model_results/gauss_real_MAR_arima_modResults/badger_mill")) {
+  dir.create("data/model_results/gauss_real_MAR_arima_modResults/badger_mill")
+}
+
+# Use to run Au Sable data
+dat_full <- au_sable_river_full
+dirname <- "./data/model_results/gauss_real_MAR_arima_modResults/au_sable"
+
+# use to run Badger Mill data
+dat_full <- badger_mill_creek_full
+dirname <- "./data/model_results/gauss_real_MAR_arima_modResults/badger_mill"
+  
+
+# set # of forecast days
+
+forecast_days <- 365
 
 for (i in 1:10) {
   CurSim <- i
-  OutFile_params <- paste("./data/model_results/gauss_real_MAR_arima_modResults/", CurSim, "arimavals.csv", sep = "")
-  OutFile_preds <- paste("./data/model_results/gauss_real_MAR_arima_modResults/", CurSim, "arimapreds.csv", sep = "")
+  OutFile_params <- paste(dirname, CurSim, "arimavals.csv", sep = "")
+  OutFile_preds <- paste(dirname, CurSim, "arimapreds.csv", sep = "")
   
   # Run models with drop missing + arima ------------------------------------
   
-  arima_drop_MAR <- fit_arima_dropmissing(gauss_real_randMiss[[CurSim]]$y,gauss_real_randMiss[[CurSim]]$sim_params, forecast = TRUE, forecast_days = 31, dat_full = pine_river_full)
+  arima_drop_MAR <- fit_arima_dropmissing(sim_list=gauss_real_randMiss[[CurSim]]$y,sim_pars=gauss_real_randMiss[[CurSim]]$sim_params, forecast = TRUE, forecast_days = forecast_days, dat_full = dat_full)
   
   ## formatting for figure
   # save arima model parameters
@@ -393,8 +413,8 @@ for (i in 1:10) {
   arimadrop_MAR_preds$run_no <- CurSim
   
   # Run models with drop missing complete case + arima ------------------------------------
-  
-  arima_dropCC_MAR <- fit_arima_dropmissing_CC(gauss_real_randMiss[[CurSim]]$y,gauss_real_randMiss[[CurSim]]$sim_params, forecast = TRUE, forecast_days = 31, dat_full = pine_river_full)
+
+  arima_dropCC_MAR <- fit_arima_dropmissing_CC(sim_list=gauss_real_randMiss[[CurSim]]$y,sim_pars=gauss_real_randMiss[[CurSim]]$sim_params, forecast = TRUE, forecast_days = forecast_days, dat_full = dat_full)
   
   ## formatting for figure
   # save arima model parameters
@@ -410,9 +430,9 @@ for (i in 1:10) {
   arimadropCC_MAR_preds$run_no <- CurSim
   
   # Run models w/ Kalman filter + arima fxn ---------------------------------
-  
-  arima_kalman_MAR<- fit_arima_Kalman(gauss_real_randMiss[[CurSim]]$y,gauss_real_randMiss[[CurSim]]$sim_params, 
-                                      forecast = TRUE, forecast_days = 31, dat_full = pine_river_full)
+
+  arima_kalman_MAR<- fit_arima_Kalman(sim_list=gauss_real_randMiss[[CurSim]]$y,sim_pars=gauss_real_randMiss[[CurSim]]$sim_params, 
+                                      forecast = TRUE, forecast_days = forecast_days, dat_full = dat_full)
   ## formatting for figure
   # save arima model parameters
   arimaKalman_MAR_df <- arima_kalman_MAR$arima_pars
@@ -427,10 +447,10 @@ for (i in 1:10) {
   arimaKalman_MAR_preds$run_no <- CurSim
   
   # Run models w/ Multiple Imputations --------------------------------------
-  
-  arima_mi_MAR <-  fit_arima_MI(gauss_real_randMiss[[CurSim]]$y,gauss_real_randMiss[[CurSim]]$sim_params, imputationsnum=5,
-                                forecast = TRUE, forecast_days = 31,
-                                dat_full = pine_river_full)
+
+  arima_mi_MAR <-  fit_arima_MI(sim_list=gauss_real_randMiss[[CurSim]]$y,sim_pars=gauss_real_randMiss[[CurSim]]$sim_params, imputationsnum=5,
+                                forecast = TRUE, forecast_days = forecast_days,
+                                dat_full = dat_full)
   ## formatting for figure
   # save arima model parameters
   arimaMI_MAR_df <- arima_mi_MAR$arima_pars
@@ -479,18 +499,22 @@ for (i in 1:10) {
   
 }
 
-# compile script output and save 
-predNames <- list.files("./data/model_results/gauss_real_MAR_arima_modResults/", pattern = "preds.csv")
-predsAll <- map_df(predNames, function(x) {
-         read_csv(paste0("./data/model_results/gauss_real_MAR_arima_modResults/", x))
-})
-write.csv(predsAll, file = "./data/model_results/gauss_real_MAR_arima_FORECASTpreds.csv")
+############# check outputs -------------------
 
-valNames <- list.files("./data/model_results/gauss_real_MAR_arima_modResults/", pattern = "vals.csv")
-valsAll <- map_df(valNames, function(x) {
-  read_csv(paste0("./data/model_results/gauss_real_MAR_arima_modResults/", x))
+# compile script output and save 
+predNames <- list.files(dirname, pattern = "preds.csv")
+predsAll <- map_df(predNames, function(x) {
+         read_csv(paste0(dirname, x))
 })
-write.csv(valsAll, file = "./data/model_results/gauss_real_MAR_arima_FORECASTvals.csv")
+#write.csv(predsAll, file = "./data/model_results/gauss_real_MAR_arima_FORECASTpreds.csv")
+write.csv(predsAll, file = paste(dirname, "gauss_real_MAR_arima_FORECASTpreds.csv", sep = ""))
+
+valNames <- list.files(dirname, pattern = "vals.csv")
+valsAll <- map_df(valNames, function(x) {
+  read_csv(paste0(dirname, x))
+})
+#write.csv(valsAll, file = "./data/model_results/gauss_real_MAR_arima_FORECASTvals.csv")
+write.csv(predsAll, file = paste(dirname, "gauss_real_MAR_arima_FORECASTvals.csv", sep = ""))
 
 # Once the job finishes, you can use the following command from within the folder
 #    containing all single line csv files to compile them into a single csv file:
