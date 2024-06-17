@@ -421,7 +421,17 @@ fit_ricker_DA <- function(
     
   } 
   
-  # create posterior samps of r and alpha
+  # compute rhat statistic for samples
+  post_r <- Reduce(
+    cbind,
+    lapply(post_samps, function(x){x$theta[,"r"]})
+  )
+  post_lalpha <- Reduce(
+    cbind,
+    lapply(post_samps, function(x){x$theta[,"lalpha"]})
+  )
+  
+  # combine posterior samps of r and alpha
   theta_samps <- Reduce(
     rbind,
     lapply(post_samps, function(x){
@@ -432,7 +442,7 @@ fit_ricker_DA <- function(
   colnames(theta_samps) <- c("r", "alpha")
   
   # if we want to return posterior estims for missing obs
-  if(isTRUE(return_y)){
+  if(isTRUE(return_y) & prop_miss > 0){
     y_samps <- Reduce(
       rbind,
       lapply(post_samps, function(x){
@@ -459,7 +469,8 @@ fit_ricker_DA <- function(
   # return summaries
   return(
     list(
-      estim = apply(theta_samps, 2, posterior_mode),
+      estim = apply(theta_samps, 2, mean),
+      rhat = c(posterior::rhat(post_r), posterior::rhat(post_lalpha)),
       se = apply(theta_samps, 2, sd),
       lower = apply(theta_samps, 2, quantile, probs = 0.025),
       upper = apply(theta_samps, 2, quantile, probs = 0.975)
