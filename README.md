@@ -13,7 +13,7 @@
 
 `/Population sim and real` This folder contains code used to generate models that are used in the analysis of population data. 
 
-`/Mdoel_Runs` This folder contains code to run models with different missing data approaches on real and simulated GPP and population time series. (this code may be redundant...wcould be good to get some input here!
+`/Model_Runs` This folder contains code to run models with different missing data approaches on real and simulated GPP and population time series. (this code may be redundant...wcould be good to get some input here!
 
 `ModelChecking` This folder contains code to explore and validate model approaches used in our analysis (may not need this??) 
 
