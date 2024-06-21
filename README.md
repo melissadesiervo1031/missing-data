@@ -13,8 +13,21 @@
 
 `Population sim and real/` This folder contains code used to generate models that are used in the analysis of population data. 
 
-`Model_Runs/` This folder contains code to run models with different missing data approaches on real and simulated GPP and population time series. (this code may be redundant...wcould be good to get some input here!
+`Model_Runs/` This folder contains code to run models with different missing data approaches on real and simulated GPP and population time series. (this code may be redundant...would be good to get some input here!
 
 `ModelChecking/` This folder contains code to explore and validate model approaches used in our analysis (may not need this??) 
-
+Have you pushed changes to the gitHub repo?
 `Simulations/` This folder contains code to simulate GPP and population datasets, and to generate datasets with artificially introduced missingess. 
+
+
+# Code Review
+
+| Folder                   | Reviewers | Is the code  well-documented? | Is it clear what  the code does? | Have you updated the README.md  file in your folder? | Have you pushed changes  to the gitHub repo? |
+|--------------------------|-----------|-------------------------------|----------------------------------|------------------------------------------------------|----------------------------------------------|
+| figures/                 |     Saheed      |                               |                                  |                                                      |                                              |
+| Functions/               |    Topher       |                               |                                  |                                                      |                                              |
+| GPP sim and real/        |    Alice S. and Joanna       |                               |                                  |                                                      |                                              |
+| Population sim and real/ |     Lauren and Josh      |                               |                                  |                                                      |                                              |
+| Model_Runs/              |     Amy and Christa      |                               |                                  |                                                      |                                              |
+| ModelChecking/           |     Melissa and Dusty      |                               |                                  |                                                      |                                              |
+| Simulations/             |      Alice C.      |                               |                                  |                                                      |                                              |
