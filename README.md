@@ -20,14 +20,14 @@ Have you pushed changes to the gitHub repo?
 `Simulations/` This folder contains code to simulate GPP and population datasets, and to generate datasets with artificially introduced missingess. 
 
 
-#Code Review
+# Code Review
 
-| Folder  | Reviewers | Is the code well-commented? | Is it clear what the code does? | Have you updated the README.md file in your folder?| Have you pushed changes to the gitHub repo? |  
-| ----------- | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- |  
-|   figures/ |       | | | | | |  
-|  Functions/ |        | | | | | |  
-|  GPP sim and real/ |         | | | | | |  
-|  Population sim and real/|        | | | | | |  
-|  Model_Runs/ |       | | | | | |  
-|  ModelChecking/ |       | | | | | |  
-| Simulations/ |       | | | | | |  
+| Folder                   | Reviewers | Is the code  well-documented? | Is it clear what  the code does? | Have you updated the README.md  file in your folder? | Have you pushed changes  to the gitHub repo? |
+|--------------------------|-----------|-------------------------------|----------------------------------|------------------------------------------------------|----------------------------------------------|
+| figures/                 |           |                               |                                  |                                                      |                                              |
+| Functions/               |           |                               |                                  |                                                      |                                              |
+| GPP sim and real/        |           |                               |                                  |                                                      |                                              |
+| Population sim and real/ |           |                               |                                  |                                                      |                                              |
+| Model_Runs/              |           |                               |                                  |                                                      |                                              |
+| ModelChecking/           |           |                               |                                  |                                                      |                                              |
+| Simulations/             |           |                               |                                  |                                                      |                                              |
