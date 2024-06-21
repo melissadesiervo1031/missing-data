@@ -24,10 +24,10 @@ Have you pushed changes to the gitHub repo?
 
 | Folder                   | Reviewers | Is the code  well-documented? | Is it clear what  the code does? | Have you updated the README.md  file in your folder? | Have you pushed changes  to the gitHub repo? |
 |--------------------------|-----------|-------------------------------|----------------------------------|------------------------------------------------------|----------------------------------------------|
-| figures/                 |           |                               |                                  |                                                      |                                              |
-| Functions/               |           |                               |                                  |                                                      |                                              |
-| GPP sim and real/        |           |                               |                                  |                                                      |                                              |
-| Population sim and real/ |           |                               |                                  |                                                      |                                              |
-| Model_Runs/              |           |                               |                                  |                                                      |                                              |
-| ModelChecking/           |           |                               |                                  |                                                      |                                              |
-| Simulations/             |           |                               |                                  |                                                      |                                              |
+| figures/                 |     Saheed      |                               |                                  |                                                      |                                              |
+| Functions/               |    Topher       |                               |                                  |                                                      |                                              |
+| GPP sim and real/        |    Alice S. and Joanna       |                               |                                  |                                                      |                                              |
+| Population sim and real/ |     Lauren and Josh      |                               |                                  |                                                      |                                              |
+| Model_Runs/              |     Amy and Christa      |                               |                                  |                                                      |                                              |
+| ModelChecking/           |     Melissa and Dusty      |                               |                                  |                                                      |                                              |
+| Simulations/             |      Alice C.      |                               |                                  |                                                      |                                              |
