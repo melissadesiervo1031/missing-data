@@ -22,7 +22,12 @@
 
 #Code Review
 
-| Folder  | Reviewers| |
-| ----------- | ----------- | ----------- |
-|    | Title       | |
-| Paragraph   | Text        | |
+| Folder  | Reviewers | Is the code well-commented? | Is it clear what the code does? | Have you updated the README.md file in your folder?| Have you pushed changes to the gitHub repo? |
+| ----------- | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- |
+|   figures/ |       | | | | | |
+|  Functions/ |        | | | | | |
+|  GPP sim and real/ |         | | | | | |
+|  Population sim and real/|        | | | | | |
+|  Model_Runs/ | Text        | | | | | |
+|  ModelChecking/ | Text        | | | | | |
+| Simulations/ | Text        | | | | | |
