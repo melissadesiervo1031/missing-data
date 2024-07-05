@@ -99,8 +99,8 @@ forecasts_avg <- forecasts_long %>%
     facet_grid(.~as.factor(missingness) ~ as.factor(autocorr_binned)) +
     geom_line(data = realDat, aes(x = Year, y = Broods)) + 
     geom_line(data = forecasts_avg, aes(x = Year, y = Estimate_mean, col = propMiss, group = propMiss), alpha = .8) +
-    theme_classic() #+
-    #xlim(2005,2020)
+    theme_classic() +
+    xlim(2005,2019)
 )
 # save figure
 png(file = "./figures/forecastAccuracy_poisson.png", width = 9, height = 6, units = "in", res = 700)
@@ -118,7 +118,7 @@ ggplot() +
   geom_line(data = realDat, aes(x = Year, y = Broods)) + 
   geom_line(data = forecasts_fig, aes(x = Year, y = Estimate_mean, col = missingness, group = missingness)) +
   theme_classic() +
-  xlim(2010,2020)
+  xlim(2010,2019)
 
 # figure of mean predictions across all amounts of missingness for each type  --------
 forecasts_fig3 <- forecasts_long %>% 
@@ -132,20 +132,10 @@ ggplot() +
                                         fill = missingness, group = missingness), alpha = .3) +
   geom_line(data = realDat, aes(x = Year, y = Broods)) + 
   geom_line(data = forecasts_fig3, aes(x = Year, y= Estimate_mean, group = missingness), alpha = .3) +
-  theme_classic() #+
-  #xlim(2010,2020)
+  theme_classic() +
+  xlim(2010,2019)
 
 
-# calculate low, med, and high autocorr
-
-( ggplot() + 
-    geom_line(data = realData, aes(x = date, y = GPP)) + 
-    geom_line(data = allDat_all, aes(x = date, y = Estimate, col = type, group = ID), alpha = .3) +
-    theme_classic() + 
-    scale_color_discrete(type = c("#66A61E","#1B9E77", "#E7298A", "#E6AB02","#7570B3"),
-                         labels = c("Data Del.-Complete", "Data Aug.", "Data Del.-Simple", "Expectation Max.", "Multiple Imp.")) 
-  
-)
 
 
 
