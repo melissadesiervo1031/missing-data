@@ -10,19 +10,22 @@ library(forecast)
 library(RColorBrewer)
 
 ## read in data 
-figDat_temp <- readRDS("./data/model_results/gauss_sim_ModelResults_normPrior.rds")
+figDat_temp <- readRDS("./data/model_results/gauss_sim_ModelResults.rds")
 
 # remove data for simluation 376... has one really small parameter, which is causing a lot of outliers
-figDat_temp <- figDat_temp[figDat_temp$simName != 376,]
 
-# filter for low and high autocor
-figDat_temp[figDat_temp$autoCor <=0.3 & !is.na(figDat_temp$autoCor), "missingness"] <- "MAR: Low AC"
-figDat_temp[figDat_temp$autoCor > 0.3 & figDat_temp$autoCor < 0.6 &!is.na(figDat_temp$autoCor), "missingness"] <- "MAR: Med. AC"
-figDat_temp[figDat_temp$autoCor  >= 0.6 & !is.na(figDat_temp$autoCor), "missingness"] <- "MAR: High AC"
+figDat_temp <- figDat_temp[!(figDat_temp$simName %in% c(376, 831, 816, 461, 808, 129, 366, 208, 385)),]
 
+# filter for low and high autocor\
+figDat_temp[figDat_temp$missingness=="MAR" & figDat_temp$autoCor <=0.3, "missingness"] <- "MAR: Low AC"
+figDat_temp[figDat_temp$missingness=="MAR" & figDat_temp$autoCor > 0.3 & figDat_temp$autoCor < 0.6, "missingness"] <- "MAR: Med. AC"
+figDat_temp[figDat_temp$missingness=="MAR" & figDat_temp$autoCor >=  0.6, "missingness"] <- "MAR: High AC"
+
+#
 figDat_lines <- figDat_temp %>% 
   filter(param != "sigma") %>%
-  filter(missingness %in% c("MAR: High AC", "MAR: Low AC", "MAR: Med. AC", "MNAR")) %>% 
+  # try removing simulations that have a parameter that is very, very small
+ # filter( param_simVal > 0.05) %>% 
   mutate(autoCor = round(autoCor, 1), 
          amtMiss = round(amtMiss, 1),
          param = replace(param, param %in% c("discharge", "light"), "Beta covariates"),
@@ -34,7 +37,7 @@ figDat_lines <- figDat_temp %>%
             paramDiff_med = median(paramDiff, na.rm = TRUE),
             paramDiff_SD = sd(paramDiff, na.rm = TRUE),
             n = length(paramDiff)) %>% 
-  filter(n  > 100)  %>% # drop combinations that have fewer than 300 observations
+  #filter(n  > 50)  %>% # drop combinations that have fewer than 300 observations
   filter(amtMiss <=.5)
 
 
@@ -42,14 +45,13 @@ figDat_lines <- figDat_temp %>%
 # figure of means for each model type and level of missingness (with shortened x-axis)
 (gauss_sim_MedsFig_trimmed <- ggplot(data = figDat_lines, aes(x = amtMiss, y = paramDiff_med)) +
   facet_grid(~factor(param, levels = c( "Intercept","Phi", "Beta covariates")) 
-                                       ~ factor(missingness, levels = c("MAR: Low AC", "MAR: Med. AC", "MAR: High AC", "MNAR")),
-             scales = "free_y") + 
+                                       ~ factor(missingness, levels = c("MAR: Low AC", "MAR: Med. AC", "MAR: High AC", "MNAR"))) + 
   geom_hline(aes(yintercept = 0), colour = "grey") + 
   #geom_errorbar(aes(ymin=paramDiff_mean - paramDiff_SD, ymax=paramDiff_mean + paramDiff_SD, color = as.factor(type)), 
                 #size=0.3, width=0, position = position_dodge(width=0.03))+
   #geom_ribbon(aes(ymin = paramDiff_mean - paramDiff_SD, ymax = paramDiff_mean + paramDiff_SD, color = as.factor(type), fill = as.factor(type)), alpha = .1) +
   geom_line(aes(color = as.factor(type)), position = position_dodge(width=0.03)) + 
-  geom_point(data = data.frame("x" = c(0,.5), "y" = c(-.25, .1)), aes(x = x, y = y), alpha = 0.0000001) + ## add invisible points to change scales
+  #geom_point(data = data.frame("x" = c(0,.5), "y" = c(-.25, .1)), aes(x = x, y = y), alpha = 0.0000001) + ## add invisible points to change scales
   geom_point(aes(color = as.factor(type)), alpha = .8, position = position_dodge(width=0.03)) +
   theme_classic() +
   xlab("Proportion of missing data")+ 
@@ -58,8 +60,8 @@ figDat_lines <- figDat_temp %>%
   ylab("Median of parameter bias across sims.")+ 
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) +
    xlim(c(-0.03,0.55)) + 
-  scale_color_discrete(type = c("#1B9E77", "#E7298A","#D95F02", "#7570B3",  "#66A61E", "#E6AB02"),
-                       labels = c("Data Augmentation", "Data Deletion", "Kalman Filter", "Multiple Imputations"))
+  scale_color_discrete(type = c("#1B9E77", "#66A61E", "#E7298A","#D95F02", "#7570B3",  "#E6AB02"),
+                       labels = c("Data Augmentation", "Data Deletion-Complete","Data Deletion-Simple", "Kalman Filter", "Multiple Imputations"))
 )
 
 ## make a sub-dataframe that includes points for SDs that are >5 
@@ -78,8 +80,8 @@ largeSD <- figDat_lines[figDat_lines$amtMiss <= 0.5 &
   theme(legend.title=element_blank())+
   ylab("SD of parameter bias across sims.")+ 
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))+ 
-    scale_color_discrete(type = c("#1B9E77", "#E7298A","#D95F02", "#7570B3",  "#66A61E", "#E6AB02"),
-                         labels = c("Data Augmentation", "Data Deletion", "Kalman Filter", "Multiple Imputations"))
+    scale_color_discrete(type = c("#1B9E77", "#66A61E", "#E7298A","#D95F02", "#7570B3",  "#E6AB02"),
+                         labels = c("Data Augmentation", "Data Deletion-Complete","Data Deletion-Simple", "Kalman Filter", "Multiple Imputations"))
   #+
     #xlim(c(-0.03,0.43)) #+ 
     #ylim(c(0,5)) #+
@@ -109,8 +111,8 @@ figDat_long <- figDat_temp %>%
   summarize(paramDiff_mean = mean(paramDiff, na.rm = TRUE),
             paramDiff_med = median(paramDiff, na.rm = TRUE),
             paramDiff_SD = sd(paramDiff, na.rm = TRUE),
-            n = length(paramDiff)) %>% 
-  filter(n  > 100)  
+            n = length(paramDiff)) #%>% 
+  #filter(n  > 100)  
 
 # make a figure like the one above, but without a trimmed x axis
 # figure of means for each model type and level of missingness
@@ -129,9 +131,8 @@ figDat_long <- figDat_temp %>%
     theme(legend.title=element_blank())+
     ylab("Mean of parameter bias across sims.")+ 
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) + 
-    scale_color_discrete(type = c("#1B9E77", "#E7298A","#D95F02", "#7570B3",  "#66A61E", "#E6AB02"),
-                         labels = c("Data Augmentation", "Data Deletion", "Kalman Filter", "Multiple Imputations"))
-  
+    scale_color_discrete(type = c("#1B9E77", "#66A61E", "#E7298A","#D95F02", "#7570B3",  "#E6AB02"),
+                         labels = c("Data Augmentation", "Data Deletion-Complete","Data Deletion-Simple", "Kalman Filter", "Multiple Imputations"))
 )
 
 # figure of SD for each model type and level of missingness
@@ -148,8 +149,8 @@ figDat_long <- figDat_temp %>%
     theme(legend.title=element_blank())+
     ylab("SD of parameter bias across sims.")+ 
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))+ 
-    scale_color_discrete(type = c("#1B9E77", "#E7298A","#D95F02", "#7570B3",  "#66A61E", "#E6AB02"),
-                         labels = c("Data Augmentation", "Data Deletion", "Kalman Filter", "Multiple Imputations"))
+    scale_color_discrete(type = c("#1B9E77", "#66A61E", "#E7298A","#D95F02", "#7570B3",  "#E6AB02"),
+                         labels = c("Data Augmentation", "Data Deletion-Complete","Data Deletion-Simple", "Kalman Filter", "Multiple Imputations"))
   
 ) 
 # put into one figure
@@ -161,22 +162,22 @@ Gauss_paramRecov
 dev.off()
 # 
 # 
-# # 95% CI Error bar plots to show spread of complete parameter recovery data  --------
-# (ErrorBarPlots <- ggplot(data = figDat_long, aes(x = amtMiss, y = paramDiff_med)) +
-#    facet_grid(~factor(param, levels = c("phi", "intercept",  "light", "discharge")) 
-#               ~ factor(missingness, levels = c("MAR: Low AC", "MAR: High AC", "MNAR"))) + 
-#    geom_hline(aes(yintercept = 0), colour = "grey") + 
-#    geom_errorbar(aes(ymin=paramDiff_med - 1.96*paramDiff_SD, ymax=paramDiff_med + 1.96*paramDiff_SD, color = as.factor(type)), 
-#       size=0.3, width=0, position = position_dodge(width=0.07))+
-#    geom_point(aes(color = as.factor(type)), alpha = .8, position = position_dodge(width=0.07)) +
-#    theme_classic() +
-#    xlab("Proportion of missing data")+ 
-#    theme(legend.position="top")+
-#    theme(legend.title=element_blank())+
-#    ylab("Mean standardized parameter estimate")+ 
-#    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))
-# )
-# 
+# 95% CI Error bar plots to show spread of complete parameter recovery data  --------
+(ErrorBarPlots <- ggplot(data = figDat_long, aes(x = amtMiss, y = paramDiff_med)) +
+   facet_grid(~factor(param, levels = c("Phi", "Pntercept",  "Beta covariates"))
+              ~ factor(missingness, levels = c("MAR: Low AC", "MAR: Med. AC", "MAR: High AC", "MNAR"))) +
+   geom_hline(aes(yintercept = 0), colour = "grey") +
+   geom_errorbar(aes(ymin=paramDiff_med - 1.96*paramDiff_SD, ymax=paramDiff_med + 1.96*paramDiff_SD, color = as.factor(type)),
+      size=0.3, width=0, position = position_dodge(width=0.07))+
+   geom_point(aes(color = as.factor(type)), alpha = .8, position = position_dodge(width=0.07)) +
+   theme_classic() +
+   xlab("Proportion of missing data")+
+   theme(legend.position="top")+
+   theme(legend.title=element_blank())+
+   ylab("Mean standardized parameter estimate")+
+   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))
+)
+
 # 
 # figDat_all <- figDat_temp %>% 
 #   filter(param != "sigma") %>%
@@ -269,3 +270,4 @@ ggplot(data = brmsDat) +
   xlab("Missingness Approach") + 
   ylab("[(true param-sim param)/abs(sim param)]") +
   ggtitle("phi parameter recovery")
+
