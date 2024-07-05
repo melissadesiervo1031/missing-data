@@ -1,18 +1,31 @@
 # Load packages ## 
 library(tidyverse)
-#library(forecast) ## it hates this package...run with lowercase arima# 
+#library(forecast) ## it (Beartooth?) hates this package...run with lowercase arima# 
 library(Amelia)
+library(here)
 
 ## read in the data ##
 
-gauss_real_MinMaxMiss <- readRDS("./data/missingDatasets/gauss_real_MinMaxMiss.rds")
-pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
+gauss_real_MinMaxMiss <- readRDS(here("data/missingDatasets/gauss_real_MinMaxMiss.rds"))
+au_sable_river_full <- read_csv(here("data/au_sable_river_prepped.csv"))
+#badger_mill_creek_full <- read_csv(here("data/badger_mill_Creek_prepped.csv"))
 
-  CurSim <- 1
-   
+gauss_real_MinMaxMiss <- gauss_real_MinMaxMiss
+sim_list <- gauss_real_MinMaxMiss
+
+# sim_list.50 <- gauss_real_randMiss$gauss_real_randMiss_autoCor_50
+# sim_list <- sim_list.50$y
+# nms <- stringr::str_which(names(sim_list), "^prop")
+# sim_list <- sim_list[nms]
+# sim_pars <- sim_list.50$sim_params
+# imputationsnum <- 5
+#################### Functions for missing data approaches -----------------------------------
+  
+  # Drop missing (simple case) + arima function ---------------------------------------------------
+  
   
   fit_arima_dropmissing <- function(sim_list, sim_pars, 
-                                    forecast = TRUE, forecast_days = 31,
+                                    forecast = TRUE, forecast_days = 365,
                                     dat_full){
     
     simmissingdf <-lapply(X = sim_list, 
@@ -22,7 +35,7 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
     ## holdout data for forecasting
     if(forecast){
       simmissingdf <- lapply(simmissingdf, function(df) {
-        df[1:(366-forecast_days), ]  # Remove to save these for forecasting
+        df[1:(nrow(dat_full)-forecast_days), ]  # Remove to save these for forecasting
       })
     }
     ## drop the missing values ###
@@ -81,7 +94,7 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
   # Drop missing (complete case) + arima function ---------------------------------------------------
   
   fit_arima_dropmissing_CC <- function(sim_list, sim_pars, 
-                                       forecast = TRUE, forecast_days = 31,
+                                       forecast = TRUE, forecast_days = 365,
                                        dat_full){
     
     simmissingdf <-lapply(X = sim_list, 
@@ -92,7 +105,7 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
     ## holdout data for forecasting
     if(forecast){
       simmissingdf <- lapply(simmissingdf, function(df) {
-        df[1:(366-forecast_days), ]  # Remove to save these for forecasting
+        df[1:(nrow(dat_full)-forecast_days), ]  # Remove to save these for forecasting
       })
     }
     # remove data in a "complete case" way
@@ -160,7 +173,7 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
   
   # arima + Kalman filter function ------------------------------------------
   
-  fit_arima_Kalman <- function(sim_list, sim_pars, forecast = TRUE, forecast_days = 31,
+  fit_arima_Kalman <- function(sim_list, sim_pars, forecast = TRUE, forecast_days = 365,
                                dat_full){
     
     simmissingdf <-lapply(X = sim_list, 
@@ -170,7 +183,7 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
     ## holdout data for forecasting
     if(forecast){
       simmissingdf <- lapply(simmissingdf, function(df) {
-        df[1:(366-forecast_days), ]  # Remove to save these for forecasting
+        df[1:(nrow(dat_full)-forecast_days), ]  # Remove to save these for forecasting
       })
     }
     
@@ -226,10 +239,10 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
   
   # multiple imputations + Arima function -----------------------------------
   
-  fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, forecast_days = 31,
+  fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, forecast_days = 365,
                            dat_full){
     
-    days<-seq(1, 366)
+    days<-seq(1, nrow(dat_full))
     
     simmissingdf <-lapply(X = sim_list, 
                           FUN = function(X) cbind.data.frame(days= days,
@@ -239,7 +252,7 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
     ## holdout data for forecasting
     if(forecast){
       simmissingdf <- lapply(simmissingdf, function(df) {
-        df[1:(366-forecast_days), ]  # Remove to save these for forecasting
+        df[1:(nrow(dat_full)-forecast_days), ]  # Remove to save these for forecasting
       })
     }
     
@@ -293,7 +306,7 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
     # make return values
     #paramlistsim <- map(listcoefsessim , ~.["q.mi"])
     
-    paramlistsim <- map_df(seq(1:16),
+    paramlistsim <- map_df(seq(1:15),
                            function(x){
                              data.frame("parameters" = c("intercept", "xreg1", "xreg2", "phi", "sigma"),
                                         "param_value" = c(listcoefsessim[[x]]$q.mi, sigmas[x]),
@@ -301,7 +314,7 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
                            }, 
                            .id = "tempNum")
     # update missingPropAutocor column
-    numName_df <- data.frame("tempNum" = c(1:16), 
+    numName_df <- data.frame("tempNum" = c(1:15), 
                              "missingprop_autocor" = names(listcoefsessim)) %>% 
       mutate("tempNum" = as.character(tempNum))
     
@@ -312,7 +325,7 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
     
     # reframe list of coefficients and s.e.s into a single object for forecasting
     
-    forecastList <- map(c(1:16), function(x) {
+    forecastList <- map(c(1:15), function(x) {
       test <- modelobjectlist[[i]]$imp1  
       test$coef <- as.vector(listcoefsessim[[x]]$q.mi)
       names(test$coef) <- c("ar1","intercept","matrix(c(xreg1, xreg2), ncol = 2)1","matrix(c(xreg1, xreg2), ncol = 2)2")
@@ -349,79 +362,109 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
   }
   
   
+  ###################### RUN MODELS WITH DATA ------------------------------
+  
+  # make file for output beforehand in supercomputer folder 
+  # will put them all together after all run, using the command line
+  if (!dir.exists("data/model_results/gauss_real_MNAR_arima_modResults/au_sable")) {
+    dir.create("data/model_results/gauss_real_MNAR_arima_modResults/au_sable")
+  }
+
+  if (!dir.exists("data/model_results/gauss_real_MNAR_arima_modResults/badger_mill")) {
+    dir.create("data/model_results/gauss_real_MNAR_arima_modResults/badger_mill")
+  }
+
+
+  # Use to run Au Sable data
+dat_full <- au_sable_river_full
+dirname <- "./data/model_results/gauss_real_MNAR_arima_modResults/au_sable/"
+  
+  # use to run Badger Mill data
+dat_full <- badger_mill_creek_full
+dirname <- "./data/model_results/gauss_real_MNAR_arima_modResults/badger_mill/"
+gauss_real_randMiss <- gauss_real_randMiss_1094
+  
+  # set # of forecast days
+forecast_days <- 365
+  
+CurSim <- 1
+  
+  
   # Run models with drop missing + arima ------------------------------------
   
-  arima_drop_MAR <- fit_arima_dropmissing(gauss_real_MinMaxMiss[[CurSim]]$y,gauss_real_MinMaxMiss[[CurSim]]$sim_params, forecast = TRUE, forecast_days = 31, dat_full = pine_river_full)
+  
+  
+arima_drop_MNAR <- fit_arima_dropmissing(gauss_real_MinMaxMiss[[CurSim]]$y,gauss_real_MinMaxMiss[[CurSim]]$sim_params, forecast = TRUE, forecast_days = forecast_days, dat_full = dat_full)
   
   ## formatting for figure
   # save arima model parameters
-  arimadrop_MAR_df <- arima_drop_MAR$arima_pars
-  arimadrop_MAR_df$missingness <- 'MAR'
-  arimadrop_MAR_df$type <- 'dropNA_simple'
-  arimadrop_MAR_df$run_no <- CurSim
+  arimadrop_MNAR_df <- arima_drop_MNAR$arima_pars
+  arimadrop_MNAR_df$missingness <- 'MNAR'
+  arimadrop_MNAR_df$type <- 'dropNA_simple'
+  arimadrop_MNAR_df$run_no <- CurSim
   
   # save arima forecasts
-  arimadrop_MAR_preds <- arima_drop_MAR$arima_forecast
-  arimadrop_MAR_preds$missingness <- 'MAR'
-  arimadrop_MAR_preds$type <- 'dropNA_simple'
-  arimadrop_MAR_preds$run_no <- CurSim
+  arimadrop_MNAR_preds <- arima_drop_MNAR$arima_forecast
+  arimadrop_MNAR_preds$missingness <- 'MNAR'
+  arimadrop_MNAR_preds$type <- 'dropNA_simple'
+  arimadrop_MNAR_preds$run_no <- CurSim
   
   # Run models with drop missing complete case + arima ------------------------------------
   
-  arima_dropCC_MAR <- fit_arima_dropmissing_CC(gauss_real_MinMaxMiss[[CurSim]]$y,gauss_real_MinMaxMiss[[CurSim]]$sim_params, forecast = TRUE, forecast_days = 31, dat_full = pine_river_full)
+  arima_dropCC_MNAR <- fit_arima_dropmissing_CC(gauss_real_MinMaxMiss[[CurSim]]$y,gauss_real_MinMaxMiss[[CurSim]]$sim_params, forecast = TRUE, forecast_days = forecast_days, dat_full = dat_full)
   
   ## formatting for figure
   # save arima model parameters
-  arimadropCC_MAR_df <- arima_dropCC_MAR$arima_pars
-  arimadropCC_MAR_df$missingness <- 'MAR'
-  arimadropCC_MAR_df$type <- 'dropNA_complete'
-  arimadropCC_MAR_df$run_no <- CurSim
+  arimadropCC_MNAR_df <- arima_dropCC_MNAR$arima_pars
+  arimadropCC_MNAR_df$missingness <- 'MNAR'
+  arimadropCC_MNAR_df$type <- 'dropNA_complete'
+  arimadropCC_MNAR_df$run_no <- CurSim
   
   # save arima forecasts
-  arimadropCC_MAR_preds <- arima_dropCC_MAR$arima_forecast
-  arimadropCC_MAR_preds$missingness <- 'MAR'
-  arimadropCC_MAR_preds$type <- 'dropNA_complete'
-  arimadropCC_MAR_preds$run_no <- CurSim
+  arimadropCC_MNAR_preds <- arima_dropCC_MNAR$arima_forecast
+  arimadropCC_MNAR_preds$missingness <- 'MNAR'
+  arimadropCC_MNAR_preds$type <- 'dropNA_complete'
+  arimadropCC_MNAR_preds$run_no <- CurSim
   
   # Run models w/ Kalman filter + arima fxn ---------------------------------
   
-  arima_kalman_MAR<- fit_arima_Kalman(gauss_real_MinMaxMiss[[CurSim]]$y,gauss_real_MinMaxMiss[[CurSim]]$sim_params, 
-                                      forecast = TRUE, forecast_days = 31, dat_full = pine_river_full)
+  arima_kalman_MNAR<- fit_arima_Kalman(gauss_real_MinMaxMiss[[CurSim]]$y,gauss_real_MinMaxMiss[[CurSim]]$sim_params, 
+                                      forecast = TRUE, forecast_days = forecast_days, dat_full = dat_full)
   ## formatting for figure
   # save arima model parameters
-  arimaKalman_MAR_df <- arima_kalman_MAR$arima_pars
-  arimaKalman_MAR_df$missingness <- 'MAR'
-  arimaKalman_MAR_df$type <- 'Kalman Filter'
-  arimaKalman_MAR_df$run_no <- CurSim
+  arimaKalman_MNAR_df <- arima_kalman_MNAR$arima_pars
+  arimaKalman_MNAR_df$missingness <- 'MNAR'
+  arimaKalman_MNAR_df$type <- 'Kalman Filter'
+  arimaKalman_MNAR_df$run_no <- CurSim
   
   # save arima forecasts
-  arimaKalman_MAR_preds <- arima_kalman_MAR$arima_forecast
-  arimaKalman_MAR_preds$missingness <- 'MAR'
-  arimaKalman_MAR_preds$type <- 'Kalman Filter'
-  arimaKalman_MAR_preds$run_no <- CurSim
+  arimaKalman_MNAR_preds <- arima_kalman_MNAR$arima_forecast
+  arimaKalman_MNAR_preds$missingness <- 'MNAR'
+  arimaKalman_MNAR_preds$type <- 'Kalman Filter'
+  arimaKalman_MNAR_preds$run_no <- CurSim
   
   # Run models w/ Multiple Imputations --------------------------------------
   
-  arima_mi_MAR <-  fit_arima_MI(gauss_real_MinMaxMiss[[CurSim]]$y,gauss_real_MinMaxMiss[[CurSim]]$sim_params, imputationsnum=5,
-                                forecast = TRUE, forecast_days = 31,
-                                dat_full = pine_river_full)
+  arima_mi_MNAR <-  fit_arima_MI(gauss_real_MinMaxMiss[[CurSim]]$y,gauss_real_MinMaxMiss[[CurSim]]$sim_params, imputationsnum=5,
+                                forecast = TRUE, forecast_days = forecast_days,
+                                dat_full = dat_full)
   ## formatting for figure
   # save arima model parameters
-  arimaMI_MAR_df <- arima_mi_MAR$arima_pars
-  arimaMI_MAR_df$missingness <- 'MAR'
-  arimaMI_MAR_df$type <- 'Multiple Imputations'
-  arimaMI_MAR_df$run_no <- CurSim
+  arimaMI_MNAR_df <- arima_mi_MNAR$arima_pars
+  arimaMI_MNAR_df$missingness <- 'MNAR'
+  arimaMI_MNAR_df$type <- 'Multiple Imputations'
+  arimaMI_MNAR_df$run_no <- CurSim
   
   # save arima forecasts
-  arimaMI_MAR_preds <- map_df(arima_mi_MAR$arima_forecast, ~as.data.frame(.x),
+  arimaMI_MNAR_preds <- map_df(arima_mi_MNAR$arima_forecast, ~as.data.frame(.x),
                               .id = "missingprop_autocor")
-  arimaMI_MAR_preds$missingness <- 'MAR'
-  arimaMI_MAR_preds$type <- 'Multiple Imputations'
-  arimaMI_MAR_preds$run_no <- CurSim
+  arimaMI_MNAR_preds$missingness <- 'MNAR'
+  arimaMI_MNAR_preds$type <- 'Multiple Imputations'
+  arimaMI_MNAR_preds$run_no <- CurSim
   
   # Combine output data and save --------------------------------------------
   
-  paramarimaall_df<-rbind(arimadrop_MAR_df, arimadropCC_MAR_df, arimaKalman_MAR_df, arimaMI_MAR_df)
+  paramarimaall_df<-rbind(arimadrop_MNAR_df, arimadropCC_MNAR_df, arimaKalman_MNAR_df, arimaMI_MNAR_df)
   
   Output <- matrix(data=NA, nrow=nrow(paramarimaall_df), ncol=ncol(paramarimaall_df))
   
@@ -436,7 +479,7 @@ pine_river_full <- read_csv("data/pine_river_data_prepped.csv")
 
   ## save prediction data
   
-  paramarimaall_preds<-rbind(arimadrop_MAR_preds, arimadropCC_MAR_preds, arimaKalman_MAR_preds, arimaMI_MAR_preds)
+  paramarimaall_preds<-rbind(arimadrop_MNAR_preds, arimadropCC_MNAR_preds, arimaKalman_MNAR_preds, arimaMI_MNAR_preds)
   
   Output3 <- matrix(data=NA, nrow=nrow(paramarimaall_preds), ncol=ncol(paramarimaall_preds))
   
