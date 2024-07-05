@@ -19,9 +19,37 @@ gauss_real_randMiss <- readRDS(here("data/missingDatasets/gauss_real_randMiss.rd
 au_sable_river_full <- read_csv(here("data/au_sable_river_prepped.csv"))
 badger_mill_creek_full <- read_csv(here("data/badger_mill_Creek_prepped.csv"))
 
+
+## truncating gauss_real_randMiss innermost elements to 1094 observations, to match the Badger Mill Creek data
+truncate_to_1094 <- function(list) {
+  list %>% map(~ .x[1:1094])
+}
+
+truncate_to_1094.df <- function(list) {
+  map(list, ~ .x[1:1094, ])
+}
+
+### V1
+gauss_real_randMiss_1094 <- gauss_real_randMiss %>%
+  map(~ {
+    .x$y <- truncate_to_1094(.x$y)
+    .x$sim_params <- truncate_to_1094.df(.x$sim_params)
+    .x
+  })
+
+### BUT the data still doesn't work 
+
 #gauss_real_randMiss <- readRDS("/project/modelscape/users/astears/gauss_real_randMiss.rds")
 #pine_river_full <- read_csv(here("data/pine_river_data_prepped.csv"))
 
+# Code/ objects for checking the functions (many broken spots at first):
+
+# sim_list.50 <- gauss_real_randMiss$gauss_real_randMiss_autoCor_50
+# sim_list <- sim_list.50$y
+# nms <- stringr::str_which(names(sim_list), "^prop")
+# sim_list <- sim_list[nms]
+# sim_pars <- sim_list.50$sim_params
+# imputationsnum <- 5
 
 # Functions for missing data# approaches -----------------------------------
 
@@ -309,7 +337,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
   # make return values
   #paramlistsim <- map(listcoefsessim , ~.["q.mi"])
   
-  paramlistsim <- map_df(seq(1:16),
+  paramlistsim <- map_df(seq(1:15),
                          function(x){
                            data.frame("parameters" = c("intercept", "xreg1", "xreg2", "phi", "sigma"),
                                       "param_value" = c(listcoefsessim[[x]]$q.mi, sigmas[x]),
@@ -317,7 +345,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
                          }, 
                          .id = "tempNum")
   # update missingPropAutocor column
-  numName_df <- data.frame("tempNum" = c(1:16), 
+  numName_df <- data.frame("tempNum" = c(1:15), 
                            "missingprop_autocor" = names(listcoefsessim)) %>% 
     mutate("tempNum" = as.character(tempNum))
   
@@ -328,7 +356,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
   
   # reframe list of coefficients and s.e.s into a single object for forecasting
   
-  forecastList <- map(c(1:16), function(x) {
+  forecastList <- map(c(1:15), function(x) {
     test <- modelobjectlist[[i]]$imp1  
     test$coef <- as.vector(listcoefsessim[[x]]$q.mi)
     names(test$coef) <- c("ar1","intercept","matrix(c(xreg1, xreg2), ncol = 2)1","matrix(c(xreg1, xreg2), ncol = 2)2")
@@ -364,8 +392,8 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
   ))
 }
 
-
-# fit models to data ------------------------------------------------------
+#################################################################################################
+############################# fit models to data ------------------------------------------------------
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
@@ -379,15 +407,14 @@ if (!dir.exists("data/model_results/gauss_real_MAR_arima_modResults/badger_mill"
 
 # Use to run Au Sable data
 dat_full <- au_sable_river_full
-dirname <- "./data/model_results/gauss_real_MAR_arima_modResults/au_sable"
+dirname <- "./data/model_results/gauss_real_MAR_arima_modResults/au_sable/"
 
 # use to run Badger Mill data
 dat_full <- badger_mill_creek_full
-dirname <- "./data/model_results/gauss_real_MAR_arima_modResults/badger_mill"
-  
+dirname <- "./data/model_results/gauss_real_MAR_arima_modResults/badger_mill/"
+gauss_real_randMiss <- gauss_real_randMiss_1094
 
 # set # of forecast days
-
 forecast_days <- 365
 
 for (i in 1:10) {
@@ -395,9 +422,14 @@ for (i in 1:10) {
   OutFile_params <- paste(dirname, CurSim, "arimavals.csv", sep = "")
   OutFile_preds <- paste(dirname, CurSim, "arimapreds.csv", sep = "")
   
+  # make sure sim_list and sim_params are not pointing to the whole list, which starts w character elements
+  sim_list<- gauss_real_randMiss[[CurSim]]$y
+  nms <- stringr::str_which(names(sim_list), "^prop")
+  sim_list <- sim_list[nms]
+  
   # Run models with drop missing + arima ------------------------------------
   
-  arima_drop_MAR <- fit_arima_dropmissing(sim_list=gauss_real_randMiss[[CurSim]]$y,sim_pars=gauss_real_randMiss[[CurSim]]$sim_params, forecast = TRUE, forecast_days = forecast_days, dat_full = dat_full)
+  arima_drop_MAR <- fit_arima_dropmissing(sim_list=sim_list,sim_pars=gauss_real_randMiss[[CurSim]]$sim_params, forecast = TRUE, forecast_days = forecast_days, dat_full = dat_full)
   
   ## formatting for figure
   # save arima model parameters
@@ -412,9 +444,11 @@ for (i in 1:10) {
   arimadrop_MAR_preds$type <- 'dropNA_simple'
   arimadrop_MAR_preds$run_no <- CurSim
   
+
+  
   # Run models with drop missing complete case + arima ------------------------------------
 
-  arima_dropCC_MAR <- fit_arima_dropmissing_CC(sim_list=gauss_real_randMiss[[CurSim]]$y,sim_pars=gauss_real_randMiss[[CurSim]]$sim_params, forecast = TRUE, forecast_days = forecast_days, dat_full = dat_full)
+  arima_dropCC_MAR <- fit_arima_dropmissing_CC(sim_list=sim_list,sim_pars=gauss_real_randMiss[[CurSim]]$sim_params, forecast = TRUE, forecast_days = forecast_days, dat_full = dat_full)
   
   ## formatting for figure
   # save arima model parameters
@@ -431,7 +465,7 @@ for (i in 1:10) {
   
   # Run models w/ Kalman filter + arima fxn ---------------------------------
 
-  arima_kalman_MAR<- fit_arima_Kalman(sim_list=gauss_real_randMiss[[CurSim]]$y,sim_pars=gauss_real_randMiss[[CurSim]]$sim_params, 
+  arima_kalman_MAR<- fit_arima_Kalman(sim_list=sim_list,sim_pars=gauss_real_randMiss[[CurSim]]$sim_params, 
                                       forecast = TRUE, forecast_days = forecast_days, dat_full = dat_full)
   ## formatting for figure
   # save arima model parameters
@@ -448,7 +482,7 @@ for (i in 1:10) {
   
   # Run models w/ Multiple Imputations --------------------------------------
 
-  arima_mi_MAR <-  fit_arima_MI(sim_list=gauss_real_randMiss[[CurSim]]$y,sim_pars=gauss_real_randMiss[[CurSim]]$sim_params, imputationsnum=5,
+  arima_mi_MAR <-  fit_arima_MI(sim_list=sim_list,sim_pars=gauss_real_randMiss[[CurSim]]$sim_params, imputationsnum=5,
                                 forecast = TRUE, forecast_days = forecast_days,
                                 dat_full = dat_full)
   ## formatting for figure
@@ -514,7 +548,7 @@ valsAll <- map_df(valNames, function(x) {
   read_csv(paste0(dirname, x))
 })
 #write.csv(valsAll, file = "./data/model_results/gauss_real_MAR_arima_FORECASTvals.csv")
-write.csv(predsAll, file = paste(dirname, "gauss_real_MAR_arima_FORECASTvals.csv", sep = ""))
+write.csv(valsAll, file = paste(dirname, "gauss_real_MAR_arima_FORECASTvals.csv", sep = ""))
 
 # Once the job finishes, you can use the following command from within the folder
 #    containing all single line csv files to compile them into a single csv file:
