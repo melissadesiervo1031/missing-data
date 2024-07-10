@@ -7,6 +7,9 @@
 library(tidyverse)
 library(here)
 library(patchwork)
+library(Amelia)
+library(R.utils)
+
 func_list <- list.files(here("Functions/"), pattern = ".R", full.names = T)
 lapply(func_list, source)
 
@@ -101,7 +104,7 @@ dat <- dat %>% mutate(
   )
 )
 
-# fit the models drop cc
+# fit the models drop complete cases
 dat <- dat %>% mutate(
   estims_full_cc = lapply(
     y,
@@ -113,7 +116,7 @@ dat <- dat %>% mutate(
   )
 )
 
-saveRDS(dat,file="/Users/amypatterson/Documents/Laramie_postdoc/Missing_data_TS/data_bias.rds")
+saveRDS(dat,file="/data_bias.rds")
 
 rhat_full_EM=numeric(nrow(dat))
 ahat_full_EM=numeric(nrow(dat))
@@ -206,7 +209,7 @@ res_sum=as.data.frame(res_sum)
 
 
 # create plots
-r <- ggplot() +
+r1 <- ggplot() +
   geom_line(data = res_sum, aes(x = n_adj_miss, y = rel_bias_rhat_miss_EMmean, color = "EM"))+
   geom_point(data = res_sum, aes(x = n_adj_miss, y = rel_bias_rhat_miss_EMmean, color = "EM"))+
   geom_errorbar(data = res_sum,

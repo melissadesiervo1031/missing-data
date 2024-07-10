@@ -17,4 +17,9 @@
   *Code reviewed by DG, 3 Jul 2024*
 
 
-* `file 2 `: An explanation of what this file does, and how it should be used in the analysis
+* `Bias_check_expanded.R `: This script double checks whether the bias in the EM estimator diminishes with sample size (is it asymptotically unbiased). 
+*This code isn't working right for me...chat with AMY. MD, 10 Jul 2024*
+
+* `checking_ricker_DA_function.R `: This script double checks the Ricker data augmentation function with a small simulated dataset
+  *Code reviewed by MD, 10 Jul 2024*
+
