@@ -139,7 +139,10 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum){
                                                            light = sim_pars$X[,2], 
                                                            discharge = sim_pars$X[,3]))
   
-  amelia1sim <-lapply(X = simmissingdf  , FUN = function(X)   amelia(X, ts="days", m=imputationsnum, lags="GPP")) ## lags by 1 day ##
+  amelia1sim <-lapply(X = simmissingdf  , 
+                      FUN = function(X)   amelia(X, ts="days", 
+                                                 m=imputationsnum, 
+                                                 lags="GPP", leads = "GPP")) ## lags by 1 day ##
   
   
   ##nested list of dataframes that just has the imputations###
