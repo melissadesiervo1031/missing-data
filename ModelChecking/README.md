@@ -22,4 +22,11 @@
 
 * `checking_ricker_DA_function.R `: This script double checks the Ricker data augmentation function with a small simulated dataset
   *Code reviewed by MD, 10 Jul 2024*
+  
+* `test_AR1_model_fit.R`: This script fits the model specified by the file `/GPP\ sim\ and\ real/Stan_code/AR1_light_Q_centered.stan` to 5 simulated datasets and one real dataset to check that the code in the Stan file is working as expected.
+
+  - **This script does not run as is** because line 23 attempts to load data that we are no longer using and because line 42 uses an old version of the `makeMissing()` function with deprecated arguments.
+  
+  - Otherwise *gold standard* for level of comments and code readability.
+  
 
