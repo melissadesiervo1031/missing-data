@@ -18,8 +18,8 @@ library(Amelia)
 
 ## read in the autocor_01 list ##
 
-#gauss_sim_randMiss_autoCorr_01 <- readRDS("/project/modelscape/users/astears/gauss_sim_randMiss_A.rds")
-gauss_sim_randMiss_autoCorr_01 <- readRDS("./data/missingDatasets/gauss_sim_randMiss_A.rds")
+gauss_sim_randMiss_autoCorr_01 <- readRDS("/project/modelscape/users/astears/gauss_sim_randMiss_A.rds")
+# gauss_sim_randMiss_autoCorr_01 <- readRDS("./data/missingDatasets/gauss_sim_randMiss_A.rds")
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
 #OutFile <- paste("gauss_sim_randMiss_modResults_A/", CurSim, "arimavals.csv", sep = "")
@@ -138,7 +138,10 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum){
                                                            light = sim_pars$X[,2], 
                                                            discharge = sim_pars$X[,3]))
   
-  amelia1sim <-lapply(X = simmissingdf  , FUN = function(X)   amelia(X, ts="days", m=imputationsnum, lags="GPP")) ## lags by 1 day ##
+  amelia1sim <-lapply(X = simmissingdf  , 
+                      FUN = function(X)   amelia(X, ts="days",
+                                                 m=imputationsnum, 
+                                                 lags="GPP", leads = "GPP")) ## lags by 1 day ##
   
   
   ##nested list of dataframes that just has the imputations###

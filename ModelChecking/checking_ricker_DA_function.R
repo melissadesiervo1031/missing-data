@@ -1,3 +1,6 @@
+################################################################
+# This script double checks the Ricker data augmentation function with a small simulated dataset
+################################################################
 
 
 # Test
