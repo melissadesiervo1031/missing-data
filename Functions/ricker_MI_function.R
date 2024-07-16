@@ -31,7 +31,7 @@ library(R.utils)
 fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2samelia=0, ameliatimeout=60){
   
   # Check for population extinction
-  if(any(y==0,na.rm=T)){
+  if(sum(y==0,na.rm=T)>1){
     warning("population extinction caused a divide by zero problem, returning NA")
     return(list(
       NA,
@@ -57,6 +57,14 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
     ))
   }
   
+  # check that there actually are missing values 
+  if(any(is.na(y)) == FALSE) {
+    warning("cannot fit a model with Amelia, there are no missing values to impute!")
+    return(list(
+      NA, 
+      reason = "no missing values"
+    ))
+  }
   
   # get length of time series
   n <- length(y)
@@ -70,6 +78,19 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
     ))
   }
   
+  # check to see if the missingness limit has been met (i.e. if there are fewer than 3 non-missing values??)
+  # fail if trimmed time series is too small 
+  if (sum(!is.na(y)) <=5) {
+    warning("Time series with NAs dropped is too short! Model can't fit well")
+    return(list(
+      NA,
+      reason = "ts too short"
+    ))
+  }
+  # another missingness check... make sure that there are more than three consecutive pairs of real dat
+  if (sum(!is.na(y-lag(y))) <=3){
+    warning("too few consecutive time points (three or less)")
+  }
   
   # make data frame in prep for multiple imputation
   simmissingdf=cbind.data.frame(1:(n-1),y[2:n],y[1:(n - 1)])
@@ -188,8 +209,31 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
         NA,
         reason = "Amelia time out"
       ))
+    }, error=function(e){
+      warning("Amelia unable to fit the model, likely due to too little data")
+      return(list(
+        NA,
+        reason="Amelia fitting error"
+      ))
     }
   )
+  
+  if(!exists("amelia1sim")){
+    warning("Amelia was unable to fit for reason other than timeout")
+    return(list(
+      NA,
+      reason = "Amelia fitting error"
+    ))
+  } 
+  
+    if(amelia1sim$code!=1){
+      cat("we should be returning NA, code is not 1")
+      warning("Amelia was unable to fit for reason other than timeout")
+      return(list(
+      NA,
+      reason = paste("Amelia internal fitting error, code",amelia1sim$code)
+    ))
+  } 
   
   
   if(any(is.na(amelia1sim))){
@@ -200,15 +244,25 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
     ))
   } 
   
+  if(any(is.na(amelia1sim$imputations))){
+    warning("Amelia has timed out, likely due to exceptionally high missingness")
+    return(list(
+      NA,
+      reason = "Amelia fitting error"
+    ))
+  } 
+  
+  
   fit=list()
   # fit model over all imputations
   for(i in 1:imputationsnum){
     
     # compile into sliced dataframe in preparation for 
-    dat <- data.frame(
+    dat =data.frame(
       yt = amelia1sim$imputations[[i]][2:(n-1),2],
       ytm1 = amelia1sim$imputations[[i]][1:(n - 2),2]
     )
+    
     
     # fit ricker model with poisson
     if(fam == "poisson"){
@@ -219,8 +273,8 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
           offset = log(ytm1)
         )
       },error=function(cond){
-        message(paste("we have had an error in the model fitting"))
-        return(NA)
+        message(paste("we have had an error in the model fitting X2"))
+        return(list(NA, reason="model fitting error"))
       }
       )
       
@@ -235,7 +289,7 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
         )
       },error=function(cond){
         message(paste("we have had an error in the model fitting"))
-        return(NA)
+        return(list(NA, reason="model fitting error"))
       }) 
     }
     
@@ -244,10 +298,13 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
   # Check that the model fit ran ok
   if(any(is.na(fit))){
     warning("There has been a model fitting error")
-    return(NA)
+    return(list(NA,
+                reason="Amelia model fit error"
+                  ))
   }
   
   
+  sapply(fit, profile)
   # Averages models into 1 result, simplifies, renames
   estims1=sapply(fit,coef,simplify=T)
   estims=rowMeans(estims1)
@@ -275,3 +332,5 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
   ))
   
 }
+
+

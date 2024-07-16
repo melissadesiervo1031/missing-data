@@ -4,8 +4,8 @@
 # missing observations, using EM
 ####################################################
 
-source(here::here("Functions/ricker_count_likelihood_functions.R"))
-
+#source(here::here("Functions/ricker_count_likelihood_functions.R"))
+source("Functions/ricker_count_likelihood_functions.R")
 #' Fitting the Ricker population model to count data
 #' 
 #' This function uses an Expectation maximization approach to fit a Ricker population model
@@ -73,10 +73,22 @@ ricker_EM <- function(y, init_theta, fam = "poisson", tol = 1e-5, max_iter = 50)
       rep(1, n),
       z_s
     )
-    fit_s <- optim(
-      par = theta, fn = ricker_count_neg_ll,
-      y = z_s, X = X, fam = fam, hessian = T
-    )
+    
+    # adding try catch here to avoid error "function cannot be evaluated at initial parameters"
+    fit_s <- tryCatch({
+      optim(
+        par = theta, fn = ricker_count_neg_ll,
+        y = z_s, X = X, fam = fam, hessian = T
+      )
+    },error=function(cond){
+      message(paste("we have had an error in evaluating function at initial parameters"))
+      return(NA)
+    })
+    
+    if(is.na(fit_s[1])){
+      return(NA)
+    }
+
     
     # store new value of theta and update
     Theta <- rbind(
@@ -139,7 +151,7 @@ ricker_EM <- function(y, init_theta, fam = "poisson", tol = 1e-5, max_iter = 50)
 fit_ricker_EM <- function(y, fam = "poisson", ...){
   
   # Check for population extinction
-  if(any(y==0,na.rm=T)){
+  if(sum(y==0,na.rm=T)>1){
     warning("population extinction caused a divide by zero problem, returning NA")
     return(list(
       NA,
@@ -191,6 +203,11 @@ fit_ricker_EM <- function(y, fam = "poisson", ...){
   }
   
   fit <- do.call(ricker_EM, args = args)
+  
+  # adding condition here to avoid error "function cannot be evaluated at initial parameters"
+  if(is.na(fit[1])){
+    return(list(NA,reason="we have had an error in evaluating function at initial parameters"))
+  }
   
   if(fam == "neg_binom"){
     parnames <- c("r", "alpha", "psi")
