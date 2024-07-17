@@ -49,9 +49,17 @@
 
   - **This script does not run** because it uses absolute filepaths to a dataset that is not available in the project repo.
   
+  - This script doesn't seem to belong in this directory.
+  
   *Code reviewed by D.G. 17 July 2024*
   
+* `plot_gauss_real_model_results.R`: This is a short plotting script for results.
 
+  - **This script does not run**, likely due to reorganization of the repo and changes to file paths.
+  
+  *Code reviewed by D.G. 17 July 2024*
+  
+* `test_AR1_model_fit.R`: 
 
   
 
