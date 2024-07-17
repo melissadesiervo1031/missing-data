@@ -37,4 +37,14 @@
   
   *Code reviewed by D.G. 17 July 2024*
   
+* `gauss_amelia_testing.R`: This script tests multiple options available in the `Amelia` package for imputing missing data in time series. No conclusions are drawn in the comments.
+
+  - This script uses a single dataset to test these four different options, so should maybe be expanded to test these options over many datasets? Or use author recommendations if available.
+  
+  - There are some hard-coded value substitutions in this script that I don't fully understand. These will likely break if the `gauss_sim_randMiss_A.rds` dataset changes.
+  
+  *Code reviewed by D.G. 17 July 2024*
+  
+
+  
 
