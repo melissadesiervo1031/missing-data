@@ -29,7 +29,7 @@
   
   - Otherwise *gold standard* for level of comments and code readability.
   
-*Code reviewed by DG, 15 July 2024*
+  *Code reviewed by DG, 15 July 2024*
 
 * `fit_GPP_datasets.R`: This script fits a linear model with two covariates and an AR1 correlation structure in the errors (using `brms`) to multiple GPP datasets. Datasets from Au Sable River and Badger Mill Creek were selected, and this script cleans those data for later use.
 
@@ -59,7 +59,6 @@
   
   *Code reviewed by D.G. 17 July 2024*
   
-* `test_AR1_model_fit.R`: 
 
   
 
