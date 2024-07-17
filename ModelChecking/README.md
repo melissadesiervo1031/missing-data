@@ -31,6 +31,10 @@
   
 *Code reviewed by DG, 15 July 2024*
 
+* `fit_GPP_datasets.R`: This script fits a linear model with two covariates and an AR1 correlation structure in the errors (using `brms`) to multiple GPP datasets. Datasets from Au Sable River and Badger Mill Creek were selected, and this script cleans those data for later use.
 
+  - Not sure this script belongs in this folder or if it could be archived.
+  
+  *Code reviewed by D.G. 17 July 2024*
   
 
