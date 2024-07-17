@@ -39,7 +39,7 @@ MNAR_brms <- read.csv("./data/model_results/gauss_real_MNAR_brms_FORECASTpreds_n
 # join all data together
 allDat <- rbind(MAR_arima, MAR_brms, MNAR_arima, MNAR_brms)
 
-# remove runs w/ no missingness (missingprop_autocor = "y)
+# remove rows w/ no missingness (missingprop_autocor = "y)
 allDat <- allDat %>% 
   filter(missingprop_autocor != "y") %>% 
   filter(!is.na(Estimate)) # remove NAs in Estimate column (12/31)
