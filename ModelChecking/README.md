@@ -45,6 +45,13 @@
   
   *Code reviewed by D.G. 17 July 2024*
   
+* `generate_subset_NWIS_data_low_missingness.R`: This script looks like it loads some data and cleans a subset of it for potential use as an example dataset in the manuscript.
+
+  - **This script does not run** because it uses absolute filepaths to a dataset that is not available in the project repo.
+  
+  *Code reviewed by D.G. 17 July 2024*
+  
+
 
   
 
