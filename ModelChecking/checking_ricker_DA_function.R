@@ -1,5 +1,6 @@
 ################################################################
-# This script double checks the Ricker data augmentation function with a small simulated dataset
+# This script double checks the Ricker data augmentation function 
+# some simulated datasets
 ################################################################
 
 
@@ -7,7 +8,7 @@
 set.seed(5526)
 library(tidyverse)
 
-flist <- list.files("Functions/", full.names = T)
+flist <- list.files("Functions/", pattern = ".R", full.names = T)
 lapply(flist, source)
 
 y <- purrr::map(

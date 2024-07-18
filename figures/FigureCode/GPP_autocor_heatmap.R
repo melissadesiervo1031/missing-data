@@ -47,8 +47,8 @@ figDat <- gauss_sim_figDat %>%
 (heatMap_SD_MAR <-ggplot(data = figDat, aes(x=amtMiss, y=autoCor)) + 
     geom_tile(aes(fill=paramDiff_SD), size=5) + 
     facet_grid(~factor(figDat$param, levels = c("Intercept","Phi", "Beta covariates")) ~ type) +
-    scale_fill_distiller(palette = "Greys", direction = 1, name = "value") +
-  #viridis_c(begin=1, end=0, option = "plasma", name = "value" )+
+    scale_fill_distiller(palette = "Greys", direction = 1, name = "value") +#value = SD
+  #viridis_c(begin=1, end=0, option = "plasma", name = "value" )+ 
     xlab("Proportion of missing data")+
     ylab("Autocorrellation in missingness") +
     theme_classic() +
