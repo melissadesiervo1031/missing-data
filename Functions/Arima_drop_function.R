@@ -13,7 +13,6 @@ library(lubridate)
 #' @examples
 #' 
 #' gauss_sim_MAR_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss.rds")
-#' fit_ricker_cc(y)
 #' GPP_sim_MAR<- gauss_sim_MAR_datasets [[1]]
 #' 
 #' arima_drop <- fit_arima_dropmissing(GPP_sim_MAR$y,GPP_sim_MAR$sim_params)
