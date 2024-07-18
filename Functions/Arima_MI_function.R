@@ -24,8 +24,6 @@ library(Amelia)
 #' 
 #' arima_MI <- fit_arima_MI(GPP_sim_MAR$y,GPP_sim_MAR$sim_params, imputationsnum=5)
 #' 
-### Function that will impute missing values w/ AMELIA and then fit model using ARIMA ###
-
 fit_arima_MI <- function(sim_list, sim_pars, imputationsnum){
   
   # Extract the indices for the time series (1 through the maximum value) to pass to the 

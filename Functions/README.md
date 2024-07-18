@@ -30,7 +30,7 @@ Each script within this repository begins with a header detailing the function p
 * `Arima_MI_function.R`: This script contains the function `fit_arima_MI` which uses multiple imputation (as implemented via the amelia package) to fill in missing values and then fit the model using Arima
 
 # Other functions
-* `missing_data_functions.R`:
+* `missing_data_functions.R`: This script contains the function `makeMissing` which removes data from existing time series according to different proportions, values of autocorrelation in missing values, and types of missingness.
 
-* `model_fitting.R`:
+* `model_fitting.R`: This script contains the function `fit_brms_model` which fits a brms missing-data AR1 model to a simulated data set multiple times, once for each different level of missingness in the data.
 
