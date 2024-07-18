@@ -1,5 +1,5 @@
 #####
-# making figures for GPP forecast RMSE 
+# making figures for Population forecast RMSE 
 #####
 
 # load packages
