@@ -1,4 +1,4 @@
-## draft of the GPP heat map figure ##
+## draft of the Population heat map figure ##
 
 # Load packages
 library(tidyverse)
