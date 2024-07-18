@@ -222,7 +222,7 @@ phi_means <- phi %>%
             n = length(paramDiff),
             paramDiff_actual_mean = mean(paramDiff_actual, na.rm = TRUE),
             param_actual_sd = sd(paramDiff_actual, na.rm = TRUE)) %>% 
-  filter(n  > 100)  %>% # drop combinations that have fewer than 300 observations
+  filter(n  > 100)  %>% # drop combinations that have fewer than 100 observations
   filter(amtMiss <=.5)
   
 # calculate quantiles

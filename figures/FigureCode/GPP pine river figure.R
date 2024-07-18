@@ -69,7 +69,7 @@ arima_drop_pineriver_lowauto<- fit_arima_dropmissing(PineRiverlowauto_list, sim_
 
 Kalman_pineriver_lowauto<- fit_arima_Kalman(PineRiverlowauto_list, sim_pars=sim_pars_PR)
 
-#MI#
+#Multiple Imputation#
 
 MIsimpars<-sim_pars_PR[["X"]]
 
