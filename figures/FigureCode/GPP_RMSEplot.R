@@ -1,3 +1,4 @@
+#This code visualizes ARIMA and stan simulation outputs
 # Load packages
 library(here)
 library(tidyverse)
