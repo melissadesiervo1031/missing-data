@@ -14,9 +14,13 @@ Each script within this repository begins with a header detailing the function p
   `MH_Gibbs_DA`: Modified Metropolis-Hastings algorithm within Gibbs Sampling to sample from the posterior under DA
   `fit_ricker_DA`: A single function to use a Bayesian approach to fit a Ricker time series. The script checks for missing data and will then implement the appropriate sampling algorithm. Importantly, this function relies on `ricker_drop_function.R`, `ricker_count_EM.R`,  `ricker_count_likelihood functions.R`, and the other functions defined with this file. Also, it is intended to use the `parallel` package.
 
-* `ricker_count_likelihood functions.R`:
+* `ricker_count_likelihood functions.R`: This file contains two functions useful for the calculation of the log likelihood of a Ricker population model.
+  `ricker_step`: implements a single, deterministic step according to Ricker population growth
+  `ricker_count_neg_ll`: calculates the negative log likelihood of a given parameter combination for the Ricker model and assuming either a Poisson or Negative Binomial error distribution
 
-* `ricker_count_EM.R`: 
+* `ricker_count_EM.R`: This script contains two functions to fit a Ricker model to discrete time series data with missing values via Expectation Maximization (EM).
+  `ricker_EM`: Function implementing the EM algorithm for fitting data to the Ricker model
+  `fit_ricker_EM`: Wrapper function to implement `ricker_EM` and return a list of parameter estimates
 
 # Arima functions
 
