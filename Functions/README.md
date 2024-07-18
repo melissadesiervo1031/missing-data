@@ -23,6 +23,14 @@ Each script within this repository begins with a header detailing the function p
   `fit_ricker_EM`: Wrapper function to implement `ricker_EM` and return a list of parameter estimates
 
 # Arima functions
+* `Arima_drop_function.R`: This script contains the `fit_arima_dropmissing` function which drops missing values before fitting the model using ARIMA
 
+* `Arima_Kalman_function.R`: This script contains the `fit_arima_Kalman` function which uses the Kalman filter to fit the model using ARIMA
+
+* `Arima_MI_function.R`: This script contains the function `fit_arima_MI` which uses multiple imputation (as implemented via the amelia package) to fill in missing values and then fit the model using Arima
 
 # Other functions
+* `missing_data_functions.R`:
+
+* `model_fitting.R`:
+

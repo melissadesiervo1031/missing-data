@@ -4,7 +4,21 @@ library(tidyverse)
 library(lubridate)
 library(forecast)
 
-
+#' Function that will fit the model using ARIMA while dealing with missing 
+#' values using the Kalman filter ARIMA
+#'
+#' @param sim_list a list of GPP data from multiple simulations
+#' @param sim_pars a list of simulation parameters corresponding to the GPP simulated values
+#'
+#' @return List of the ARIMA parameter estimates, errors, and true values from the simulations.
+#'
+#' @examples
+#' 
+#' gauss_sim_MAR_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss.rds")
+#' GPP_sim_MAR<- gauss_sim_MAR_datasets [[1]]
+#' 
+#' arima_kalman <- fit_arima_Kalman(GPP_sim_MAR$y,GPP_sim_MAR$sim_params)
+#' 
 
 ### Function that will drop missing values and then fit model using ARIMA ###
 
@@ -29,10 +43,3 @@ fit_arima_Kalman <- function(sim_list, sim_pars){
   })
 }
   
-
-
-# example code using this function:
-#gauss_sim_MAR_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss.rds")
-#GPP_sim_MAR<- gauss_sim_MAR_datasets [[1]]
-
-#arima_kalman <- fit_arima_Kalman(GPP_sim_MAR$y,GPP_sim_MAR$sim_params)
