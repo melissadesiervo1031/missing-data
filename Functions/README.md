@@ -2,9 +2,9 @@
 Each script within this repository begins with a header detailing the function purpose, inputs, outputs, and examples, so the descriptions provided in this README do not attempt to duplicate those details here.
 
 # Ricker functions
-* `ricker_sim.R`: This function simulates a stochastic population abundance time series according to the Ricker model. First the expected population size ($$N'_t$$) is caluclated according to $$N'_t = N_{t-1} * exp(r-\alpha*N_{t-1})$$. Then, the actual population size ($$N_t$$) is drawn from either a Poisson distribution or a Negative Binomial. 
+* `ricker_sim.R`: This function (`ricker_sim`) simulates a stochastic population abundance time series according to the Ricker model. First the expected population size ($$N'_t$$) is caluclated according to $$N'_t = N_{t-1} * exp(r-\alpha*N_{t-1})$$. Then, the actual population size ($$N_t$$) is drawn from either a Poisson distribution or a Negative Binomial. 
 
-* `ricker_MI_function.R `: This function will fill in missing data with multiple imputation using Amelia and then fit the Ricker Model using Poisson or Negative Binomial error distribution
+* `ricker_MI_function.R `: This function (`fit_ricker_MI`) will fill in missing data with multiple imputation using Amelia and then fit the Ricker Model using Poisson or Negative Binomial error distribution
 
 * `ricker_drop_function.R`: This script contains two functions. The first (`fit_ricker_cc`) uses the complete case method to analyze a Ricker time series with missing data. The second function (`fit_ricker_drop`) uses a naive data deletion approach instead.
 
