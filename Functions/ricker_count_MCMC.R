@@ -161,6 +161,16 @@ MH_Gibbs_DA <- function(theta_init, dat, fill_rng, lp, q_rng, q_lpdf, burnin, it
     # draw a new sample for y
     y_samps[s, ] <- fill_rng(theta_samps[s, ], dat)
     
+    # adjust stepsize if necessary
+    if(s > 50){
+      if(mean(accept[(s-49):s]) < 0.2){
+        stepsize <- stepsize - stepsize/10
+      }
+      if(mean(accept[(s-49):s]) > 0.6){
+        stepsize <- stepsize + stepsize/10
+      }
+    }
+    
   }
   
   # thin out, then return the post-burnin samples
@@ -253,7 +263,7 @@ fit_ricker_DA <- function(
   
   # set default stepsize
   if(is.null(stepsize)){
-    stepsize <- 0.1
+    stepsize <- 1/(2 * log(length(y)))
   }
   
   # create internal function to compute the log-probability
@@ -431,6 +441,22 @@ fit_ricker_DA <- function(
     lapply(post_samps, function(x){x$theta[,"lalpha"]})
   )
   
+  ses <- apply(cbind(post_r, post_lalpha), 2, sd)
+  if(any(ses == 0)){
+    stuck_r <- which(ses[1:chains] == 0)
+    stuck_alpha <- which(ses[(chains + 1):(2 * chains)] == 0)
+    mess <- paste(
+      "MCMC sampler got stuck. Chain", 
+      stuck_r, "for param r, and chain", 
+      stuck_alpha, "for param alpha.\n"
+    )
+    warning(mess)
+    return(list(
+      NA,
+      reason = "Sampler got stuck"
+    ))
+  }
+  
   # combine posterior samps of r and alpha
   theta_samps <- Reduce(
     rbind,
@@ -454,16 +480,6 @@ fit_ricker_DA <- function(
     )
     colnames(theta_samps)[3:ncol(theta_samps)] <- 
       paste0("y", 1:n)
-  }
-  
-  # return NA if the sampler got stuck
-  ses <- apply(theta_samps, 2, sd)
-  if(any(ses == 0)){
-    warning("MCMC sampler got stuck")
-    return(list(
-      NA,
-      reason = "Sampler got stuck"
-    ))
   }
   
   # return summaries
