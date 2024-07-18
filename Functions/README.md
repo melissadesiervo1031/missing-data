@@ -17,3 +17,8 @@ Each script within this repository begins with a header detailing the function p
 * `ricker_count_likelihood functions.R`:
 
 * `ricker_count_EM.R`: 
+
+# Arima functions
+
+
+# Other functions
