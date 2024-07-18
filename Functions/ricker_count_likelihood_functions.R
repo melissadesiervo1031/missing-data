@@ -23,7 +23,7 @@ ricker_step <- function(theta, Nt){
 
 
 #' Negative log-likelihood function for Ricker time series with
-#' condtionally Poisson- or negative-binomial-distributed observations
+#' conditionally Poisson- or negative-binomial-distributed observations
 #'
 #' @param theta Generic parameter vector of length \eqn{P}.
 #' @param y The observed count data
