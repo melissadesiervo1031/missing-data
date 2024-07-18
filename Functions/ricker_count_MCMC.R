@@ -99,7 +99,7 @@ MH_block_sample <- function(theta_init, dat, lp, q_rng, q_lpdf, burnin, iter, nt
 #' @param nthin Thinning ratio for the kept samples.
 #'
 #' @return A list with a matrix called \code{theta} (one row per sample and one column per parameter). 
-#' Column names are inhereted from \code{theta_init}. The second element in the list is a matrix \code{y}
+#' Column names are inherited from \code{theta_init}. The second element in the list is a matrix \code{y}
 #' with one row per iteration and a column for each observation of the response. The values in these columns
 #' will be fixed for observed values of y, but will vary for unobserved values. The final element in the 
 #' list is a vector of whether the proposal was accepted in each iteration.
@@ -200,7 +200,8 @@ MH_Gibbs_DA <- function(theta_init, dat, fill_rng, lp, q_rng, q_lpdf, burnin, it
 fit_ricker_DA <- function(
     y, fam = "poisson", 
     chains = 4, 
-    samples = 1000, burnin = 3000,
+    samples = 1000, 
+    burnin = 3000,
     priors_list = list(
       m_r = 0,
       sd_r = 2.5,
@@ -208,7 +209,8 @@ fit_ricker_DA <- function(
       sd_lalpha = 1
     ),
     stepsize = NULL,
-    nthin = 5, return_y = FALSE
+    nthin = 5, 
+    return_y = FALSE
 ){
   require(parallel)
   if(fam == "neg_binom"){
@@ -344,13 +346,6 @@ fit_ricker_DA <- function(
         source("./Functions/ricker_count_MCMC.R")
         source("./Functions/ricker_count_EM.R")
         source("./Functions/ricker_count_likelihood_functions.R")
-      #   flist <- list.files(
-      #   #here::here("Functions/"),
-      #   "./Functions/",
-      #   pattern = "ricker",
-      #   full.names = T
-      # );
-      # lapply(flist, source)
         }
     )
 
@@ -387,13 +382,6 @@ fit_ricker_DA <- function(
         source("./Functions/ricker_count_MCMC.R")
         source("./Functions/ricker_count_EM.R")
         source("./Functions/ricker_count_likelihood_functions.R")
-      #   flist <- list.files(
-      #   #here::here("Functions/"),
-      #   ("Functions/"),
-      #   pattern = "ricker",
-      #   full.names = T
-      # );
-      # lapply(flist, source)
         }
     )
     
