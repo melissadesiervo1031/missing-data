@@ -6,14 +6,13 @@
 # load libraries
 library(tidyverse)
 library(here)
-library(patchwork)
 library(parallel)
 func_list <- list.files(here("Functions/"), pattern = ".R", full.names = T)
 lapply(func_list, source)
 
 # establish some global params
 set.seed(2533)
-n_params <- 2
+n_params <- 250
 uns <- c(50, 100, 250, 500)
 nns <- length(uns)
 
@@ -83,14 +82,8 @@ fit_all <- function(y, mthds){
   return(df)
 }
 
-fits <- lapply(
-  dat$y_miss,
-  fit_all,
-  mthds = mthds
-)
-
 # fit the models using each method
-cl <- makeCluster(8)
+cl <- makeCluster(25)
 clusterEvalQ(
   cl,
   {func_list <- list.files(here::here("Functions/"), pattern = ".R", full.names = T)
@@ -104,6 +97,7 @@ fits <- parLapply(
   mthds = mthds
 )
 stopCluster(cl)
+
 dat <- dat %>% mutate(
   res = fits
 )
@@ -174,9 +168,18 @@ results_long <- cbind(
 # save the dataset in case we want to make changes to the figure
 saveRDS(dat, file = here::here("data/bias_checks.rds"))
 
+# create panel labels
+results_long <- results_long %>% mutate(
+  param = factor(
+    param,
+    levels = c("mbias_r_hat", "mbias_alpha_hat"),
+    labels = c(expression(hat(r)), expression(hat(alpha)))
+  )
+)
+
 # plot the results
 ggplot(results_long, aes(x = n, y = rel_bias, color = method)) +
-  facet_wrap(vars(param)) +
+  facet_wrap(~param, labeller = label_parsed) +
   geom_errorbar(
     aes(ymin = rel_bias - se, ymax = rel_bias + se),
     width = 0.1
@@ -184,8 +187,17 @@ ggplot(results_long, aes(x = n, y = rel_bias, color = method)) +
   geom_line() +
   geom_point() +
   geom_hline(yintercept = 0, linetype = "dashed") +
-  theme_classic()
-  
+  theme_classic() +
+  ylab("Relative bias") +
+  xlab("Sample size (20% missing)") +
+  scale_color_brewer(palette = "Dark2")
+
+# save the plot
+ggsave(
+  file = here::here("figures/bias_checks_ricker.png"),
+  width = 6, height = 3,
+  units = "in", dpi = 300
+)  
 
 
 

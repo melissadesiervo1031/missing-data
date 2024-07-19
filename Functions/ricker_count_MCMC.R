@@ -16,7 +16,6 @@ posterior_mode <- function(x){
 
 #' Metropolis-Hastings sampling of the posterior with block updates
 #'
-#' @param theta_init Named vector of initial values of the parameter vector.
 #' @param dat Data (as a list).
 #' @param lp Log-joint probability of the model. This is a function that takes in
 #' the current value of \eqn{\boldsymbol \theta} as it's first argument and the
@@ -32,7 +31,45 @@ posterior_mode <- function(x){
 #' @return A list with a matrix called \code{theta} (one row per sample and one column per parameter).
 #' The second element in the list is a vector of whether the proposal was accepted in each iteration.
 #' 
-MH_block_sample <- function(theta_init, dat, lp, q_rng, q_lpdf, burnin, iter, nthin = 1){
+MH_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
+  
+  theta_init <- fit_ricker_EM(dat$y)$estim
+  # convert alpha to log-alpha
+  theta_init[2] <- log(theta_init[2])
+  names(theta_init)[2] <- "lalpha"
+  y_full_init <- fill_rng(theta_init, dat)
+  nll <- function(x, y){
+    
+    n <- length(y)
+    p <- length(x)
+    # compute means
+    eta <- vector(mode = "double", length = n)
+    eta[1] <- log(y[1])
+    for(t in 2:n){
+      eta[t] <- log(y[t - 1]) + x[1] - y[t - 1] * exp(x[2])
+    }
+    
+    # return the negative log-likelihood
+    return(-sum(
+      dpois(x = y[2:n], lambda = exp(eta[2:n]), log = T)
+    ))
+  }
+  
+  hess <- optim(theta_init, nll, y = y_full_init, hessian = T)$hessian
+  Sigma <- solve(hess)
+  
+  # define proposal distribution
+  q_rng <- function(theta, Sigma){
+    theta_prop <- mvtnorm::rmvnorm(1, theta, Sigma)[1, ]
+    names(theta_prop) <- names(theta)
+    return(theta_prop)
+  }
+  
+  # define proposal density
+  q_lpdf <- function(prop, theta_s, Sigma){
+    mvtnorm::dmvnorm(prop, theta_s, Sigma, log = T)
+  }
+  
   
   S <- (burnin + iter) * nthin
   theta_samps <- matrix(nrow = S, ncol = length(theta_init))
@@ -84,7 +121,6 @@ MH_block_sample <- function(theta_init, dat, lp, q_rng, q_lpdf, burnin, iter, nt
 
 #' Block Metropolis-Hastings within Gibbs sampling of the posterior for Data Augmentation
 #'
-#' @param theta_init Initial values for parameter vector \eqn{\theta}. 
 #' @param dat Data, as a list.
 #' @param fill_rng Gibbs sampler to "fill in" the missing values of \code{y}, conditional on
 #' the current value of \eqn{\boldsymbol \theta}.
@@ -104,21 +140,20 @@ MH_block_sample <- function(theta_init, dat, lp, q_rng, q_lpdf, burnin, iter, nt
 #' will be fixed for observed values of y, but will vary for unobserved values. The final element in the 
 #' list is a vector of whether the proposal was accepted in each iteration.
 #' 
-MH_Gibbs_DA <- function(theta_init, dat, fill_rng, lp, q_rng, q_lpdf, burnin, iter, nthin = 1){
+MH_Gibbs_DA <- function(dat, fill_rng, lp, burnin, iter, nthin = 1){
   
   # initialize
   S <- (burnin + iter) * nthin
-  theta_samps <- matrix(nrow = S, ncol = length(theta_init))
   
-  theta_emb <- fit_ricker_EM(dat$y)$estim
+  theta_init <- fit_ricker_EM(dat$y)$estim
   # convert alpha to log-alpha
-  theta_emb[2] <- log(theta_emb[2])
-  names(theta_emb)[2] <- "lalpha"
-  y_full_init <- fill_rng(theta_emb, dat)
+  theta_init[2] <- log(theta_init[2])
+  names(theta_init)[2] <- "lalpha"
+  y_full_init <- fill_rng(theta_init, dat)
   nll <- function(x, y){
     
     n <- length(y)
-    p <- length(theta)
+    p <- length(x)
     # compute means
     eta <- vector(mode = "double", length = n)
     eta[1] <- log(y[1])
@@ -132,21 +167,33 @@ MH_Gibbs_DA <- function(theta_init, dat, fill_rng, lp, q_rng, q_lpdf, burnin, it
     ))
   }
   
-  hess <- optim(theta_emb, nll, y = y_full_init, hessian = T)$hessian
+  hess <- optim(theta_init, nll, y = y_full_init, hessian = T)$hessian
   Sigma <- solve(hess)
   
+  # define proposal distribution
+  q_rng <- function(theta, Sigma){
+    theta_prop <- mvtnorm::rmvnorm(1, theta, Sigma)[1, ]
+    names(theta_prop) <- names(theta)
+    return(theta_prop)
+  }
+  
+  # define proposal density
+  q_lpdf <- function(prop, theta_s, Sigma){
+    mvtnorm::dmvnorm(prop, theta_s, Sigma, log = T)
+  }
+  
   # preserve names
-  colnames(theta_samps) <- names(theta_emb)
-  theta_samps[1, ] <- theta_emb
+  theta_samps <- matrix(nrow = S, ncol = length(theta_init))
+  colnames(theta_samps) <- names(theta_init)
+  theta_samps[1, ] <- theta_init
   
   # tracker for incomplete data
   y_samps <- matrix(nrow = S, ncol = length(dat$y))
   y_samps[1, ] <- y_full_init
-  num_miss <- sum(is.na(dat$y))
   
   # compute initial log probability
   lp_samps <- vector(length = S, mode = "double")
-  lp_samps[1] <- lp(theta_emb, dat, y_samps[1, ])
+  lp_samps[1] <- lp(theta_init, dat, y_samps[1, ])
   
   # check validity of initial values
   i <- 1
@@ -161,20 +208,24 @@ MH_Gibbs_DA <- function(theta_init, dat, fill_rng, lp, q_rng, q_lpdf, burnin, it
     stop("Failed to find suitable starting values for the parameters.")
   }
   accept <- vector(mode = "double", S)
+  accept2 <- accept
   dat_s <- dat
   
   for(s in 2:S){
     
     # define components of the MH algorithm
     theta_s <- theta_samps[s - 1, ]
-    theta_prop <- mvtnorm::rmvnorm(1, mean = theta_s, sigma = Sigma)[1, ]
+    theta_prop <- q_rng(theta_s, Sigma)
     
     dat_s$y <- y_samps[s - 1, ]
     lp_prop <- lp(theta_prop, dat_s)
     lp_curr <- lp_samps[s - 1]
     
     # compute the ratio
-    mh_ratio <- exp((lp_prop + q_lpdf(theta_s, theta_prop)) - (lp_curr + q_lpdf(theta_prop, theta_s)))
+    mh_ratio <- exp(
+      (lp_prop + q_lpdf(theta_s, theta_prop, Sigma)) - 
+        (lp_curr + q_lpdf(theta_prop, theta_s, Sigma))
+    )
     
     # accept or reject the update
     A <- min(1, mh_ratio)
@@ -182,13 +233,26 @@ MH_Gibbs_DA <- function(theta_init, dat, fill_rng, lp, q_rng, q_lpdf, burnin, it
     if(accept[s] == 1){
       theta_samps[s, ] <- theta_prop
       lp_samps[s] <- lp_prop
-      y_samps[s, ] <- fill_rng(theta_prop, dat)
     } else{
       theta_samps[s, ] <- theta_s
-      lp_samps[s] <- lp_curr
-      y_samps[s, ] <- y_samps[s-1, ]
+      lp_samps[s] <- lp_samps[s - 1]
     }
-  
+    
+    # now propose new y_miss
+    y_full_prop <- fill_rng(theta_samps[s, ], dat)
+    lp_prop2 <- compute_lp(theta_samps[s, ], dat, y_full = y_full_prop)
+    lp_curr2 <- lp_samps[s]
+    mh_ratio2 <- exp((lp_prop2) - (lp_curr2))
+    
+    # accept or reject the update
+    A2 <- min(1, mh_ratio2)
+    accept2[s] <- rbinom(1, 1, prob = A2)
+    if(accept2[s] == 1){
+      y_samps[s, ] <- y_full_prop
+      lp_samps[s] <- lp_prop2
+    } else{
+      y_samps[s, ] <- y_samps[s - 1, ]
+    }
     
   }
   
@@ -230,14 +294,13 @@ fit_ricker_DA <- function(
     y, fam = "poisson", 
     chains = 4, 
     samples = 1000, 
-    burnin = 3000,
+    burnin = 2000,
     priors_list = list(
       m_r = 0,
       sd_r = 2.5,
       m_lalpha = -3,
       sd_lalpha = 1
     ),
-    stepsize = NULL,
     nthin = 5, 
     return_y = FALSE
 ){
@@ -282,10 +345,6 @@ fit_ricker_DA <- function(
     y <- y[start:length(y)]
   }
   
-  # set default stepsize
-  if(is.null(stepsize)){
-    stepsize <- 0.1
-  }
   
   # create internal function to compute the log-probability
   compute_lp <- function(theta, dat, y_full = NULL, family = fam){
@@ -331,18 +390,20 @@ fit_ricker_DA <- function(
     return(y_full)
   }
   
-  # define proposal distribution
-  q_rng <- function(theta, sd){
-    p <- length(theta)
-    theta_prop <- rnorm(p, mean = theta, sd = sd)
-    names(theta_prop) <- names(theta)
-    return(theta_prop)
-  }
-  
-  # define proposal density
-  q_lpdf <- function(prop, theta_s, sd = stepsize){
-    sum(dnorm(prop, mean = theta_s, sd = sd, log = T))
-  }
+  # proposal distribution is now determined based
+  # on empirical bayes approach
+  # # define proposal distribution
+  # q_rng <- function(theta, sd){
+  #   p <- length(theta)
+  #   theta_prop <- rnorm(p, mean = theta, sd = sd)
+  #   names(theta_prop) <- names(theta)
+  #   return(theta_prop)
+  # }
+  # 
+  # # define proposal density
+  # q_lpdf <- function(prop, theta_s, sd = stepsize){
+  #   sum(dnorm(prop, mean = theta_s, sd = sd, log = T))
+  # }
   
   # generate some useful variables
   n <- length(y)
@@ -356,12 +417,13 @@ fit_ricker_DA <- function(
     priors_list
   )
   
-  # initialize
-  theta_init <- c(
-    runif(1, max = 1),
-    runif(1, min = -4, max = -1)
-  )
-  names(theta_init) <- c("r", "lalpha")
+  # Starting point now determined based on empirical Bayes approach
+  # # initialize
+  # theta_init <- c(
+  #   runif(1, max = 1),
+  #   runif(1, min = -4, max = -1)
+  # )
+  # names(theta_init) <- c("r", "lalpha")
   
   prop_miss <- mean(is.na(y))
 
@@ -389,11 +451,8 @@ fit_ricker_DA <- function(
     post_samps <- parallel::clusterCall(
       cl,
       MH_block_sample,
-      theta_init = theta_init,
       dat = dat,
       lp = compute_lp,
-      q_rng = q_rng,
-      q_lpdf = q_lpdf,
       burnin = burnin,
       iter = samples,
       nthin = nthin
@@ -424,12 +483,9 @@ fit_ricker_DA <- function(
     post_samps <- parallel::clusterCall(
       cl,
       MH_Gibbs_DA,
-      theta_init = theta_init,
       dat = dat,
       lp = compute_lp,
       fill_rng = fill_rng,
-      q_rng = q_rng,
-      q_lpdf = q_lpdf,
       burnin = burnin,
       iter = samples,
       nthin = nthin
