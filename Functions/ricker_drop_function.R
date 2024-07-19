@@ -54,7 +54,9 @@ fit_ricker_cc <- function(y, fam = "poisson"){
   # drop incomplete cases
   dat_cc <- dat[complete.cases(dat), ]
   
+  # check for sufficient complete cases
   if(nrow(dat_cc) < 5){
+    warning("There are not enough non-missing sets y(t) and y(t-1)")
     return(list(
       NA,
       reason = "missingness limit"
@@ -155,13 +157,6 @@ fit_ricker_drop <- function(y, fam = "poisson"){
     return(list(
       NA,
       reason = "ts too short"
-    ))
-  }
-  
-  if(length(y) < 3){
-    return(list(
-      NA,
-      reason = "missingness limit"
     ))
   }
   
