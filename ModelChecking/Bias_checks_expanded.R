@@ -88,8 +88,9 @@ fit_all <- function(y, mthds){
 cl <- makeCluster(25)
 clusterEvalQ(
   cl,
-  {func_list <- list.files(here::here("Functions/"), pattern = ".R", full.names = T)
-  lapply(func_list, source)}
+  {source(here::here("Functions/missing_data_functions.R"))
+    ricker_funs <- list.files(here::here("Functions"), pattern = "ricker", full.names = T)
+    lapply(ricker_funs, source)}
 )
 
 fits <- parLapply(
