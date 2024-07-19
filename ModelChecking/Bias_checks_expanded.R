@@ -85,7 +85,7 @@ fit_all <- function(y, mthds){
 }
 
 # fit the models using each method
-cl <- makeCluster(25)
+cl <- makeCluster(10)
 clusterEvalQ(
   cl,
   {source(here::here("Functions/missing_data_functions.R"))
