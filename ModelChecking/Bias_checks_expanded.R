@@ -8,14 +8,13 @@ library(tidyverse)
 library(here)
 library(parallel)
 source(here::here("Functions/missing_data_functions.R"))
-ricker_funs <- list.files(here::here("Functions"), pattern = "ricker")
+source(here::here("Functions/ricker_count_EM.R"))
+source(here::here("Functions/ricker_count_likelihood_functions.R"))
+source(here::here("Functions/ricker_count_MCMC.R"))
+source(here::here("Functions/ricker_drop_function.R"))
+source(here::here("Functions/ricker_MI_function.R"))
+source(here::here("Functions/ricker_sim.R"))
 
-purrr::map(
-  ricker_funs,
-  ~ source(
-    here::here(paste0("Functions/", .x))
-  )
-)
 
 # establish some global params
 set.seed(2533)
