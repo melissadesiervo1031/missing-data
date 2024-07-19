@@ -34,6 +34,12 @@ library(tidyr)
 #' @return A list of parameter estimates from fitting a stan AR1 model on each
 #' simulated dataset.  
 #'
+#' @examples
+#' 
+#' gauss_sim_MAR_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss.rds")
+#' GPP_sim_MAR<- gauss_sim_MAR_datasets [[1]]
+#' 
+#' brms_fit <- fit_brms_model(GPP_sim_MAR$y, GPP_sim_MAR$sim_params, include_missing = FALSE)
 
 fit_brms_model <- function(sim_list, sim_pars, 
                            iter = 4000, include_missing = FALSE){
@@ -79,12 +85,3 @@ fit_brms_model <- function(sim_list, sim_pars,
                 sim_params = sim_pars))
     
 }
-
-
-# example code using this function:
-# gauss_sim_MAR_datasets <- readRDS("data/Missingdatasets/gauss_sim_randMiss.rds")
-# GPP_sim_MAR<- gauss_sim_MAR_datasets [[1]]
-# 
-# brms_fit <- fit_brms_model(GPP_sim_MAR$y,
-#                            GPP_sim_MAR$sim_params,
-#                            include_missing = FALSE)

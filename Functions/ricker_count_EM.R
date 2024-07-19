@@ -1,22 +1,21 @@
 ####################################################
-# This is a user-defined functions to fit Ricker
+# This is a user-defined function to fit Ricker
 # population models to count data, potentially with 
 # missing observations, using EM
 ####################################################
 
-#source(here::here("Functions/ricker_count_likelihood_functions.R"))
 source("Functions/ricker_count_likelihood_functions.R")
 #' Fitting the Ricker population model to count data
 #' 
-#' This function uses an Expectation maximization approach to fit a Ricker population model
-#' with Poisson or Negative-Binomial demographic stochasticity. This function can fit the
+#' This function uses an Expectation Maximization (EM) approach to fit a Ricker population model
+#' with Poisson or Negative-Binomial demographic stochasticity.
 #'
 #' @param y Vector of population counts with NAs placed in positions in which there are missing
 #' observations (if any).
 #' @param init_theta Initial values for the parameter vector.
 #' @param fam Family of the error distribution. Can be either \code{"poisson"} or \code{"neg_binom"}
 #' @param tol Tolerance for convergence.
-#' @param max_iter Miximum number of iterations to run the EM algorithm before stopping.
+#' @param max_iter Maximum number of iterations to run the EM algorithm before stopping.
 #'
 #' @return List with estimates and conditional standard errors for \code{theta}, estimates of the
 #' full data vector with latent values filled in (\code{z_hat}), and a convergence code. 0 means 
@@ -49,7 +48,7 @@ ricker_EM <- function(y, init_theta, fam = "poisson", tol = 1e-5, max_iter = 50)
     #initialize latent vector
     z_s <- y
     
-    # determine parameters sets
+    # determine parameter sets
     theta <- as.double(Theta[s, ])
     if(fam == "poisson"){
       beta <- theta

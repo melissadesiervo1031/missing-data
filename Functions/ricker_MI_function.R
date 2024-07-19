@@ -87,7 +87,7 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
       reason = "ts too short"
     ))
   }
-  # another missingness check... make sure that there are more than three consecutive pairs of real dat
+  # another missingness check... make sure that there are more than three consecutive pairs of real data
   if (sum(!is.na(y-lag(y))) <=3){
     warning("too few consecutive time points (three or less)")
   }
