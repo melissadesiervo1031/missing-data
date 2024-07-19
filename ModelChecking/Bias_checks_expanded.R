@@ -85,27 +85,21 @@ fit_all <- function(y, mthds){
 }
 
 # fit the models using each method
-# cl <- makeCluster(10)
-# clusterEvalQ(
-#   cl,
-#   {source(here::here("Functions/missing_data_functions.R"))
-#     ricker_funs <- list.files(here::here("Functions"), pattern = "ricker", full.names = T)
-#     lapply(ricker_funs, source)}
-# )
-# 
-# fits <- parLapply(
-#   cl,
-#   X = dat$y_miss,
-#   fun = fit_all,
-#   mthds = mthds
-# )
-# stopCluster(cl)
+cl <- makeCluster(25)
+clusterEvalQ(
+  cl,
+  {source(here::here("Functions/missing_data_functions.R"))
+    ricker_funs <- list.files(here::here("Functions"), pattern = "ricker", full.names = T)
+    lapply(ricker_funs, source)}
+)
 
-fits <- lapply(
-  dat$y_miss,
-  fit_all,
+fits <- parLapply(
+  cl,
+  X = dat$y_miss,
+  fun = fit_all,
   mthds = mthds
 )
+stopCluster(cl)
 
 dat <- dat %>% mutate(
   res = fits
