@@ -46,7 +46,7 @@ MH_block_sample <- function(theta_init, dat, lp, q_rng, q_lpdf, burnin, iter, nt
     
     # define components of the MH algorithm
     theta_s <- theta_samps[s - 1, ]
-    theta_prop <- q_rng(theta_s)
+    theta_prop <- q_rng(theta_s, sd = 0.02)
     lp_prop <- lp(theta_prop, dat)
     lp_curr <- lp_samps[s - 1]
     
@@ -110,17 +110,43 @@ MH_Gibbs_DA <- function(theta_init, dat, fill_rng, lp, q_rng, q_lpdf, burnin, it
   S <- (burnin + iter) * nthin
   theta_samps <- matrix(nrow = S, ncol = length(theta_init))
   
+  theta_emb <- fit_ricker_EM(dat$y)$estim
+  # convert alpha to log-alpha
+  theta_emb[2] <- log(theta_emb[2])
+  names(theta_emb)[2] <- "lalpha"
+  y_full_init <- fill_rng(theta_emb, dat)
+  nll <- function(x, y){
+    
+    n <- length(y)
+    p <- length(theta)
+    # compute means
+    eta <- vector(mode = "double", length = n)
+    eta[1] <- log(y[1])
+    for(t in 2:n){
+      eta[t] <- log(y[t - 1]) + x[1] - y[t - 1] * exp(x[2])
+    }
+    
+    # return the negative log-likelihood
+    return(-sum(
+      dpois(x = y[2:n], lambda = exp(eta[2:n]), log = T)
+    ))
+  }
+  
+  hess <- optim(theta_emb, nll, y = y_full_init, hessian = T)$hessian
+  Sigma <- solve(hess)
+  
   # preserve names
-  colnames(theta_samps) <- names(theta_init)
-  theta_samps[1, ] <- theta_init
+  colnames(theta_samps) <- names(theta_emb)
+  theta_samps[1, ] <- theta_emb
   
   # tracker for incomplete data
   y_samps <- matrix(nrow = S, ncol = length(dat$y))
-  y_samps[1, ] <- fill_rng(theta_init, dat)
+  y_samps[1, ] <- y_full_init
+  num_miss <- sum(is.na(dat$y))
   
   # compute initial log probability
   lp_samps <- vector(length = S, mode = "double")
-  lp_samps[1] <- lp(theta_init, dat, y_samps[1, ])
+  lp_samps[1] <- lp(theta_emb, dat, y_samps[1, ])
   
   # check validity of initial values
   i <- 1
@@ -135,14 +161,16 @@ MH_Gibbs_DA <- function(theta_init, dat, fill_rng, lp, q_rng, q_lpdf, burnin, it
     stop("Failed to find suitable starting values for the parameters.")
   }
   accept <- vector(mode = "double", S)
+  dat_s <- dat
   
   for(s in 2:S){
     
     # define components of the MH algorithm
     theta_s <- theta_samps[s - 1, ]
-    theta_prop <- q_rng(theta_s)
-    y_s <- y_samps[s - 1, ]
-    lp_prop <- lp(theta_prop, dat, y_s)
+    theta_prop <- mvtnorm::rmvnorm(1, mean = theta_s, sigma = Sigma)[1, ]
+    
+    dat_s$y <- y_samps[s - 1, ]
+    lp_prop <- lp(theta_prop, dat_s)
     lp_curr <- lp_samps[s - 1]
     
     # compute the ratio
@@ -154,22 +182,13 @@ MH_Gibbs_DA <- function(theta_init, dat, fill_rng, lp, q_rng, q_lpdf, burnin, it
     if(accept[s] == 1){
       theta_samps[s, ] <- theta_prop
       lp_samps[s] <- lp_prop
+      y_samps[s, ] <- fill_rng(theta_prop, dat)
     } else{
       theta_samps[s, ] <- theta_s
       lp_samps[s] <- lp_curr
+      y_samps[s, ] <- y_samps[s-1, ]
     }
-    # draw a new sample for y
-    y_samps[s, ] <- fill_rng(theta_samps[s, ], dat)
-    
-    # adjust stepsize if necessary
-    if(s > 50){
-      if(mean(accept[(s-49):s]) < 0.2){
-        stepsize <- stepsize - stepsize/10
-      }
-      if(mean(accept[(s-49):s]) > 0.6){
-        stepsize <- stepsize + stepsize/10
-      }
-    }
+  
     
   }
   
@@ -263,7 +282,7 @@ fit_ricker_DA <- function(
   
   # set default stepsize
   if(is.null(stepsize)){
-    stepsize <- 1/(2 * log(length(y)))
+    stepsize <- 0.1
   }
   
   # create internal function to compute the log-probability
@@ -311,9 +330,9 @@ fit_ricker_DA <- function(
   }
   
   # define proposal distribution
-  q_rng <- function(theta, sd = stepsize){
+  q_rng <- function(theta, sd){
     p <- length(theta)
-    theta_prop <- rnorm(p, mean = theta, sd = stepsize)
+    theta_prop <- rnorm(p, mean = theta, sd = sd)
     names(theta_prop) <- names(theta)
     return(theta_prop)
   }
