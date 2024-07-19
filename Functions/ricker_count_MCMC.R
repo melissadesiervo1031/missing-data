@@ -433,10 +433,10 @@ fit_ricker_DA <- function(
     parallel::clusterEvalQ(
       cl,
       {
-        source("./Functions/ricker_drop_function.R")
-        source("./Functions/ricker_count_MCMC.R")
-        source("./Functions/ricker_count_EM.R")
-        source("./Functions/ricker_count_likelihood_functions.R")
+        source(here::here("Functions/ricker_drop_function.R"))
+        source(here::here("Functions/ricker_count_MCMC.R"))
+        source(here::here("Functions/ricker_count_EM.R"))
+        source(here::here("Functions/ricker_count_likelihood_functions.R"))
         }
     )
 
@@ -466,10 +466,10 @@ fit_ricker_DA <- function(
     parallel::clusterEvalQ(
       cl,
       {
-        source("./Functions/ricker_drop_function.R")
-        source("./Functions/ricker_count_MCMC.R")
-        source("./Functions/ricker_count_EM.R")
-        source("./Functions/ricker_count_likelihood_functions.R")
+        source(here::here("Functions/ricker_drop_function.R"))
+        source(here::here("Functions/ricker_count_MCMC.R"))
+        source(here::here("Functions/ricker_count_EM.R"))
+        source(here::here("Functions/ricker_count_likelihood_functions.R"))
         }
     )
     
