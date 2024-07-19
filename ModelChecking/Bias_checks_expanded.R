@@ -7,12 +7,13 @@
 library(tidyverse)
 library(here)
 library(patchwork)
+library(parallel)
 func_list <- list.files(here("Functions/"), pattern = ".R", full.names = T)
 lapply(func_list, source)
 
 # establish some global params
-set.seed(9621)
-n_params <- 250
+set.seed(2533)
+n_params <- 2
 uns <- c(50, 100, 250, 500)
 nns <- length(uns)
 
@@ -82,12 +83,29 @@ fit_all <- function(y, mthds){
   return(df)
 }
 
+fits <- lapply(
+  dat$y_miss,
+  fit_all,
+  mthds = mthds
+)
+
 # fit the models using each method
+cl <- makeCluster(8)
+clusterEvalQ(
+  cl,
+  {func_list <- list.files(here::here("Functions/"), pattern = ".R", full.names = T)
+  lapply(func_list, source)}
+)
+
+fits <- parLapply(
+  cl,
+  X = dat$y_miss,
+  fun = fit_all,
+  mthds = mthds
+)
+stopCluster(cl)
 dat <- dat %>% mutate(
-  res = map(
-    dat$y_miss,
-    ~ fit_all(.x, mthds = mthds)
-  )
+  res = fits
 )
 
 # pivot each sub-df wider to make the next
