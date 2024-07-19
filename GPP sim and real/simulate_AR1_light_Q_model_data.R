@@ -1,12 +1,19 @@
 # Simulate GPP data from AR1_light_Q_centered model
 # Author: AM Carter
 
+
+# load packages -----------------------------------------------------------
 library(tidyverse)
 library(rstan)
 options(mc.cores = parallel::detectCores())
 
+
+# load data ---------------------------------------------------------------
+# load data from NWIS
 dat <- read_csv('data/NWIS_MissingTS_subset.csv')
+# load metadata from NWIS
 mdat <- read_csv('data/NWIS_MissingTSinfo_subset.csv')
+
 
 # select a single site
 id <- mdat$site_name[1]
