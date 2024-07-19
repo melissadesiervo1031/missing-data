@@ -4,7 +4,7 @@
 # missing observations, using EM
 ####################################################
 
-source("Functions/ricker_count_likelihood_functions.R")
+source(here::here("Functions/ricker_count_likelihood_functions.R"))
 #' Fitting the Ricker population model to count data
 #' 
 #' This function uses an Expectation Maximization (EM) approach to fit a Ricker population model
