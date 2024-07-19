@@ -8,8 +8,8 @@ library(tidyverse)
 library(here)
 library(parallel)
 source(here::here("Functions/missing_data_functions.R"))
-list.files(here::here("Functions"), pattern = "ricker", full.names = T)
-lapply(list.files, source)
+ricker_funs <- list.files(here::here("Functions"), pattern = "ricker", full.names = T)
+lapply(ricker_funs, source)
 
 
 # establish some global params
