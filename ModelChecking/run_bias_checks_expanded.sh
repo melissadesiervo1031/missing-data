@@ -19,5 +19,5 @@ cd /project/modelscape/analyses/MissingTS/missing-data/ModelChecking
 # Load R
 module load arcc/1.0  gcc/12.2.0 r/4.4.0
 
-Rscript --vanilla $Rscript > $LogFile
+R --no-save < $Rscript > $LogFile
 
