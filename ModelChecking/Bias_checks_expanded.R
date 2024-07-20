@@ -68,8 +68,8 @@ fit_all <- function(y, mthds){
   cc <- fit_ricker_cc(y)
   EM <- fit_ricker_EM(y)
   MI <- fit_ricker_MI(y)
-  DA <- fit_ricker_DA(y)
-  if(any(DA$rhat > 1.2)){
+  DA <- fit_ricker_DA(y, burnin = 3000, samples = 2000)
+  if(any(DA$rhat > 1.1)){
     da_estim <- c(r = NA, alpha = NA)
   } else{
     da_estim <- DA$estim
@@ -182,23 +182,26 @@ results_long <- results_long %>% mutate(
 
 # plot the results
 ggplot(results_long, aes(x = n, y = rel_bias, color = method)) +
-  facet_wrap(~param, labeller = label_parsed) +
+  facet_grid(rows = vars(method), cols = vars(param), labeller = label_parsed) +
   geom_errorbar(
     aes(ymin = rel_bias - se, ymax = rel_bias + se),
-    width = 0.1
+    width = 20
   ) +
   geom_line() +
-  geom_point() +
+  geom_point(size = 2) +
   geom_hline(yintercept = 0, linetype = "dashed") +
   theme_classic() +
   ylab("Relative bias") +
   xlab("Sample size (20% missing)") +
-  scale_color_brewer(palette = "Dark2")
+  scale_color_manual(
+    values = c("black", "black", "red3", "black", "red3")
+  ) +
+  theme(legend.position = "none")
 
 # save the plot
 ggsave(
   file = here::here("figures/bias_checks_ricker.png"),
-  width = 6, height = 3,
+  width = 4, height = 6,
   units = "in", dpi = 300
 )  
 
