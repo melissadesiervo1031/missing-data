@@ -37,3 +37,21 @@
 * `gauss_Sim_mods/modelruns_brms_MAR_B.R`: R script to run brms models on the second half of the Gaussian simulated data with random missingness, almost exact same as for first half, and like first half needs re-commenting to remove ARIMA labels
 
 * `gauss_Sim_mods/modelruns_brms_MNAR.R`: R script to run brms models on the second half of the Gaussian simulated data with non-random missingness, similar to MAR first half, and also needs re-commenting to remove ARIMA labels
+
+* `poiss_Real_mods/modelRuns_rickerForecasts.R`: R script to run Poisson models (drop NA simple case ("drop"), complete case ("cc"), multiple imputations ("MI"), expectation maximization ("EM"), data augmentation ("DA")) with the last values held out for prediction
+
+* `poiss_Sim_mods/DA_stepsize.R`: R script that tries a few different values of the stepsize parameter for the data augmentation method. Object(?) commandArgs is called but has not been loaded, which breaks the script
+
+* `poiss_Sim_mods/DA_stepsize.sh`: shell script to run DA_stepsize.R on HPC
+
+* `poiss_Sim_mods/modelruns_ricker_Extinctions.R`: R script to run the Ricker models ("drop", "cc", "EM", "DA","MI") on an HPC cluster using the 'pos_sim_randMiss_extinctions.rds' dataset, wher populations that went extinct in previous simulations have been removed using the R script 'trimExtinctPopulationSims.R'. Model results are stored in a tibble. Object(?) commandArgs is called but has not been loaded, which breaks the script. L 82-153 are commented out - delete?
+
+* `poiss_Sim_mods/modelruns_ricker.R`: R script to run the Ricker models ("drop", "cc", "EM", "DA","MI") on an HPC cluster. Model results are stored in a tibble. Object(?) commandArgs is called but has not been loaded, which breaks the script. L 104-117 are commented out - delete?
+
+* `poiss_Sim_mods/RickerConfig.R`: R script that creates a configuration file to run the ricker model scripts on HPC. Currently set to work with dataset  "data/missingDatasets/pois_sim_randMiss_B.rds" and parameters "data/missingDatasets/pois_sim_params.rds". Script creates the configuration text file 'poiss_Sim_mods/RickerConfig.txt'.
+
+* `poiss_Sim_mods/RickerConfig.txt`: Text file, a configuration file for the Ricker model scripts that is created by running 'poiss_Sim_mods/RickerConfig.R'.
+
+* `poiss_Sim_mods/run_modelruns_ricker.sh`: shell script to run 'modelruns_ricker.R' on HPC cluster. Requires the RickerConfig.txt file
+
+* `trimExtinctPopulationSims.R`: R script that removes simulated populations that went extinct in previous model runs from the datasets 'data/missingDatasets/pois_sim_randMiss_A.rds' and 'data/missingDatasets/pois_sim_randMiss_B.rds', creating the new dataset 'data/missingDatasets/pois_sim_randMiss_extinctions.rds'
