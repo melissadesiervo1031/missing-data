@@ -38,7 +38,7 @@
 
 * `gauss_Sim_mods/modelruns_brms_MNAR.R`: R script to run brms models on the second half of the Gaussian simulated data with non-random missingness, similar to MAR first half, and also needs re-commenting to remove ARIMA labels
 
-* `poiss_Real_mods/modelRuns_rickerForecasts.R`: R script to run Poisson models (drop NA simple case ("drop"), complete case ("cc"), multiple imputations ("MI"), expectation maximization ("EM"), data augmentation ("DA")) with the last values held out for prediction
+* `poiss_Real_mods/modelRuns_rickerForecasts.R`: R script to run Poisson models (drop NA simple case ("drop"), drop NA complete case ("cc"), expectation maximization ("EM"), data augmentation ("DA"), multiple imputations ("MI")) with the last values held out for prediction
 
 * `poiss_Sim_mods/DA_stepsize.R`: R script that tries a few different values of the stepsize parameter for the data augmentation method. Object(?) commandArgs is called but has not been loaded, which breaks the script
 
@@ -54,4 +54,4 @@
 
 * `poiss_Sim_mods/run_modelruns_ricker.sh`: shell script to run 'modelruns_ricker.R' on HPC cluster. Requires the RickerConfig.txt file
 
-* `trimExtinctPopulationSims.R`: R script that removes simulated populations that went extinct in previous model runs from the datasets 'data/missingDatasets/pois_sim_randMiss_A.rds' and 'data/missingDatasets/pois_sim_randMiss_B.rds', creating the new dataset 'data/missingDatasets/pois_sim_randMiss_extinctions.rds'
+* `poiss_Sim_mods/trimExtinctPopulationSims.R`: R script that removes simulated populations that went extinct in previous model runs from the datasets 'data/missingDatasets/pois_sim_randMiss_A.rds' and 'data/missingDatasets/pois_sim_randMiss_B.rds', creating the new dataset 'data/missingDatasets/pois_sim_randMiss_extinctions.rds'
