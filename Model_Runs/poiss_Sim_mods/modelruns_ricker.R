@@ -139,6 +139,7 @@ cl <- parallel::makeCluster(as.numeric(in_args[3]))
 clusterEvalQ(cl = cl, expr = {
   library(here)
   f_list <- list.files(here("Functions/"), full.names = T)
+  f_list=f_list[-grep("README",f_list)]
   lapply(f_list, source)
 })
 
