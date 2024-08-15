@@ -24,6 +24,9 @@ lapply(f_list, source)
 # arguments from the shell
 # Should include (1) data file (2) parameter file (3) number of nodes for cluster (4) save file location
 # (5) beginnning index (6) ending index (7) optional- model list
+
+# for testing outside of command line, can use this next line
+#in_args=c("data/missingDatasets/pois_sim_randMiss_A.rds", "data/missingDatasets/pois_sim_params.rds", 2, "Model_Runs/RickerA_resultTable1.rds", 1, 5)
 in_args <- commandArgs(trailingOnly = T)
 cat(in_args)
 # read in datafile
