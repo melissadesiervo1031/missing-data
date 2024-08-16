@@ -68,8 +68,8 @@ write.table(configx, file="/Users/amypatterson/Documents/Laramie_postdoc/Missing
 # Make config file for missing data Ricker runs
 # Should include (1) data file (2) parameter file (3) number of nodes for cluster (4) save file location
 # (5) beginnning index (6) ending index (7) optional- model list
-# Split it into chunks- every 2500 
-n=75000/2500
+# Split it into chunks- every 100 
+n=75000/100
 # data file name
 datFile=rep("data/missingDatasets/pois_sim_randMiss_A.rds",n)
 # par file name
@@ -79,9 +79,9 @@ clsize=rep(5,n)
 # save file location
 saveFile=paste0(rep("Model_Runs/RickerA_resultTable",n),1:n,".rds")
 # beginning index
-index1=seq(1,75000,by=2500)
+index1=seq(1,75000,by=100)
 # ending index
-index2=seq(2500,75000,by=2500)
+index2=seq(100,75000,by=100)
 configx=as.data.frame(matrix(data=c(1:n,datFile,parFile,clsize,saveFile,index1,index2),nrow=n,ncol=7,byrow=F))
 colnames(configx)=c("ArrayTaskID","datFile","parFile","clsize","saveFile","index1","index2")
 rownames(configx)=NULL

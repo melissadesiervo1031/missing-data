@@ -14,6 +14,7 @@
 
 library(here)
 library(parallel)
+library(parallelly)
 library(tidyverse)
 
 # source functions
@@ -137,7 +138,7 @@ if(is.na(in_args[7])){
 system.time({
 
 # make cluster for parallel computing
-cl <- parallel::makeCluster(as.numeric(in_args[3]))
+cl <- parallelly::makeClusterPSOCK(as.numeric(in_args[3]))
 
 clusterEvalQ(cl = cl, expr = {
   library(here)
