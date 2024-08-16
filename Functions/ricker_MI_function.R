@@ -25,10 +25,10 @@ library(R.utils)
 #'
 #' @examples
 #' 
-#' y <- readRDS("data/missingDatasets/pois_sim_randMiss_A.rds")[[1]]$y[[1]]
+#' y <- readRDS("data/missingDatasets/pois_sim_randMiss_A.rds")[[1]]$y[[5]]
 #' fit_ricker_MI(y)
 #' 
-fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2samelia=0, ameliatimeout=60){
+fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2samelia=1, ameliatimeout=60){
   
   # Check for population extinction
   if(sum(y==0,na.rm=T)>1){
