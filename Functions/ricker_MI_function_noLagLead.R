@@ -28,7 +28,7 @@ library(R.utils)
 #' y <- readRDS("data/missingDatasets/pois_sim_randMiss_B.rds")[[1]]$y[[10]]
 #' fit_ricker_MI(y,ameliatimeout=10)
 #' 
-fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2samelia=1, ameliatimeout=60){
+fit_ricker_MInolag<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2samelia=1, ameliatimeout=60){
   
   # Check for population extinction
   if(sum(y==0,na.rm=T)>1){
@@ -107,7 +107,7 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
       withTimeout(expr={
         # in the "dual" method we use amelia to get rid of NAs in both y(t) and y(t-1), without regard to values that *would* be the same, this method is the fastest
         if(method=="dual"){
-          amelia1sim<-amelia(simmissingdf, m=imputationsnum, ts="time", bounds=bound1, p2s=p2samelia, lags="yt", leads="yt")
+          amelia1sim<-amelia(simmissingdf, m=imputationsnum, ts="time", bounds=bound1, p2s=p2samelia)
           for(i in 1:imputationsnum){
             while(length(which(is.na(amelia1sim$imputations[[i]]$yt)))>0|length(which(is.na(amelia1sim$imputations[[i]]$yt1)))>0){
               # get where the NAs are
@@ -117,7 +117,7 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
               amelia1sim$imputations[[i]]$yt1[navec]<-amelia1sim$imputations[[i]]$yt[navec-1]
               # do another amelia round to fill in any more NAs if possible
               if(length(which(is.na(amelia1sim$imputations[[i]]$yt)))>0){
-                am2<-amelia(amelia1sim$imputations[[i]],m=1,ts="time", bounds=bound1, p2s=p2samelia, lags="yt", leads="yt")
+                am2<-amelia(amelia1sim$imputations[[i]],m=1,ts="time", bounds=bound1, p2s=p2samelia)
                 amelia1sim$imputations[[i]]<-am2$imputations$imp1
               }
             }
@@ -126,7 +126,7 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
         
         # in the "forward" method we use amelia to get rid of NAs in y(t), and fill in y(t-1) based on which population values should match
         if(method=="forward"){
-          amelia1sim<-amelia(simmissingdf, m=imputationsnum, ts="time", bounds=bound1,p2s=p2samelia, lags="yt", leads="yt")
+          amelia1sim<-amelia(simmissingdf, m=imputationsnum, ts="time", bounds=bound1,p2s=p2samelia)
           for(i in 1:imputationsnum){
             #correct it to only predict forward, that is only predict yt, and then fill the yt1
             fill1=which(amelia1sim$imputations[[i]][1:(n-2),2]!=amelia1sim$imputations[[i]][2:(n-1),3])
@@ -139,7 +139,7 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
               amelia1sim$imputations[[i]]$yt1[navec]<-amelia1sim$imputations[[i]]$yt[navec-1]
               # do another amelia round to fill in any more NAs if possible
               if(length(which(is.na(amelia1sim$imputations[[i]]$yt)))>0){
-                am2<-amelia(amelia1sim$imputations[[i]],m=1,ts="time", bounds=bound1,p2s=p2samelia, lags="yt", leads="yt")
+                am2<-amelia(amelia1sim$imputations[[i]],m=1,ts="time", bounds=bound1,p2s=p2samelia)
                 amelia1sim$imputations[[i]]<-am2$imputations$imp1
               }
               #correct it to only predict forward, that is only predict yt, and then fill the yt1
@@ -152,7 +152,7 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
         
         # in the "backward" method we use amelia to get rid of NAs in y(t-1), and fill in y(t) based on which population values should match
         if(method=="backward"){
-          amelia1sim<-amelia(simmissingdf, m=imputationsnum, ts="time", bounds=bound1,p2s=p2samelia, lags="yt", leads="yt")
+          amelia1sim<-amelia(simmissingdf, m=imputationsnum, ts="time", bounds=bound1,p2s=p2samelia)
           for(i in 1:imputationsnum){
             #correct it to only predict backward, that is only predict yt1, and then fill the yt
             fill1=which(amelia1sim$imputations[[i]][1:(n-2),2]!=amelia1sim$imputations[[i]][2:(n-1),3])
@@ -165,7 +165,7 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
               #amelia1sim$imputations[[i]]$yt1[navec]<-amelia1sim$imputations[[i]]$yt[navec-1]
               # do another amelia round to fill in any more NAs if possible
               if(length(which(is.na(amelia1sim$imputations[[i]]$yt)))>0){
-                am2<-amelia(amelia1sim$imputations[[i]],m=1,ts="time", bounds=bound1,p2s=p2samelia, lags="yt", leads="yt")
+                am2<-amelia(amelia1sim$imputations[[i]],m=1,ts="time", bounds=bound1,p2s=p2samelia)
                 amelia1sim$imputations[[i]]<-am2$imputations$imp1
               }
               #correct it to only predict backward, that is only predict yt1, and then fill the yt
@@ -178,7 +178,7 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
         
         # in the "averaging" method we use amelia to get rid of NAs in y(t) and y(t-1), then average values that have been predicted twice
         if(method=="averaging"){
-          amelia1sim<-amelia(simmissingdf, m=imputationsnum, ts="time", bounds=bound1,p2s=p2samelia, lags="yt", leads="yt")
+          amelia1sim<-amelia(simmissingdf, m=imputationsnum, ts="time", bounds=bound1,p2s=p2samelia)
           for(i in 1:imputationsnum){
             
             while(length(which(is.na(amelia1sim$imputations[[i]]$yt)))>0){
@@ -189,7 +189,7 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
               amelia1sim$imputations[[i]]$yt1[navec]<-amelia1sim$imputations[[i]]$yt[navec-1]
               # do another amelia round to fill in any more NAs if possible
               if(length(which(is.na(amelia1sim$imputations[[i]]$yt)))>0){
-                am2<-amelia(amelia1sim$imputations[[i]],m=1,ts="time", bounds=bound1,p2s=p2samelia, lags="yt", leads="yt")
+                am2<-amelia(amelia1sim$imputations[[i]],m=1,ts="time", bounds=bound1,p2s=p2samelia)
                 amelia1sim$imputations[[i]]<-am2$imputations$imp1
               }
             }
@@ -226,10 +226,10 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
     ))
   } 
   
-    if(amelia1sim$code!=1){
-      cat("we should be returning NA, code is not 1")
-      warning("Amelia was unable to fit for reason other than timeout")
-      return(list(
+  if(amelia1sim$code!=1){
+    cat("we should be returning NA, code is not 1")
+    warning("Amelia was unable to fit for reason other than timeout")
+    return(list(
       NA,
       reason = paste("Amelia internal fitting error, code",amelia1sim$code)
     ))
@@ -300,7 +300,7 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
     warning("There has been a model fitting error")
     return(list(NA,
                 reason="Amelia model fit error"
-                  ))
+    ))
   }
   
   
