@@ -18,7 +18,7 @@ module load arcc/1.0 gcc/12.2.0 r/4.4.0
 
 cd /project/modelscape/analyses/MissingTS/missing-data
 
-config=Model_Runs/poiss_trial/RickerConfigTrial.txt
+config=Model_Runs/poiss_trial/RickerConfigNolag.txt
 
 datFile=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $2}' $config)
 parFile=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $3}' $config)
