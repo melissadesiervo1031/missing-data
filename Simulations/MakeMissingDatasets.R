@@ -133,7 +133,7 @@ gauss_auSable_minMaxMiss_list[[1]]$sim_params$Q <- gauss_auSable_minMaxMiss$Q
 
 gauss_auSable_minMaxMiss <- gauss_auSable_minMaxMiss_list
 
-# Gaussian Real Data (Au Sable River) --------------------------------
+# Gaussian Real Data (Badger Mill Creek) --------------------------------
 # read in data
 gauss_badger <- read.csv("./data/badger_mill_creek_prepped.csv")
 ## make missing data types for increasing levels of autocorrelation
