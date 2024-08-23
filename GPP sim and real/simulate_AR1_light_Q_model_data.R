@@ -50,7 +50,7 @@ model_lq <- stan_model("GPP sim and real/Stan_code/AR1_light_Q_centered.stan")
 #Create data object
 data <- list(N = n, P_obs = P_obs,
              sdo = sigma_obs, light = dd$light.rel, Q = dd$Q,
-             miss_vec = rep(1, nrow(pr)))
+             miss_vec = rep(1, nrow(dd)))
 
 #Run Stan
 fit_lq <- rstan::sampling(object=model_lq, data = data,  
