@@ -6,12 +6,12 @@ library(here)
 
 ## read in the data ##
 
-gauss_real_MinMaxMiss <- readRDS(here("data/missingDatasets/gauss_real_MinMaxMiss.rds"))
+gauss_auSable_MinMaxMiss <- readRDS(here("data/missingDatasets/gauss_real_auSable_MinMaxMiss.rds"))
 au_sable_river_full <- read_csv(here("data/au_sable_river_prepped.csv"))
 #badger_mill_creek_full <- read_csv(here("data/badger_mill_Creek_prepped.csv"))
 
-gauss_real_MinMaxMiss <- gauss_real_MinMaxMiss
-sim_list <- gauss_real_MinMaxMiss
+gauss_badger_MinMaxMiss <- readRDS(here("data/missingDatasets/gauss_real_badger_MinMaxMiss.rds"))
+badger_full <- read_csv(here("data/badger_mill_creek_prepped.csv"))
 
 # sim_list.50 <- gauss_real_randMiss$gauss_real_randMiss_autoCor_50
 # sim_list <- sim_list.50$y
@@ -46,8 +46,8 @@ sim_list <- gauss_real_MinMaxMiss
     # fit arima models to list of datasets
     Arimaoutputdrop <- lapply(seq_along(sim_missing_list_drop ), function(j) {
       xreg1<-sim_missing_list_drop [[j]][["light"]]
-      xreg2<-sim_missing_list_drop [[j]][["Q"]]
-      modeldrop <- Arima(sim_missing_list_drop [[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2))
+      xreg2<-sim_missing_list_drop [[j]][["discharge"]]
+      modeldrop <- arima(sim_missing_list_drop [[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2))
       arimacoefsdrop <-c(modeldrop$coef, modeldrop$sigma2)
       names(arimacoefsdrop) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
       arimasesdrop<-sqrt(diag(vcov(modeldrop)))
@@ -124,7 +124,7 @@ sim_list <- gauss_real_MinMaxMiss
     # fit arima models to list of datasets
     Arimaoutputdrop <- lapply(seq_along(sim_missing_list_drop ), function(j) {
       xreg1<-sim_missing_list_drop [[j]][["light"]]
-      xreg2<-sim_missing_list_drop [[j]][["Q"]]
+      xreg2<-sim_missing_list_drop [[j]][["discharge"]]
       modeldrop <- arima(sim_missing_list_drop [[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2))
       arimacoefsdrop <-c(modeldrop$coef, modeldrop$sigma2)
       names(arimacoefsdrop) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
@@ -190,7 +190,7 @@ sim_list <- gauss_real_MinMaxMiss
     ## fit ARIMA with the missing values as NAS . Applies KALMAN FILTER###
     ArimaoutputNAs <- lapply(seq_along(simmissingdf), function(j) {
       xreg1<-simmissingdf [[j]][["light"]]
-      xreg2<-simmissingdf [[j]][["Q"]]
+      xreg2<-simmissingdf [[j]][["discharge"]]
       modelNAs <- arima(simmissingdf[[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2))
       arimacoefsNAs <- c(modelNAs$coef, modelNAs$sigma2)
       names(arimacoefsNAs) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
@@ -273,7 +273,7 @@ sim_list <- gauss_real_MinMaxMiss
       mod_a <- list()
       for (j in seq_along(amelias11sim[[i]])) {
         xreg1<-amelias11sim [[i]][[j]][["light"]]
-        xreg2<-amelias11sim [[i]][[j]][["Q"]]
+        xreg2<-amelias11sim [[i]][[j]][["discharge"]]
         tempobj=arima(amelias11sim[[i]][[j]]$GPP, order = c(1,0,0), xreg = matrix(c(xreg1, xreg2), ncol = 2))
         arimacoefs<-c(tempobj$coef, tempobj$sigma2)
         names(arimacoefs) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
@@ -363,7 +363,9 @@ sim_list <- gauss_real_MinMaxMiss
   
   
   ###################### RUN MODELS WITH DATA ------------------------------
-  
+
+# Run with au sable river data --------------------------------------------
+
   # make file for output beforehand in supercomputer folder 
   # will put them all together after all run, using the command line
   if (!dir.exists("data/model_results/gauss_real_MNAR_arima_modResults/au_sable")) {
@@ -379,11 +381,7 @@ sim_list <- gauss_real_MinMaxMiss
 dat_full <- au_sable_river_full
 dirname <- "./data/model_results/gauss_real_MNAR_arima_modResults/au_sable/"
   
-  # use to run Badger Mill data
-dat_full <- badger_mill_creek_full
-dirname <- "./data/model_results/gauss_real_MNAR_arima_modResults/badger_mill/"
-gauss_real_randMiss <- gauss_real_randMiss_1094
-  
+ 
   # set # of forecast days
 forecast_days <- 365
   
@@ -392,9 +390,14 @@ CurSim <- 1
   
   # Run models with drop missing + arima ------------------------------------
   
-  
-  
-arima_drop_MNAR <- fit_arima_dropmissing(gauss_real_MinMaxMiss[[CurSim]]$y,gauss_real_MinMaxMiss[[CurSim]]$sim_params, forecast = TRUE, forecast_days = forecast_days, dat_full = dat_full)
+# make sure sim_list and sim_params are not pointing to the whole list, which starts w character elements
+sim_list<- gauss_auSable_MinMaxMiss[[CurSim]]$y
+nms <- stringr::str_which(names(sim_list), "^prop")
+sim_list <- sim_list[nms]
+arima_drop_MNAR <- fit_arima_dropmissing(sim_list = sim_list,
+                                         sim_pars = gauss_auSable_MinMaxMiss[[CurSim]]$sim_params, 
+                                         forecast = TRUE, 
+                                         forecast_days = forecast_days, dat_full = au_sable_river_full)
   
   ## formatting for figure
   # save arima model parameters
@@ -411,7 +414,10 @@ arima_drop_MNAR <- fit_arima_dropmissing(gauss_real_MinMaxMiss[[CurSim]]$y,gauss
   
   # Run models with drop missing complete case + arima ------------------------------------
   
-  arima_dropCC_MNAR <- fit_arima_dropmissing_CC(gauss_real_MinMaxMiss[[CurSim]]$y,gauss_real_MinMaxMiss[[CurSim]]$sim_params, forecast = TRUE, forecast_days = forecast_days, dat_full = dat_full)
+  arima_dropCC_MNAR <- fit_arima_dropmissing_CC(sim_list,
+                                                gauss_auSable_MinMaxMiss[[CurSim]]$sim_params, 
+                                                forecast = TRUE, forecast_days = forecast_days, 
+                                                dat_full = au_sable_river_full)
   
   ## formatting for figure
   # save arima model parameters
@@ -428,8 +434,9 @@ arima_drop_MNAR <- fit_arima_dropmissing(gauss_real_MinMaxMiss[[CurSim]]$y,gauss
   
   # Run models w/ Kalman filter + arima fxn ---------------------------------
   
-  arima_kalman_MNAR<- fit_arima_Kalman(gauss_real_MinMaxMiss[[CurSim]]$y,gauss_real_MinMaxMiss[[CurSim]]$sim_params, 
-                                      forecast = TRUE, forecast_days = forecast_days, dat_full = dat_full)
+  arima_kalman_MNAR<- fit_arima_Kalman(sim_list,
+                                       gauss_auSable_MinMaxMiss[[CurSim]]$sim_params, 
+                                      forecast = TRUE, forecast_days = forecast_days, dat_full = au_sable_river_full)
   ## formatting for figure
   # save arima model parameters
   arimaKalman_MNAR_df <- arima_kalman_MNAR$arima_pars
@@ -445,9 +452,9 @@ arima_drop_MNAR <- fit_arima_dropmissing(gauss_real_MinMaxMiss[[CurSim]]$y,gauss
   
   # Run models w/ Multiple Imputations --------------------------------------
   
-  arima_mi_MNAR <-  fit_arima_MI(gauss_real_MinMaxMiss[[CurSim]]$y,gauss_real_MinMaxMiss[[CurSim]]$sim_params, imputationsnum=5,
+  arima_mi_MNAR <-  fit_arima_MI(sim_list,gauss_auSable_MinMaxMiss[[CurSim]]$sim_params, imputationsnum=5,
                                 forecast = TRUE, forecast_days = forecast_days,
-                                dat_full = dat_full)
+                                dat_full = au_sable_river_full)
   ## formatting for figure
   # save arima model parameters
   arimaMI_MNAR_df <- arima_mi_MNAR$arima_pars
@@ -456,8 +463,7 @@ arima_drop_MNAR <- fit_arima_dropmissing(gauss_real_MinMaxMiss[[CurSim]]$y,gauss
   arimaMI_MNAR_df$run_no <- CurSim
   
   # save arima forecasts
-  arimaMI_MNAR_preds <- map_df(arima_mi_MNAR$arima_forecast, ~as.data.frame(.x),
-                              .id = "missingprop_autocor")
+  arimaMI_MNAR_preds <- arima_mi_MNAR$arima_forecast
   arimaMI_MNAR_preds$missingness <- 'MNAR'
   arimaMI_MNAR_preds$type <- 'Multiple Imputations'
   arimaMI_MNAR_preds$run_no <- CurSim
@@ -494,6 +500,125 @@ arima_drop_MNAR <- fit_arima_dropmissing(gauss_real_MinMaxMiss[[CurSim]]$y,gauss
 
 
 
-write.csv(predsAll, file = "./data/model_results/gauss_real_MNAR_arima_FORECASTpreds.csv")
+write.csv(predsAll, file = "./data/model_results/gauss_real_MNAR_arima_modResults/au_sable/gauss_auSable_real_MNAR_arima_FORECASTpreds.csv")
 
-write.csv(valsAll, file = "./data/model_results/gauss_real_MNAR_arima_FORECASTvals.csv")
+write.csv(valsAll, file = "./data/model_results/gauss_real_MNAR_arima_modResults/au_sable/gauss_auSable_real_MNAR_arima_FORECASTvals.csv")
+
+
+# Run with Badger Creek data  ---------------------------------------------
+
+# use to run Badger Mill data
+
+# make sure sim_list and sim_params are not pointing to the whole list, which starts w character elements
+sim_list<- gauss_badger_MinMaxMiss[[CurSim]]$y
+nms <- stringr::str_which(names(sim_list), "^prop")
+sim_list <- sim_list[nms]
+arima_drop_MNAR <- fit_arima_dropmissing(sim_list = sim_list,
+                                         sim_pars = gauss_badger_MinMaxMiss[[CurSim]]$sim_params, 
+                                         forecast = TRUE, 
+                                         forecast_days = forecast_days, dat_full = badger_full)
+
+## formatting for figure
+# save arima model parameters
+arimadrop_MNAR_df <- arima_drop_MNAR$arima_pars
+arimadrop_MNAR_df$missingness <- 'MNAR'
+arimadrop_MNAR_df$type <- 'dropNA_simple'
+arimadrop_MNAR_df$run_no <- CurSim
+
+# save arima forecasts
+arimadrop_MNAR_preds <- arima_drop_MNAR$arima_forecast
+arimadrop_MNAR_preds$missingness <- 'MNAR'
+arimadrop_MNAR_preds$type <- 'dropNA_simple'
+arimadrop_MNAR_preds$run_no <- CurSim
+
+# Run models with drop missing complete case + arima ------------------------------------
+
+arima_dropCC_MNAR <- fit_arima_dropmissing_CC(sim_list,
+                                              gauss_badger_MinMaxMiss[[CurSim]]$sim_params, 
+                                              forecast = TRUE, forecast_days = forecast_days, 
+                                              dat_full = badger_full)
+
+## formatting for figure
+# save arima model parameters
+arimadropCC_MNAR_df <- arima_dropCC_MNAR$arima_pars
+arimadropCC_MNAR_df$missingness <- 'MNAR'
+arimadropCC_MNAR_df$type <- 'dropNA_complete'
+arimadropCC_MNAR_df$run_no <- CurSim
+
+# save arima forecasts
+arimadropCC_MNAR_preds <- arima_dropCC_MNAR$arima_forecast
+arimadropCC_MNAR_preds$missingness <- 'MNAR'
+arimadropCC_MNAR_preds$type <- 'dropNA_complete'
+arimadropCC_MNAR_preds$run_no <- CurSim
+
+# Run models w/ Kalman filter + arima fxn ---------------------------------
+
+arima_kalman_MNAR<- fit_arima_Kalman(sim_list,
+                                     gauss_badger_MinMaxMiss[[CurSim]]$sim_params, 
+                                     forecast = TRUE, forecast_days = forecast_days, dat_full = badger_full)
+## formatting for figure
+# save arima model parameters
+arimaKalman_MNAR_df <- arima_kalman_MNAR$arima_pars
+arimaKalman_MNAR_df$missingness <- 'MNAR'
+arimaKalman_MNAR_df$type <- 'Kalman Filter'
+arimaKalman_MNAR_df$run_no <- CurSim
+
+# save arima forecasts
+arimaKalman_MNAR_preds <- arima_kalman_MNAR$arima_forecast
+arimaKalman_MNAR_preds$missingness <- 'MNAR'
+arimaKalman_MNAR_preds$type <- 'Kalman Filter'
+arimaKalman_MNAR_preds$run_no <- CurSim
+
+# Run models w/ Multiple Imputations --------------------------------------
+
+arima_mi_MNAR <-  fit_arima_MI(sim_list,gauss_badger_MinMaxMiss[[CurSim]]$sim_params, imputationsnum=5,
+                               forecast = TRUE, forecast_days = forecast_days,
+                               dat_full = badger_full)
+## formatting for figure
+# save arima model parameters
+arimaMI_MNAR_df <- arima_mi_MNAR$arima_pars
+arimaMI_MNAR_df$missingness <- 'MNAR'
+arimaMI_MNAR_df$type <- 'Multiple Imputations'
+arimaMI_MNAR_df$run_no <- CurSim
+
+# save arima forecasts
+arimaMI_MNAR_preds <- arima_mi_MNAR$arima_forecast
+arimaMI_MNAR_preds$missingness <- 'MNAR'
+arimaMI_MNAR_preds$type <- 'Multiple Imputations'
+arimaMI_MNAR_preds$run_no <- CurSim
+
+# Combine output data and save --------------------------------------------
+
+paramarimaall_df<-rbind(arimadrop_MNAR_df, arimadropCC_MNAR_df, arimaKalman_MNAR_df, arimaMI_MNAR_df)
+
+Output <- matrix(data=NA, nrow=nrow(paramarimaall_df), ncol=ncol(paramarimaall_df))
+
+# Save the results of the current script's simulation to the appropriate column of output
+Output<- paramarimaall_df
+
+# add all the output data together
+valsAll <-cbind(CurSim,Output)
+
+# Write the output to the folder which will contain all output files as separate csv
+#    files with a single line of data.
+
+## save prediction data
+
+paramarimaall_preds<-rbind(arimadrop_MNAR_preds, arimadropCC_MNAR_preds, arimaKalman_MNAR_preds, arimaMI_MNAR_preds)
+
+Output3 <- matrix(data=NA, nrow=nrow(paramarimaall_preds), ncol=ncol(paramarimaall_preds))
+
+# Save the results of the current script's simulation to the appropriate column of output
+Output3<- paramarimaall_preds
+
+# add all the output data together
+predsAll <-cbind(CurSim,Output3)
+
+# Write the output to the folder which will contain all output files as separate csv
+#    files with a single line of data.
+
+
+
+write.csv(predsAll, file = "./data/model_results/gauss_real_MNAR_arima_modResults/badger_mill/gauss_badger_real_MNAR_arima_FORECASTpreds.csv")
+
+write.csv(valsAll, file = "./data/model_results/gauss_real_MNAR_arima_modResults/badger_mill/gauss_badger_real_MNAR_arima_FORECASTvals.csv")
