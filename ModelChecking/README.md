@@ -29,8 +29,36 @@
   
   - Otherwise *gold standard* for level of comments and code readability.
   
-*Code reviewed by DG, 15 July 2024*
+  *Code reviewed by DG, 15 July 2024*
 
+* `fit_GPP_datasets.R`: This script fits a linear model with two covariates and an AR1 correlation structure in the errors (using `brms`) to multiple GPP datasets. Datasets from Au Sable River and Badger Mill Creek were selected, and this script cleans those data for later use.
+
+  - Not sure this script belongs in this folder or if it could be archived.
+  
+  *Code reviewed by D.G. 17 July 2024*
+  
+* `gauss_amelia_testing.R`: This script tests multiple options available in the `Amelia` package for imputing missing data in time series. No conclusions are drawn in the comments.
+
+  - This script uses a single dataset to test these four different options, so should maybe be expanded to test these options over many datasets? Or use author recommendations if available.
+  
+  - There are some hard-coded value substitutions in this script that I don't fully understand. These will likely break if the `gauss_sim_randMiss_A.rds` dataset changes.
+  
+  *Code reviewed by D.G. 17 July 2024*
+  
+* `generate_subset_NWIS_data_low_missingness.R`: This script looks like it loads some data and cleans a subset of it for potential use as an example dataset in the manuscript.
+
+  - **This script does not run** because it uses absolute filepaths to a dataset that is not available in the project repo.
+  
+  - This script doesn't seem to belong in this directory.
+  
+  *Code reviewed by D.G. 17 July 2024*
+  
+* `plot_gauss_real_model_results.R`: This is a short plotting script for results.
+
+  - **This script does not run**, likely due to reorganization of the repo and changes to file paths.
+  
+  *Code reviewed by D.G. 17 July 2024*
+  
 
   
 

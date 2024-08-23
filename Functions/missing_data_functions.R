@@ -1,23 +1,33 @@
 #/////////////////////
 # Function to introduce missingness into time series data
 # Alice Stears
-# updated 17 February 2023
 #/////////////////////
 # load packages -----------------------------------------------------------
 library(tidyverse)
+
 # function ----------------------------------------------------------------
-### goals:                                    
-## remove data at increasing levels of missingness...
-makeMissing <- function(timeSeries, # a time series in vector format (a single vector, not a list)         
-                        typeMissing, # a character string indicating how missingness is to be          
-                        # generated ("random" (with varying degrees of autocorrelation) or "minMax")         
-                        propMiss = NULL, # an optional vector argument that gives the proportion(s)          
-                        # of the data that should be missing; if not specified, then increasingly          
-                        # more missingness is introduced from 5% to 75% by 5% increments,         
-                        autoCorr= NULL, # an optional argument between 0 and 1 (non-inclusive) giving the degree of 
-                        # autocorrelation in missingness that the timeseries will have. (0 is no autocorrelation, .99 is maximum autocorrelation)
-                        # Only used if typeMissing = "random". If a value isn't supplied, the function assumes no autocorrelation (0)        
-                        ...){
+#' Function that will introduce varying types and amounts of missing data in a time series
+#'
+#' @param timeSeries a time series in vector format (a single vector, not a list)
+#' @param typeMissing a character string indicating how missingness is to be generated 
+#' ("random" (with varying degrees of autocorrelation) or "minMax")
+#' @param propMiss an optional vector argument that gives the proportion(s) of the data 
+#' that should be missing; if not specified, then increasingly more missingness is 
+#' introduced from 5% to 75% by 5% increments  
+#' @param autoCorr an optional argument between 0 and 1 (non-inclusive) giving the degree of
+#' autocorrelation in missingness that the timeseries will have. (0 is no autocorrelation, 
+#' .99 is maximum autocorrelation). Only used if typeMissing = "random". If a value isn't 
+#' supplied, the function assumes no autocorrelation (0)
+#' 
+#' @return List of time series with different proportions of missing data
+#'
+#' @examples
+#' 
+#' ricker <- readRDS("./data/ricker_0miss_datasets.rds")
+#' makeMissing(timeSeries = ricker[[1]]$y, typeMissing = "random", propMiss = c(.5, .05), autoCorr = .003)
+#' makeMissing(timeSeries = ricker[[1]]$y, typeMissing = "random", propMiss = c(.5, .05))
+#' 
+makeMissing <- function(timeSeries, typeMissing, propMiss = NULL, autoCorr= NULL, ...){
   if (is.null(propMiss)) {    # if "propMiss" is not provided, set it to be a vector from .05:.75 by .05    
     propMiss_f <- seq(0.05, 0.75, by = .05)  
   } else {
@@ -67,7 +77,7 @@ makeMissing <- function(timeSeries, # a time series in vector format (a single v
       # determines 1 -> 0 and 1 -> 1
       M[2,] <- c((1 - autoCorr_f)*(1-p), autoCorr_f + (1 - autoCorr_f)*p)
       
-      # check that there are no negative or >1 probabilities in the transition matrix 
+      # check that there are no negative or > 1 probabilities in the transition matrix 
       # (i.e. not a feasible combination of chunk size and desired proportion of missingness)
       if (sum(M > 1) > 0 | sum(M < 0) > 0) {
         missingDat_temp <- c("no viable transition matrix for this combination of autocorrelation and proportion missing")

@@ -131,7 +131,7 @@ pars_full <- pars_full[as.numeric(in_args[5]):as.numeric(in_args[6]),]
 # define methods to be used
 if(is.na(in_args[7])){
   methods <- paste0(
-    c("drop", "cc", "EM", "DA","MI")
+    c("drop","MI_lead")
   )
 }
 

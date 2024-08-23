@@ -10,7 +10,7 @@ library(patchwork)
 func_list <- list.files(here("Functions/"), pattern = ".R", full.names = T)
 lapply(func_list, source)
 
-in_args <- commandArgs(trailingOnly = T)
+in_args <- commandArgs(trailingOnly = T) # commandArgs not loaded
 cat(in_args)
 in_args=as.integer(in_args)
 

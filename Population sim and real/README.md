@@ -1,17 +1,12 @@
 # File descriptions
 
-* `file 1`: An explanation of what this file does, and how it should be used in the analysis
-
-
-* `file 2 `: An explanation of what this file does, and how it should be used in the analysis
+* `EM_fits2sims.R`: this R script generates datasets with missingness based on multiple mechanisms and then fits the Ricker model using EM. Outputs the `mean_rel_diff_ricker_EM.png` figure
+* `fit_Ricker_greattit.R`: this R script runs NLS and STAN models on actual Great tit population data
+* `ricker3_.stan`: this Stan program defines a simple model, with a vector of values 'y' modeled as normally distributed with mean 'mu' and standard deviation 'sigma'
+* `simulate_pop_Ricker.R`: this R script simulates a Ricker model with Poisson error
 
 
 ## Josh's questions when going through code
-
-* still going through `EM_fits2sims.R`
-* `fit_Ricker_greattit.R` looks good
-* `ricker3_.stan` looks good
-
 ### simulate_pop_Ricker.R
 
 * Why are there two different Ricker models defined?
