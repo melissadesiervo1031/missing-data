@@ -395,7 +395,7 @@ dirname <- "./data/model_results/gauss_real_MAR_arima_modResults/au_sable/"
 # set # of forecast days
 forecast_days <- 365
 
-for (i in 1:10) {
+for (i in  seq_along(gauss_auSable_randMiss)) {
   CurSim <- i
   OutFile_params <- paste(dirname, CurSim, "arimavals.csv", sep = "")
   OutFile_preds <- paste(dirname, CurSim, "arimapreds.csv", sep = "")
