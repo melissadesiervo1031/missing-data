@@ -9,16 +9,16 @@ library(brms)
 CurSim <- 1 # since the Slurm array is 0 indexed
 
 ## read in the data ##
-gauss_real_MNAR<- readRDS("./data/missingDatasets/gauss_real_MinMaxMiss.rds")
-au_sable_full <- read_csv('./data/au_sable_river_prepped.csv')
+gauss_auSable_MNAR <- readRDS(here("data/missingDatasets/gauss_real_auSable_MinMaxMiss.rds"))
+gauss_badger_MNAR <- readRDS(here("data/missingDatasets/gauss_real_badger_MinMaxMiss.rds"))
+au_sable_river_full <- read_csv(here("data/au_sable_river_prepped.csv"))
+badger_mill_creek_full <- read_csv(here("data/badger_mill_Creek_prepped.csv"))
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
-OutFile <- ("gauss_real_MNAR_brms_FORECASTresults_normPriorNB.csv")
-OutFile_preds <- ("gauss_real_MNAR_brms_FORECASTpreds_normPriorNB.csv")
 
 #########################################################################################
-### MY ARIMA FUNCTIONS #####
+### brms function #####
 ##########################################################################################
 ### Function to fit a BRMS model on a time series ###
 
@@ -38,7 +38,7 @@ fit_brms_model <- function(sim_list, sim_pars,
   }
   
   # Make the model formula and priors
-  bform <- brms::bf(GPP | mi() ~ light + discharge + ar(p = 1))
+  bform <- brms::bf(GPP | mi() ~ light + Q + ar(p = 1))
   bprior <- c(prior(normal(0,1), class = 'ar'),
               prior(normal(0,5), class = 'b'))
   
@@ -72,11 +72,10 @@ fit_brms_model <- function(sim_list, sim_pars,
   if(forecast){  
     dat_forecast <- dat_full %>%
       slice((nrow(dat_full)-forecast_days):nrow(dat_full)) %>%
-      select(date, GPP, light, Q) %>% 
-      rename(discharge = Q)
+      select(date, GPP, light, Q)
     
     predictions <- lapply(bmod, function(mod){
-      predict(mod, newdata = dat_forecast[,-2], n.ahead = forecast_days+1) %>%
+      predict(mod, newdata = dat_forecast[,-2]) %>%
         as.data.frame() %>% mutate(date = dat_forecast$date,
                                    GPP = dat_forecast$GPP)
     })
@@ -94,15 +93,83 @@ fit_brms_model <- function(sim_list, sim_pars,
 
 
 #####################################################
-#### MODEL RUN ARIMA DROP ##############
+#### MODEL run for au sable river##############
 #########################################################
+# Fit models for au sable river data ---------------------------------------------
+dirname <- c("./data/model_results/gauss_real_MNAR_brms_modResults/auSable/")
 
-brms_MNAR <- fit_brms_model(sim_list = gauss_real_MNAR[[CurSim]]$y,
-                           sim_pars = gauss_real_MNAR[[CurSim]]$sim_params,
-                           forecast = TRUE, forecast_days = 365,
-                           dat_full = au_sable_full)
+  OutFile_params <- paste(dirname,"brmsvals.csv", sep = "")
+  OutFile_preds <- paste(dirname, "brmspreds.csv", sep = "")
+  
+  # make sure sim_list and sim_params are not pointing to the whole list, which starts w character elements
+  sim_list <- gauss_auSable_MNAR[[1]]$y
+  nms <- stringr::str_which(names(sim_list), "^prop")
+  sim_list <- sim_list[nms]
+  
+  brms_MNAR <- fit_brms_model(sim_list = sim_list,
+                             sim_pars = gauss_auSable_MNAR[[1]]$sim_params,
+                             forecast = TRUE, forecast_days = 365, 
+                             dat_full = au_sable_river_full)
+  
+  brms_MNAR_df <- map_df(brms_MNAR$brms_pars, ~as.data.frame(.x),
+                        .id = "missingprop_autocor")
+  brms_MNAR_df$missingness <- 'MNAR'
+  brms_MNAR_df$type <- 'brms'
+  brms_MNAR_df$run_no <- 1
+  
+  brms_MNAR_preds <- map_df(brms_MNAR$brms_forecast, ~as.data.frame(.x),
+                           .id = "missingprop_autocor")
+  brms_MNAR_preds$missingness <- 'MNAR'
+  brms_MNAR_preds$type <- 'brms'
+  brms_MNAR_preds$run_no <- 1
+  #################################################
+  # Write the output to the folder which will contain all output files as separate csv
+  #    files with a single line of data.
+  write_csv(brms_MNAR_df, file = OutFile_params)
+  write_csv(brms_MNAR_preds, file = OutFile_preds)
 
 
+# Fit models for badger mill creek data -----------------------------------
+  dirname <- c("./data/model_results/gauss_real_MNAR_brms_modResults/badgerMill//")
+  
+  OutFile_params <- paste(dirname,"brmsvals.csv", sep = "")
+  OutFile_preds <- paste(dirname, "brmspreds.csv", sep = "")
+  
+  # make sure sim_list and sim_params are not pointing to the whole list, which starts w character elements
+  sim_list <- gauss_badger_MNAR[[1]]$y
+  nms <- stringr::str_which(names(sim_list), "^prop")
+  sim_list <- sim_list[nms]
+  
+  brms_MNAR <- fit_brms_model(sim_list = sim_list,
+                              sim_pars = gauss_badger_MNAR[[1]]$sim_params,
+                              forecast = TRUE, forecast_days = 365, 
+                              dat_full = badger_mill_creek_full)
+  
+  brms_MNAR_df <- map_df(brms_MNAR$brms_pars, ~as.data.frame(.x),
+                         .id = "missingprop_autocor")
+  brms_MNAR_df$missingness <- 'MNAR'
+  brms_MNAR_df$type <- 'brms'
+  brms_MNAR_df$run_no <- 1
+  
+  brms_MNAR_preds <- map_df(brms_MNAR$brms_forecast, ~as.data.frame(.x),
+                            .id = "missingprop_autocor")
+  brms_MNAR_preds$missingness <- 'MNAR'
+  brms_MNAR_preds$type <- 'brms'
+  brms_MNAR_preds$run_no <- 1
+  #################################################
+  # Write the output to the folder which will contain all output files as separate csv
+  #    files with a single line of data.
+  write_csv(brms_MNAR_df, file = OutFile_params)
+  write_csv(brms_MNAR_preds, file = OutFile_preds)
+
+
+
+
+
+
+
+
+#////////
 #####
 
 ########### formatting for figure #############
