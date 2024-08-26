@@ -49,14 +49,14 @@ for (i in 1:length(inputAutocor)) {
 # missing in min and max of data
 gauss_sim_minMaxMiss <- lapply(X = gauss_sim, FUN = function(x) 
   list("y" = makeMissing(timeSeries = x$y, typeMissing = "minMax"), 
-
+       
        "sim_params" <- x$sim_params)
 )
 
 for (i in 1:length(gauss_sim_minMaxMiss)) {
   names(gauss_sim_minMaxMiss[[i]]) <- c("y", "sim_params")
   gauss_sim_minMaxMiss[[i]]$y <- c(list("y_noMiss" = gauss_sim[[i]]$y), gauss_sim_minMaxMiss[[i]]$y)
-
+  
 }
 
 # Gaussian Real Data (Au Sable River) --------------------------------
@@ -69,8 +69,8 @@ inputAutocor <- c(.0, .10, .20, .30, .40, .50, .60, .70, .80, .90)
 for (i in 1:length(inputAutocor)) {
   # calculate missing vectors with increasing levels of missingness
   tempOutDf <- as.data.frame(makeMissing(timeSeries = gauss_auSable$GPP, 
-                                           typeMissing = "random", 
-                                           autoCorr = inputAutocor[i]))
+                                         typeMissing = "random", 
+                                         autoCorr = inputAutocor[i]))
   
   # name the elements of the Df with the amount of missingness 
   names(tempOutDf) <- paste0("GPP_",names(tempOutDf))
@@ -84,7 +84,7 @@ for (i in 1:length(inputAutocor)) {
     assign(x = paste0("gauss_auSable_randMiss_autoCorr_", 
                       str_pad(str_extract_all(string = inputAutocor[i], pattern = "\\d+" , simplify = TRUE)[,2], width = 2, side = "right", pad = "0")) , 
            value = tempOutDf)
-  
+    
   }
 }
 
@@ -113,7 +113,7 @@ gauss_auSable_randMiss <- gauss_auSable_randMiss_list
 
 ## missing in min and max of data
 gauss_auSable_minMaxMiss_TEMP <- as.data.frame(makeMissing(timeSeries = gauss_auSable$GPP, 
-                                                   typeMissing = "minMax"))
+                                                           typeMissing = "minMax"))
 
 
 #names(gauss_auSable_minMaxMiss_TEMP) <- paste0("GPP_",names(gauss_auSable_minMaxMiss_TEMP))
@@ -187,7 +187,7 @@ gauss_badger_randMiss <- gauss_badger_randMiss_list
 
 ## missing in min and max of data
 gauss_badger_minMaxMiss_TEMP <- as.data.frame(makeMissing(timeSeries = gauss_badger$GPP, 
-                                                           typeMissing = "minMax"))
+                                                          typeMissing = "minMax"))
 
 
 #names(gauss_badger_minMaxMiss_TEMP) <- paste0("GPP_",names(gauss_badger_minMaxMiss_TEMP))
@@ -299,7 +299,7 @@ pois_real_randMiss <- pois_real_randMiss_list
 
 ## missing in min and max of data
 pois_real_minMaxMiss_TEMP <- as.data.frame(makeMissing(timeSeries = pois_real$Broods, 
-                                                        typeMissing = "minMax"))
+                                                       typeMissing = "minMax"))
 
 
 names(pois_real_minMaxMiss_TEMP) <- paste0("Broods_",names(pois_real_minMaxMiss_TEMP))
@@ -309,7 +309,7 @@ pois_real_minMaxMiss <- cbind(pois_real, pois_real_minMaxMiss_TEMP)
 # change "broods" to "y" in the data.frame
 names(pois_real_minMaxMiss) <- str_replace(string = names(pois_real_minMaxMiss), pattern = "Broods_", replacement = "")
 names(pois_real_minMaxMiss)[2] <- "y" 
-  
+
 # transform into a list (for consistency w/ simulated data)
 pois_real_minMaxMiss_list <- vector(mode = "list", length = 1) 
 pois_real_minMaxMiss_list[[1]]$y <- as.list(pois_real_minMaxMiss[2:ncol(pois_real_minMaxMiss)])
@@ -341,11 +341,11 @@ names(gauss_sim_randMiss_autoCorr_80) <- paste0("gauss_sim",1:1000, "_randMiss_a
 names(gauss_sim_randMiss_autoCorr_90) <- paste0("gauss_sim",1:1000, "_randMiss_autoCorr_90")
 
 gauss_sim_randMiss_A <- c(gauss_sim_randMiss_autoCorr_0, 
-                             gauss_sim_randMiss_autoCorr_10,
-                             gauss_sim_randMiss_autoCorr_20,
-                             gauss_sim_randMiss_autoCorr_30,
-                             gauss_sim_randMiss_autoCorr_40
-                             )
+                          gauss_sim_randMiss_autoCorr_10,
+                          gauss_sim_randMiss_autoCorr_20,
+                          gauss_sim_randMiss_autoCorr_30,
+                          gauss_sim_randMiss_autoCorr_40
+)
 gauss_sim_randMiss_B <- c(gauss_sim_randMiss_autoCorr_50,
                           gauss_sim_randMiss_autoCorr_60,
                           gauss_sim_randMiss_autoCorr_70,
@@ -415,16 +415,16 @@ names(pois_sim_randMiss_autoCorr_80) <- paste0("pois_sim",1:1000, "_randMiss_aut
 names(pois_sim_randMiss_autoCorr_90) <- paste0("pois_sim",1:1000, "_randMiss_autoCorr_90")
 
 pois_sim_randMiss_A <- c(pois_sim_randMiss_autoCorr_0, 
-                          pois_sim_randMiss_autoCorr_10,
-                          pois_sim_randMiss_autoCorr_20,
-                          pois_sim_randMiss_autoCorr_30,
-                          pois_sim_randMiss_autoCorr_40
+                         pois_sim_randMiss_autoCorr_10,
+                         pois_sim_randMiss_autoCorr_20,
+                         pois_sim_randMiss_autoCorr_30,
+                         pois_sim_randMiss_autoCorr_40
 )
 pois_sim_randMiss_B <- c(pois_sim_randMiss_autoCorr_50,
-                          pois_sim_randMiss_autoCorr_60,
-                          pois_sim_randMiss_autoCorr_70,
-                          pois_sim_randMiss_autoCorr_80,
-                          pois_sim_randMiss_autoCorr_90)
+                         pois_sim_randMiss_autoCorr_60,
+                         pois_sim_randMiss_autoCorr_70,
+                         pois_sim_randMiss_autoCorr_80,
+                         pois_sim_randMiss_autoCorr_90)
 
 # Remove the y_no miss from all nested lists (Amelia doesn't like NO missing values) 
 # for first chunk of data

@@ -21,16 +21,16 @@ simDat_raw2 <- map(simDat_raw, function(x) {
       select(jdate, 2) %>% 
       pivot_wider( names_from = jdate, values_from = 2)
   }
-    ))
+  ))
   rownames(outDat) <- names(temp)[2:16]
   return(outDat)
-  }
+}
 )
 # assign the appropriate names 
 simDat_names <- map(simDat_raw, function(x) {
   temp <- data.frame(as.vector(names(x$y)), "names" = 1:15) 
 }
-  )  %>% 
+)  %>% 
   list_rbind()
 
 simDat_raw3 <- simDat_raw2 %>% 
@@ -39,7 +39,7 @@ simDat_raw3 <- simDat_raw2 %>%
 simDat_raw3$sim_miss_Names <- simDat_names$as.vector.names.x.y..
 # add back in simulation name
 simDat_raw3$sim_Name_long <- unlist(apply(data.frame(names(simDat_raw)), 1, 
-                               function(x) rep.int(x, times = 15) , simplify = FALSE) )
+                                          function(x) rep.int(x, times = 15) , simplify = FALSE) )
 # extract simulation name
 simDat_raw3$sim_Names <- str_sub(simDat_raw3$sim_Name_long, 
                                  start = 7, 
@@ -47,7 +47,7 @@ simDat_raw3$sim_Names <- str_sub(simDat_raw3$sim_Name_long,
                                    str_locate_all(simDat_raw3$sim_Name_long, pattern = "_"), 
                                    function(x) x[2,2]
                                  )-1
-                                   )
+)
 
 # extract name autocorrelation
 simDat_raw3$names_autoCorr <-  str_split(simDat_raw3$sim_miss_Names, pattern =  "_", simplify = TRUE)[,4] %>% 
@@ -277,7 +277,7 @@ outData_gauss_sim <- outData_gauss_sim %>%
          SE = as.numeric(SE))
 # 
 outData_gauss_sim[outData_gauss_sim$missingness == "MAR" & 
-                         is.na(outData_gauss_sim$autoCor), "autoCor"] <- 0
+                    is.na(outData_gauss_sim$autoCor), "autoCor"] <- 0
 
 # remove values for models fitted to time series with no missingness (Doesn't work for all model approaches)
 gauss_sim_figDat <- outData_gauss_sim[outData_gauss_sim$missingprop_autocor != "y_noMiss",]
@@ -327,7 +327,7 @@ outData_gauss_sim_normPrior <- outData_gauss_sim_normPrior %>%
          SE = as.numeric(SE))
 # 
 outData_gauss_sim_normPrior[outData_gauss_sim_normPrior$missingness == "MAR" & 
-                    is.na(outData_gauss_sim_normPrior$autoCor), "autoCor"] <- 0
+                              is.na(outData_gauss_sim_normPrior$autoCor), "autoCor"] <- 0
 
 # remove values for models fitted to time series with no missingness (Doesn't work for all model approaches)
 gauss_sim_figDat_normPrior <- outData_gauss_sim_normPrior[outData_gauss_sim_normPrior$missingprop_autocor != "y_noMiss",]

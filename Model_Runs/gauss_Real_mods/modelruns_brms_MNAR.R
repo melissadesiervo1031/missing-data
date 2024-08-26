@@ -98,69 +98,69 @@ fit_brms_model <- function(sim_list, sim_pars,
 # Fit models for au sable river data ---------------------------------------------
 dirname <- c("./data/model_results/gauss_real_MNAR_brms_modResults/auSable/")
 
-  OutFile_params <- paste(dirname,"brmsvals.csv", sep = "")
-  OutFile_preds <- paste(dirname, "brmspreds.csv", sep = "")
-  
-  # make sure sim_list and sim_params are not pointing to the whole list, which starts w character elements
-  sim_list <- gauss_auSable_MNAR[[1]]$y
-  nms <- stringr::str_which(names(sim_list), "^prop")
-  sim_list <- sim_list[nms]
-  
-  brms_MNAR <- fit_brms_model(sim_list = sim_list,
-                             sim_pars = gauss_auSable_MNAR[[1]]$sim_params,
-                             forecast = TRUE, forecast_days = 365, 
-                             dat_full = au_sable_river_full)
-  
-  brms_MNAR_df <- map_df(brms_MNAR$brms_pars, ~as.data.frame(.x),
-                        .id = "missingprop_autocor")
-  brms_MNAR_df$missingness <- 'MNAR'
-  brms_MNAR_df$type <- 'brms'
-  brms_MNAR_df$run_no <- 1
-  
-  brms_MNAR_preds <- map_df(brms_MNAR$brms_forecast, ~as.data.frame(.x),
-                           .id = "missingprop_autocor")
-  brms_MNAR_preds$missingness <- 'MNAR'
-  brms_MNAR_preds$type <- 'brms'
-  brms_MNAR_preds$run_no <- 1
-  #################################################
-  # Write the output to the folder which will contain all output files as separate csv
-  #    files with a single line of data.
-  write_csv(brms_MNAR_df, file = OutFile_params)
-  write_csv(brms_MNAR_preds, file = OutFile_preds)
+OutFile_params <- paste(dirname,"brmsvals.csv", sep = "")
+OutFile_preds <- paste(dirname, "brmspreds.csv", sep = "")
+
+# make sure sim_list and sim_params are not pointing to the whole list, which starts w character elements
+sim_list <- gauss_auSable_MNAR[[1]]$y
+nms <- stringr::str_which(names(sim_list), "^prop")
+sim_list <- sim_list[nms]
+
+brms_MNAR <- fit_brms_model(sim_list = sim_list,
+                            sim_pars = gauss_auSable_MNAR[[1]]$sim_params,
+                            forecast = TRUE, forecast_days = 365, 
+                            dat_full = au_sable_river_full)
+
+brms_MNAR_df <- map_df(brms_MNAR$brms_pars, ~as.data.frame(.x),
+                       .id = "missingprop_autocor")
+brms_MNAR_df$missingness <- 'MNAR'
+brms_MNAR_df$type <- 'brms'
+brms_MNAR_df$run_no <- 1
+
+brms_MNAR_preds <- map_df(brms_MNAR$brms_forecast, ~as.data.frame(.x),
+                          .id = "missingprop_autocor")
+brms_MNAR_preds$missingness <- 'MNAR'
+brms_MNAR_preds$type <- 'brms'
+brms_MNAR_preds$run_no <- 1
+#################################################
+# Write the output to the folder which will contain all output files as separate csv
+#    files with a single line of data.
+write_csv(brms_MNAR_df, file = OutFile_params)
+write_csv(brms_MNAR_preds, file = OutFile_preds)
 
 
 # Fit models for badger mill creek data -----------------------------------
-  dirname <- c("./data/model_results/gauss_real_MNAR_brms_modResults/badgerMill//")
-  
-  OutFile_params <- paste(dirname,"brmsvals.csv", sep = "")
-  OutFile_preds <- paste(dirname, "brmspreds.csv", sep = "")
-  
-  # make sure sim_list and sim_params are not pointing to the whole list, which starts w character elements
-  sim_list <- gauss_badger_MNAR[[1]]$y
-  nms <- stringr::str_which(names(sim_list), "^prop")
-  sim_list <- sim_list[nms]
-  
-  brms_MNAR <- fit_brms_model(sim_list = sim_list,
-                              sim_pars = gauss_badger_MNAR[[1]]$sim_params,
-                              forecast = TRUE, forecast_days = 365, 
-                              dat_full = badger_mill_creek_full)
-  
-  brms_MNAR_df <- map_df(brms_MNAR$brms_pars, ~as.data.frame(.x),
-                         .id = "missingprop_autocor")
-  brms_MNAR_df$missingness <- 'MNAR'
-  brms_MNAR_df$type <- 'brms'
-  brms_MNAR_df$run_no <- 1
-  
-  brms_MNAR_preds <- map_df(brms_MNAR$brms_forecast, ~as.data.frame(.x),
-                            .id = "missingprop_autocor")
-  brms_MNAR_preds$missingness <- 'MNAR'
-  brms_MNAR_preds$type <- 'brms'
-  brms_MNAR_preds$run_no <- 1
-  #################################################
-  # Write the output to the folder which will contain all output files as separate csv
-  #    files with a single line of data.
-  write_csv(brms_MNAR_df, file = OutFile_params)
-  write_csv(brms_MNAR_preds, file = OutFile_preds)
+dirname <- c("./data/model_results/gauss_real_MNAR_brms_modResults/badgerMill//")
+
+OutFile_params <- paste(dirname,"brmsvals.csv", sep = "")
+OutFile_preds <- paste(dirname, "brmspreds.csv", sep = "")
+
+# make sure sim_list and sim_params are not pointing to the whole list, which starts w character elements
+sim_list <- gauss_badger_MNAR[[1]]$y
+nms <- stringr::str_which(names(sim_list), "^prop")
+sim_list <- sim_list[nms]
+
+brms_MNAR <- fit_brms_model(sim_list = sim_list,
+                            sim_pars = gauss_badger_MNAR[[1]]$sim_params,
+                            forecast = TRUE, forecast_days = 365, 
+                            dat_full = badger_mill_creek_full)
+
+brms_MNAR_df <- map_df(brms_MNAR$brms_pars, ~as.data.frame(.x),
+                       .id = "missingprop_autocor")
+brms_MNAR_df$missingness <- 'MNAR'
+brms_MNAR_df$type <- 'brms'
+brms_MNAR_df$run_no <- 1
+
+brms_MNAR_preds <- map_df(brms_MNAR$brms_forecast, ~as.data.frame(.x),
+                          .id = "missingprop_autocor")
+brms_MNAR_preds$missingness <- 'MNAR'
+brms_MNAR_preds$type <- 'brms'
+brms_MNAR_preds$run_no <- 1
+#################################################
+# Write the output to the folder which will contain all output files as separate csv
+#    files with a single line of data.
+write_csv(brms_MNAR_df, file = OutFile_params)
+write_csv(brms_MNAR_preds, file = OutFile_preds)
 
 
 
@@ -175,13 +175,13 @@ dirname <- c("./data/model_results/gauss_real_MNAR_brms_modResults/auSable/")
 ########### formatting for figure #############
 
 brms_MNAR_df <- map_df(brms_MNAR$brms_pars, ~as.data.frame(.x),
-                      .id = "missingprop_autocor")
+                       .id = "missingprop_autocor")
 brms_MNAR_df$missingness <- 'MAR'
 brms_MNAR_df$type <- 'brms'
 brms_MNAR_df$run_no <- CurSim
 
 brms_MNAR_preds <- map_df(brms_MNAR$brms_forecast, ~as.data.frame(.x),
-                         .id = "missingprop_autocor")
+                          .id = "missingprop_autocor")
 brms_MNAR_preds$missingness <- 'MAR'
 brms_MNAR_preds$type <- 'brms'
 brms_MNAR_preds$run_no <- CurSim
@@ -197,7 +197,7 @@ brms_MNAR_preds <- brms_MNAR_preds %>%
   #select(-missingprop_autocor) %>% 
   #rename(missingprop_autocor = actualName) %>% 
   select("missingprop_autocor", "Estimate", "Est.Error", "Q2.5", "Q97.5", "date", "GPP", "missingness", "type", "run_no")
-  
+
 ###################################################
 #### SAVE #########
 #################################################

@@ -93,9 +93,9 @@ fit_arima_dropmissing <- function(sim_list, sim_pars,
     xreg2 <- dat_forecast$xreg2
     predictions <- map_df(Arimaoutputdrop, function(mod){
       data.frame(predict(mod$arima_model, n.ahead = forecast_days+1, 
-              newxreg = dat_forecast[,c(3,4)]),
-              "date" = dat_forecast$date,
-              "GPP" = dat_forecast$GPP)
+                         newxreg = dat_forecast[,c(3,4)]),
+                 "date" = dat_forecast$date,
+                 "GPP" = dat_forecast$GPP)
     },.id = "missingprop_autocor") 
     
     return(list(arima_forecast = predictions,
@@ -362,8 +362,8 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
                  "date" = dat_forecast$date,
                  "GPP" = dat_forecast$GPP)
     },.id = "missingprop_autocor") 
-  
-
+    
+    
     return(list(arima_forecast = predictions,
                 arima_pars = paramlistsim,
                 arima_se = selistsim,
@@ -426,10 +426,10 @@ for (i in  seq_along(gauss_auSable_randMiss)) {
   arimadrop_MAR_preds$type <- 'dropNA_simple'
   arimadrop_MAR_preds$run_no <- CurSim
   
-
+  
   
   # Run models with drop missing complete case + arima ------------------------------------
-
+  
   arima_dropCC_MAR <- fit_arima_dropmissing_CC(sim_list=sim_list,
                                                sim_pars=gauss_auSable_randMiss[[CurSim]]$sim_params, 
                                                forecast = TRUE, 
@@ -450,7 +450,7 @@ for (i in  seq_along(gauss_auSable_randMiss)) {
   arimadropCC_MAR_preds$run_no <- CurSim
   
   # Run models w/ Kalman filter + arima fxn ---------------------------------
-
+  
   arima_kalman_MAR<- fit_arima_Kalman(sim_list=sim_list,
                                       sim_pars=gauss_auSable_randMiss[[CurSim]]$sim_params, 
                                       forecast = TRUE, 
@@ -470,7 +470,7 @@ for (i in  seq_along(gauss_auSable_randMiss)) {
   arimaKalman_MAR_preds$run_no <- CurSim
   
   # Run models w/ Multiple Imputations --------------------------------------
-
+  
   arima_mi_MAR <-  fit_arima_MI(sim_list=sim_list,
                                 sim_pars=gauss_auSable_randMiss[[CurSim]]$sim_params, 
                                 imputationsnum=5,
@@ -664,7 +664,7 @@ for (i in 1:10) {
 dirname <- "./data/model_results/gauss_real_MAR_arima_modResults/au_sable/"
 predNames <- list.files(dirname, pattern = "preds.csv")
 predsAll <- map_df(predNames, function(x) {
-         read_csv(paste0(dirname, x))
+  read_csv(paste0(dirname, x))
 })
 #write.csv(predsAll, file = "./data/model_results/gauss_real_MAR_arima_FORECASTpreds.csv")
 write.csv(predsAll, file = paste(dirname, "gauss_auSable_real_MAR_arima_FORECASTpreds.csv", sep = ""))
