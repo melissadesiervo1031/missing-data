@@ -117,3 +117,16 @@ data/missingDatasets/forBeartooth/gauss_sim_randMiss_A.rds
 data/missingDatasets/forBeartooth/gauss_sim_randMiss_B.rds
 data/model_results/ricker_sim_ModelResultsLong.rds
 data/model_results/gauss_real_MAR_arima_modResults/au_sable/gauss_auSable_real_MAR_arima_FORECASTpreds.csv
+
+00_combined_gauss_sim_randMiss_A.csv                             
+00_combined_gauss_sim_randMiss_B.csv              
+gauss_auSable_real_MAR_arima_FORECASTpreds.csv    
+gauss_sim_MAR_A_brms_results_normPrior.csv        
+gauss_sim_MAR_A_brms_results_normPriorNB.csv      
+gauss_sim_MAR_B_brms_results_normPrior.csv        
+gauss_sim_MAR_B_brms_results_normPriorNB.csv      
+gauss_sim_ModelResults.rds                      
+gauss_sim_ModelResults_normPrior.rds            
+gauss_sim_randMiss_A.rds                    
+gauss_sim_randMiss_B.rds                          
+wlciw930.tiff
