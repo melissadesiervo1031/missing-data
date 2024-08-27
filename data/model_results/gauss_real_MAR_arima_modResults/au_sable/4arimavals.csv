@@ -1,5 +1,6 @@
 "CurSim","missingprop_autocor","parameters","param_value","param_se","missingness","type","run_no"
 <<<<<<< HEAD
+<<<<<<< HEAD
 4,"propMissAct_0.09_autoCorr_0.25","ar1",0.39160548830924,0.0394812864127083,"MAR","dropNA_simple",4
 4,"propMissAct_0.09_autoCorr_0.25","intercept",4.91709795692676,0.561091716814469,"MAR","dropNA_simple",4
 4,"propMissAct_0.09_autoCorr_0.25","xreg1",1.6573508209939,0.156226564555012,"MAR","dropNA_simple",4
@@ -301,6 +302,8 @@
 4,"propMissAct_0.76_autoCorr_0.25","phi",-1.94680708403845,0.273341258462128,"MAR","Multiple Imputations",4
 4,"propMissAct_0.76_autoCorr_0.25","sigma",0.970495108612639,NA,"MAR","Multiple Imputations",4
 =======
+=======
+>>>>>>> 09f11cfd115543e20acb779726dbaae22902774f
 4,"propMissAct_0.08_autoCorr_0.33","ar1",0.393120816274991,0.0386341630371625,"MAR","dropNA_simple",4
 4,"propMissAct_0.08_autoCorr_0.33","intercept",4.88825346697779,0.564591033554582,"MAR","dropNA_simple",4
 4,"propMissAct_0.08_autoCorr_0.33","xreg1",1.68580957820248,0.153670253514098,"MAR","dropNA_simple",4
@@ -601,4 +604,7 @@
 4,"propMissAct_0.78_autoCorr_0.31","xreg2",2.05191068825591,0.21878023742147,"MAR","Multiple Imputations",4
 4,"propMissAct_0.78_autoCorr_0.31","phi",-1.95805269816264,0.259869460012385,"MAR","Multiple Imputations",4
 4,"propMissAct_0.78_autoCorr_0.31","sigma",0.483200576544097,NA,"MAR","Multiple Imputations",4
+<<<<<<< HEAD
+>>>>>>> 09f11cfd115543e20acb779726dbaae22902774f
+=======
 >>>>>>> 09f11cfd115543e20acb779726dbaae22902774f
