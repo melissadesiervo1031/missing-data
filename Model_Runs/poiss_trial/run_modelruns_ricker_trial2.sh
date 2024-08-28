@@ -26,27 +26,29 @@ clsize=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $4}' $c
 saveFile=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $5}' $config)
 index1=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $6}' $config)
 index2=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $7}' $config)
+seed=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $8}' $config)
+
+Rscript Model_Runs/poiss_trial/modelruns_ricker_trial2.R ${datFile} ${parFile} ${clsize} ${saveFile} ${index1} ${index2} ${seed} > Model_Runs/poiss_trial/outputRickerTrial_${oldName}.txt
 
 
-Rscript Model_Runs/poiss_trial/modelruns_ricker_trial.R ${datFile} ${parFile} ${clsize} ${saveFile} ${index1} ${index2} > Model_Runs/poiss_trial/outputRickerTrial_${oldName}.txt
 
 
 max_runs=10
 cur_runs=1
-
-while[ $cur_runs -lt $max_runs ];
+while [ $cur_runs -lt $max_runs ]
 do
 
-if [ -e Model_Runs/RickerA_resultTable1.csv ]
+if [ -e Model_Runs/RickerA_resultTable112.csv ]
 then
     echo "yay this run is done"
     cur_runs=11
 else
-    echo "shoot trying to rerun and current run number is: "
-    echo cur_runs
+    echo "shoot trying to rerun and current run number is: " $cur_runs
+    ((seed++))
+    Rscript Model_Runs/poiss_trial/modelruns_ricker_trial2.R ${datFile} ${parFile} ${clsize} ${saveFile} ${index1} ${index2} ${seed} > Model_Runs/poiss_trial/outputRickerTrial_${oldName}.txt
     ((cur_runs++))
-    Rscript Model_Runs/poiss_trial/modelruns_ricker_trial.R ${datFile} ${parFile} ${clsize} ${saveFile} ${index1} ${index2} > Model_Runs/poiss_trial/outputRickerTrial_${oldName}.txt
 fi
 
 done
 echo "Out of the loop"
+
