@@ -38,7 +38,7 @@ cur_runs=1
 while [ $cur_runs -lt $max_runs ]
 do
 
-if [ -e Model_Runs/RickerA_resultTable112.csv ]
+if [ -e Model_Runs/RickerA_resultTable$SLURM_ARRAY_TASK_ID.csv ]
 then
     echo "yay this run is done"
     cur_runs=11
