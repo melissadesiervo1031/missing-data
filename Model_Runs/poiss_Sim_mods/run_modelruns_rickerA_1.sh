@@ -41,7 +41,7 @@ do
 if [ -e Model_Runs/poiss_Sim_mods/RickerA_resultTable_$SLURM_ARRAY_TASK_ID.csv ]
 then
     echo "yay this run is done"
-    cur_runs=11
+    cur_runs=100
 else
     echo "shoot trying to rerun and current run number is: " $cur_runs
     ((seed++))
