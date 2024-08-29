@@ -11,14 +11,14 @@
 #SBATCH --mail-user=apatte12@uwyo.edu
 ### enter any job name that you prefer
 #SBATCH --job-name=rickerRerunA
-#SBATCH --array=1-10
+#SBATCH --array=1-7500
 
 
 module load arcc/1.0 gcc/12.2.0 r/4.4.0
 
 cd /project/modelscape/analyses/MissingTS/missing-data
 
-config=Model_Runs/poiss_trial/RickerConfigTrial2.txt
+config=Model_Runs/poiss_trial/RickerConfigA_1.txt
 
 datFile=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $2}' $config)
 parFile=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $3}' $config)
@@ -33,7 +33,7 @@ Rscript Model_Runs/poiss_trial/modelruns_ricker_trial2.R ${datFile} ${parFile} $
 
 
 
-max_runs=10
+max_runs=20
 cur_runs=1
 while [ $cur_runs -lt $max_runs ]
 do
