@@ -1,12 +1,19 @@
 # Simulate GPP data from AR1_light_Q_centered model
 # Author: AM Carter
 
+
+# load packages -----------------------------------------------------------
 library(tidyverse)
 library(rstan)
 options(mc.cores = parallel::detectCores())
 
+
+# load data ---------------------------------------------------------------
+# load data from NWIS
 dat <- read_csv('data/NWIS_MissingTS_subset.csv')
+# load metadata from NWIS
 mdat <- read_csv('data/NWIS_MissingTSinfo_subset.csv')
+
 
 # select a single site
 id <- mdat$site_name[1]
@@ -43,7 +50,7 @@ model_lq <- stan_model("GPP sim and real/Stan_code/AR1_light_Q_centered.stan")
 #Create data object
 data <- list(N = n, P_obs = P_obs,
              sdo = sigma_obs, light = dd$light.rel, Q = dd$Q,
-             miss_vec = rep(1, nrow(pr)))
+             miss_vec = rep(1, nrow(dd)))
 
 #Run Stan
 fit_lq <- rstan::sampling(object=model_lq, data = data,  

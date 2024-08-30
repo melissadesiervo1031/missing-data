@@ -21,16 +21,16 @@ simDat_raw2 <- map(simDat_raw, function(x) {
       select(jdate, 2) %>% 
       pivot_wider( names_from = jdate, values_from = 2)
   }
-    ))
+  ))
   rownames(outDat) <- names(temp)[2:16]
   return(outDat)
-  }
+}
 )
 # assign the appropriate names 
 simDat_names <- map(simDat_raw, function(x) {
   temp <- data.frame(as.vector(names(x$y)), "names" = 1:15) 
 }
-  )  %>% 
+)  %>% 
   list_rbind()
 
 simDat_raw3 <- simDat_raw2 %>% 
@@ -39,7 +39,7 @@ simDat_raw3 <- simDat_raw2 %>%
 simDat_raw3$sim_miss_Names <- simDat_names$as.vector.names.x.y..
 # add back in simulation name
 simDat_raw3$sim_Name_long <- unlist(apply(data.frame(names(simDat_raw)), 1, 
-                               function(x) rep.int(x, times = 15) , simplify = FALSE) )
+                                          function(x) rep.int(x, times = 15) , simplify = FALSE) )
 # extract simulation name
 simDat_raw3$sim_Names <- str_sub(simDat_raw3$sim_Name_long, 
                                  start = 7, 
@@ -47,7 +47,7 @@ simDat_raw3$sim_Names <- str_sub(simDat_raw3$sim_Name_long,
                                    str_locate_all(simDat_raw3$sim_Name_long, pattern = "_"), 
                                    function(x) x[2,2]
                                  )-1
-                                   )
+)
 
 # extract name autocorrelation
 simDat_raw3$names_autoCorr <-  str_split(simDat_raw3$sim_miss_Names, pattern =  "_", simplify = TRUE)[,4] %>% 
@@ -76,17 +76,17 @@ simDat_raw3$true_autoCorr <- simDat_raw3 %>%
 
 # gauss_sim_MAR_arima models ----------------------------------------------
 # read in first group of output files (stored outside of the Git)
-fileNames_A <- list.files("./data/model_results/gauss_sim_randMiss_modelResults_A/")
+outData_A <- read.csv("./data/model_results/gauss_sim_randMiss_modelResults_A/gauss_sim_randMiss_modelResults_A.csv")
 
-for (i in 1:1000) {
-  assign(x = "temp", 
-         value = read.csv(paste0("./data/model_results/gauss_sim_randMiss_modelResults_A/",fileNames_A[i])))
-  if (i == 1){
-    outData_A <- temp
-  } else {
-    outData_A <- rbind(outData_A, temp)
-  }
-}
+# for (i in 1:1000) {
+#   assign(x = "temp", 
+#          value = read.csv(paste0("./data/model_results/gauss_sim_randMiss_modelResults_A/",fileNames_A[i])))
+#   if (i == 1){
+#     outData_A <- temp
+#   } else {
+#     outData_A <- rbind(outData_A, temp)
+#   }
+# }
 
 ## add back in parameter info
 params <- readRDS("./data/missingDatasets/gauss_sim_params.rds")
@@ -95,18 +95,18 @@ names(params) <- c("SimNumber", "phi_sim", "beta1_sim", "beta2_sim", "beta3_sim"
 outData_A_final <- left_join(outData_A, params, by = c("simName" = "SimNumber"))
 
 ## read in the group of output files (stored outside of the Git)
-fileNames_B <- list.files("./data/model_results/gauss_sim_randMiss_modelResults_B/")
+outData_B <- read.csv("./data/model_results/gauss_sim_randMiss_modelResults_B/gauss_sim_randMiss_modelResults_B.csv")
 
-for (i in 1:1000) {
-  assign(x = "temp", 
-         value = read.csv(paste0("./data/model_results/gauss_sim_randMiss_modelResults_B/",fileNames_B[i])))
-  
-  if (i == 1){
-    outData_B <- temp
-  } else {
-    outData_B <- rbind(outData_B, temp)
-  }
-}
+# for (i in 1:1000) {
+#   assign(x = "temp", 
+#          value = read.csv(paste0("./data/model_results/gauss_sim_randMiss_modelResults_B/",fileNames_B[i])))
+#   
+#   if (i == 1){
+#     outData_B <- temp
+#   } else {
+#     outData_B <- rbind(outData_B, temp)
+#   }
+# }
 
 ## add back in parameter info
 params <- readRDS("./data/missingDatasets/gauss_sim_params.rds")
@@ -128,18 +128,18 @@ outData_MAR_arima <- rbind(outData_A_final, outData_B_final) %>%
 # gauss_sim_MNAR_arima models ---------------------------------------------------
 
 # read in the group of output files (stored outside of the Git)
-fileNames_MNAR <- list.files("./data/model_results/gauss_sim_minMax_modelResults/", pattern = ".csv$")
+outData_MNAR <- read.csv("./data/model_results/gauss_sim_minMax_modelResults/gauss_sim_minMax_modelResults.csv")
 
-for (i in 1:length(fileNames_MNAR)) {
-  assign(x = "temp", 
-         value = read.csv(paste0("./data/model_results/gauss_sim_minMax_modelResults/",fileNames_MNAR[i])))
-  
-  if (i == 1){
-    outData_MNAR <- temp
-  } else {
-    outData_MNAR <- rbind(outData_MNAR, temp)
-  }
-}
+# for (i in 1:length(fileNames_MNAR)) {
+#   assign(x = "temp", 
+#          value = read.csv(paste0("./data/model_results/gauss_sim_minMax_modelResults/",fileNames_MNAR[i])))
+#   
+#   if (i == 1){
+#     outData_MNAR <- temp
+#   } else {
+#     outData_MNAR <- rbind(outData_MNAR, temp)
+#   }
+# }
 
 
 ## add back in parameter info
@@ -277,7 +277,7 @@ outData_gauss_sim <- outData_gauss_sim %>%
          SE = as.numeric(SE))
 # 
 outData_gauss_sim[outData_gauss_sim$missingness == "MAR" & 
-                         is.na(outData_gauss_sim$autoCor), "autoCor"] <- 0
+                    is.na(outData_gauss_sim$autoCor), "autoCor"] <- 0
 
 # remove values for models fitted to time series with no missingness (Doesn't work for all model approaches)
 gauss_sim_figDat <- outData_gauss_sim[outData_gauss_sim$missingprop_autocor != "y_noMiss",]
@@ -327,7 +327,7 @@ outData_gauss_sim_normPrior <- outData_gauss_sim_normPrior %>%
          SE = as.numeric(SE))
 # 
 outData_gauss_sim_normPrior[outData_gauss_sim_normPrior$missingness == "MAR" & 
-                    is.na(outData_gauss_sim_normPrior$autoCor), "autoCor"] <- 0
+                              is.na(outData_gauss_sim_normPrior$autoCor), "autoCor"] <- 0
 
 # remove values for models fitted to time series with no missingness (Doesn't work for all model approaches)
 gauss_sim_figDat_normPrior <- outData_gauss_sim_normPrior[outData_gauss_sim_normPrior$missingprop_autocor != "y_noMiss",]

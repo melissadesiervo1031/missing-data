@@ -49,5 +49,3 @@
       real y_rep[N-1] = normal_rng(mu[2:N], sdo[2:N]);
       
   }
- 
-  

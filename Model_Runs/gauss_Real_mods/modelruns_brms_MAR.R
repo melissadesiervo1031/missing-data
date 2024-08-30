@@ -1,7 +1,7 @@
 # Load packages ## 
 #make sure these are already in the folder on supercomputer where I need them ##
 
-.libPaths("/pfs/tc1/home/astears/R/x86_64-pc-linux-gnu-library/4.2")
+#.libPaths("/pfs/tc1/home/astears/R/x86_64-pc-linux-gnu-library/4.2")
 
 library(tidyverse)
 library(brms)
@@ -10,21 +10,22 @@ library(brms)
 #over a nested list with increasing prop missing, over 1000+ simulations ###)
 
 #CurSim = like a loop ##
+# 
+# CurSim <- commandArgs(trailingOnly = TRUE) #Look at command line arguments only after the R script
+# CurSim <- as.numeric(CurSim)
+# CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
 
-CurSim <- commandArgs(trailingOnly = TRUE) #Look at command line arguments only after the R script
-CurSim <- as.numeric(CurSim)
-CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
+## read in the data
 
-## read in the autocor_01 list ##
-  
-# gauss_real_randMiss <- readRDS("data/missingDatasets/gauss_real_randMiss.rds")
-gauss_real_randMiss <- readRDS("/project/modelscape/users/astears/gauss_real_randMiss.rds")
-au_sable_full <- read_csv('/project/modelscape/users/astears/au_sable_river_prepped.csv')
+gauss_auSable_randMiss <- readRDS(here("data/missingDatasets/gauss_real_auSable_randMiss.rds"))
+gauss_badger_randMiss <- readRDS(here("data/missingDatasets/gauss_real_badger_randMiss.rds"))
+au_sable_river_full <- read_csv(here("data/au_sable_river_prepped.csv"))
+badger_mill_creek_full <- read_csv(here("data/badger_mill_Creek_prepped.csv"))
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
-OutFile <- paste0("gauss_real/gauss_real_MAR_brms_modelResults_normPriorNB/", CurSim, "brmsvals.csv")
-OutFile_preds <- paste0("gauss_real/gauss_real_MAR_brms_modelResults_normPriorNB/", CurSim, "brmspreds.csv")
+#OutFile <- paste0("gauss_real/gauss_real_MAR_brms_modelResults_normPriorNB/", CurSim, "brmsvals.csv")
+#OutFile_preds <- paste0("gauss_real/gauss_real_MAR_brms_modelResults_normPriorNB/", CurSim, "brmspreds.csv")
 
 #########################################################################################
 ### MY ARIMA FUNCTIONS #####
@@ -54,7 +55,7 @@ fit_brms_model <- function(sim_list, sim_pars,
   bmod <- brms::brm_multiple(bform, data = simmissingdf, 
                              prior = bprior, iter = iter, 
                              combine = FALSE)
-
+  
   extract_brms_pars <- function(bfit, include_missing = FALSE){
     bsum <- brms::posterior_summary(bfit, probs = c(0.025, 0.5, 0.975))
     bsum <- as.data.frame(bsum) %>%
@@ -100,56 +101,110 @@ fit_brms_model <- function(sim_list, sim_pars,
 }
 
 
+# Fit models for au sable river data ---------------------------------------------
+dirname <- c("./data/model_results/gauss_real_MAR_brms_modResults/badgerMill/")
+for (i in seq_along(gauss_auSable_randMiss)) {
+  CurSim <- i
+  OutFile_params <- paste(dirname, CurSim, "brmsvals.csv", sep = "")
+  OutFile_preds <- paste(dirname, CurSim, "brmspreds.csv", sep = "")
+  
+  # make sure sim_list and sim_params are not pointing to the whole list, which starts w character elements
+  sim_list<- gauss_auSable_randMiss[[CurSim]]$y
+  nms <- stringr::str_which(names(sim_list), "^prop")
+  sim_list <- sim_list[nms]
+  
+  brms_MAR <- fit_brms_model(sim_list = sim_list,
+                             sim_pars = gauss_auSable_randMiss[[CurSim]]$sim_params,
+                             forecast = TRUE, forecast_days = 365, 
+                             dat_full = au_sable_river_full)
+  
+  brms_MAR_df <- map_df(brms_MAR$brms_pars, ~as.data.frame(.x),
+                        .id = "missingprop_autocor")
+  brms_MAR_df$missingness <- 'MAR'
+  brms_MAR_df$type <- 'brms'
+  brms_MAR_df$run_no <- CurSim
+  
+  brms_MAR_preds <- map_df(brms_MAR$brms_forecast, ~as.data.frame(.x),
+                           .id = "missingprop_autocor")
+  brms_MAR_preds$missingness <- 'MAR'
+  brms_MAR_preds$type <- 'brms'
+  brms_MAR_preds$run_no <- CurSim
+  #################################################
+  # Write the output to the folder which will contain all output files as separate csv
+  #    files with a single line of data.
+  write_csv(brms_MAR_df, file = OutFile_params)
+  write_csv(brms_MAR_preds, file = OutFile_preds)
+}
 
-#####################################################
-#### MODEL RUN ARIMA DROP ##############
-#########################################################
-
-brms_MAR <- fit_brms_model(sim_list = gauss_real_randMiss[[CurSim]]$y,
-                           sim_pars = gauss_real_randMiss[[CurSim]]$sim_params,
-                           forecast = TRUE, forecast_days = 365, 
-                           dat_full = au_sable_full)
-
-
-########### formatting for figure #############
-
-
-brms_MAR_df <- map_df(brms_MAR$brms_pars, ~as.data.frame(.x),
-                      .id = "missingprop_autocor")
-brms_MAR_df$missingness <- 'MAR'
-brms_MAR_df$type <- 'brms'
-brms_MAR_df$run_no <- CurSim
-
-brms_MAR_preds <- map_df(brms_MAR$brms_forecast, ~as.data.frame(.x),
-                      .id = "missingprop_autocor")
-brms_MAR_preds$missingness <- 'MAR'
-brms_MAR_preds$type <- 'brms'
-brms_MAR_preds$run_no <- CurSim
-
-
-###################################################
-#### SAVE #########
-#################################################
-# Write the output to the folder which will contain all output files as separate csv
-#    files with a single line of data.
-write_csv(brms_MAR_df, file = OutFile)
-write_csv(brms_MAR_preds, file = OutFile_preds)
-
-
-# Once the job finishes, you can use the following command from within the folder
-#    containing all single line csv files to compile them into a single csv file:
-#     awk '(NR == 1) || (FNR > 1)' *vals.csv > AllResults.csv
-# The * is a wildcard character so the input to this will match any file within
-#    your current folder that ends with vals.csv regardless of the rest of the filename.
-#    These will then all be combined into a single file (AllResults.csv). The order
-#    will be based on how linux orders the file names within the directory, so it 
-#    might not match the original order of your parameter input file, but all the
-#    entries will be there and it can be sorted later. Alternatively, you can name
-#    your output files in a way in which the proper order will be enforced (e.g.,
-#    if you will have a total of 100 jobs, you can name them all with 3 digits like
-#    001_vals.csv, 002_vals.csv, etc.)
-# Once you have combined all the single line csv files into your master results file,
-#    you can remove them using the wildcard character again (e.g., rm *vals.csv)
+# Fit models for badger mill creek data -----------------------------------
+dirname <- c("./data/model_results/gauss_real_MAR_brms_modResults/badgerMill")
+for (i in seq_along(gauss_badger_randMiss)) {
+  CurSim <- i
+  OutFile_params <- paste(dirname, CurSim, "brmsvals.csv", sep = "")
+  OutFile_preds <- paste(dirname, CurSim, "brmspreds.csv", sep = "")
+  
+  # make sure sim_list and sim_params are not pointing to the whole list, which starts w character elements
+  sim_list<- gauss_badger_randMiss[[CurSim]]$y
+  nms <- stringr::str_which(names(sim_list), "^prop")
+  sim_list <- sim_list[nms]
+  
+  brms_MAR <- fit_brms_model(sim_list = sim_list,
+                             sim_pars = gauss_badger_randMiss[[CurSim]]$sim_params,
+                             forecast = TRUE, forecast_days = 365, 
+                             dat_full = badger_mill_creek_full)
+  
+  brms_MAR_df <- map_df(brms_MAR$brms_pars, ~as.data.frame(.x),
+                        .id = "missingprop_autocor")
+  brms_MAR_df$missingness <- 'MAR'
+  brms_MAR_df$type <- 'brms'
+  brms_MAR_df$run_no <- CurSim
+  
+  brms_MAR_preds <- map_df(brms_MAR$brms_forecast, ~as.data.frame(.x),
+                           .id = "missingprop_autocor")
+  brms_MAR_preds$missingness <- 'MAR'
+  brms_MAR_preds$type <- 'brms'
+  brms_MAR_preds$run_no <- CurSim
+  #################################################
+  # Write the output to the folder which will contain all output files as separate csv
+  #    files with a single line of data.
+  write_csv(brms_MAR_df, file = OutFile_params)
+  write_csv(brms_MAR_preds, file = OutFile_preds)
+}
 
 
 
+# compile outputs ---------------------------------------------------------
+# compile for au sable river
+# compile script output and save 
+dirname <- "./data/model_results/gauss_real_MAR_brms_modResults/auSable/"
+predNames <- list.files(dirname, pattern = "preds.csv")
+predsAll <- map_df(predNames, function(x) {
+  read_csv(paste0(dirname, x))
+})
+#write.csv(predsAll, file = "./data/model_results/gauss_real_MAR_arima_FORECASTpreds.csv")
+write.csv(predsAll, file = paste(dirname, "gauss_auSable_real_MAR_brms_FORECASTpreds.csv", sep = ""))
+
+valNames <- list.files(dirname, pattern = "vals.csv")
+valsAll <- map_df(valNames, function(x) {
+  read_csv(paste0(dirname, x))
+})
+#write.csv(valsAll, file = "./data/model_results/gauss_real_MAR_arima_FORECASTvals.csv")
+write.csv(valsAll, file = paste(dirname, "gauss_auSable_real_MAR_arima_FORECASTvals.csv", sep = ""))
+
+
+# compile for badger mill creek
+# compile script output and save 
+dirname <- "./data/model_results/gauss_real_MAR_brms_modResults/badgerMill/"
+predNames <- list.files(dirname, pattern = "preds.csv")
+predsAll <- map_df(predNames, function(x) {
+  read_csv(paste0(dirname, x))
+})
+#write.csv(predsAll, file = "./data/model_results/gauss_real_MAR_arima_FORECASTpreds.csv")
+write.csv(predsAll, file = paste(dirname, "gauss_badger_real_MAR_brms_FORECASTpreds.csv", sep = ""))
+
+valNames <- list.files(dirname, pattern = "vals.csv")
+valsAll <- map_df(valNames, function(x) {
+  read_csv(paste0(dirname, x))
+})
+#write.csv(valsAll, file = "./data/model_results/gauss_real_MAR_arima_FORECASTvals.csv")
+write.csv(valsAll, file = paste(dirname, "gauss_badger_real_MAR_arima_FORECASTvals.csv", sep = ""))
