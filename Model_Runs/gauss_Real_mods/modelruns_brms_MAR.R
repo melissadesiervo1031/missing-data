@@ -6,7 +6,7 @@
 library(tidyverse)
 library(brms)
 
-# This script will run 3 ARIMA functions (drop missing, Kalman, Multiple imputations 
+# This script will run data augmentation models using the BRMS package 
 #over a nested list with increasing prop missing, over 1000+ simulations ###)
 
 #CurSim = like a loop ##
@@ -16,6 +16,7 @@ library(brms)
 # CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
 
 ## read in the data
+# these are example real datasets for comparison
 
 gauss_auSable_randMiss <- readRDS(here("data/missingDatasets/gauss_real_auSable_randMiss.rds"))
 gauss_badger_randMiss <- readRDS(here("data/missingDatasets/gauss_real_badger_randMiss.rds"))
@@ -28,7 +29,7 @@ badger_mill_creek_full <- read_csv(here("data/badger_mill_Creek_prepped.csv"))
 #OutFile_preds <- paste0("gauss_real/gauss_real_MAR_brms_modelResults_normPriorNB/", CurSim, "brmspreds.csv")
 
 #########################################################################################
-### MY ARIMA FUNCTIONS #####
+### MY BRMS FUNCTIONS #####
 ##########################################################################################
 ### Function to fit a BRMS model on a time series ###
 fit_brms_model <- function(sim_list, sim_pars, 
@@ -181,14 +182,14 @@ predNames <- list.files(dirname, pattern = "preds.csv")
 predsAll <- map_df(predNames, function(x) {
   read_csv(paste0(dirname, x))
 })
-#write.csv(predsAll, file = "./data/model_results/gauss_real_MAR_arima_FORECASTpreds.csv")
+
 write.csv(predsAll, file = paste(dirname, "gauss_auSable_real_MAR_brms_FORECASTpreds.csv", sep = ""))
 
 valNames <- list.files(dirname, pattern = "vals.csv")
 valsAll <- map_df(valNames, function(x) {
   read_csv(paste0(dirname, x))
 })
-#write.csv(valsAll, file = "./data/model_results/gauss_real_MAR_arima_FORECASTvals.csv")
+
 write.csv(valsAll, file = paste(dirname, "gauss_auSable_real_MAR_arima_FORECASTvals.csv", sep = ""))
 
 
@@ -199,12 +200,12 @@ predNames <- list.files(dirname, pattern = "preds.csv")
 predsAll <- map_df(predNames, function(x) {
   read_csv(paste0(dirname, x))
 })
-#write.csv(predsAll, file = "./data/model_results/gauss_real_MAR_arima_FORECASTpreds.csv")
+
 write.csv(predsAll, file = paste(dirname, "gauss_badger_real_MAR_brms_FORECASTpreds.csv", sep = ""))
 
 valNames <- list.files(dirname, pattern = "vals.csv")
 valsAll <- map_df(valNames, function(x) {
   read_csv(paste0(dirname, x))
 })
-#write.csv(valsAll, file = "./data/model_results/gauss_real_MAR_arima_FORECASTvals.csv")
+
 write.csv(valsAll, file = paste(dirname, "gauss_badger_real_MAR_arima_FORECASTvals.csv", sep = ""))

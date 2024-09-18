@@ -6,6 +6,7 @@
 library(tidyverse)
 library(brms)
 
+# This script will run data augmentation models using the BRMS package 
 #over a nested list with increasing prop missing, over 1000+ simulations ###)
 
 #CurSim = like a loop ##
@@ -24,7 +25,7 @@ gauss_sim_MNAR <- readRDS("/project/modelscape/users/astears/gauss_sim_minMaxMis
 OutFile <- paste0("gauss_sim_MNAR_brms_modResults_normPriorNB/", CurSim, "brmsvals.csv")
 
 #########################################################################################
-### MY ARIMA FUNCTIONS #####
+### MY BRMS FUNCTIONS #####
 ##########################################################################################
 ### Function to fit a BRMS model on a time series ###
 fit_brms_model <- function(sim_list, sim_pars, 
@@ -75,7 +76,7 @@ fit_brms_model <- function(sim_list, sim_pars,
 
 
 #####################################################
-#### MODEL RUN ARIMA DROP ##############
+#### MODEL RUN BRMS DROP ##############
 #########################################################
 
 brms_MNAR <- fit_brms_model(sim_list = gauss_sim_MNAR[[CurSim]]$y,

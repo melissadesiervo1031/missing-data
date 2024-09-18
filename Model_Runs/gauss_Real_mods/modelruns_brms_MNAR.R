@@ -3,6 +3,7 @@
 library(tidyverse)
 library(brms)
 
+# This script will run data augmentation models using the BRMS package 
 #over a nested list with increasing prop missing, over 1000+ simulations ###)
 
 #CurSim = like a loop ##
