@@ -1,5 +1,10 @@
+# Script to find NWIS data sites that have low missingness for several years in a row
+# this will be used as the real dataset in the gaussian modeling example
+
+
 library(tidyverse)
 
+# load in data (These data can be downloaded from figshare, ehy are associated with Bernhardt 2022 PNAS)
 dat <- readRDS('../except_heterotrophy/data_ignored/high_quality_daily_metabolism_with_SP_covariates_complete.rds')
 
 # look for a site that has at least 90% of the data for 3 years
@@ -18,10 +23,12 @@ dat %>% filter(site_name %in% sites$site) %>%
   facet_wrap(.~site_name) +
   ylim(0,1)
 
+#select sites for closer examination
 sites <- paste('nwis', c('02169000', '04137500', '04249000', '05435943', 
                          '08180700', '08211200', '10129900', '10133800'), 
                sep = '_')
 
+#plot potential sites
 png('figures/potential_gauss_datasets.png',
     width = 8, height = 6, res = 300, units = 'in')
 dat %>% filter(site_name %in% sites) %>%
@@ -36,7 +43,7 @@ dat %>% filter(site_name %in% sites) %>%
   ylim(0,1)
 dev.off()
 
-
+# subset to the best ones
 dat_sub <- dat %>% filter(site_name %in% sites) %>%
   group_by(site_name, Year) %>%
   summarize(n = sum(!is.na(GPP))/365) %>%
@@ -45,6 +52,7 @@ dat_sub <- dat %>% filter(site_name %in% sites) %>%
   filter(!site_year %in% c('nwis_08180700_2013', 'nwis_02169000_2016', 
                            'nwis_04137500_2016', 'nwis_08211200_2016')) 
   
+
 dd <- dat %>% 
   mutate(site_year = paste(site_name, Year, sep = '_')) %>%
   filter(site_year %in% dat_sub$site_year)
@@ -57,5 +65,7 @@ dd <- dd %>%
   select(site_name, long_name, date, Year, DOY, 
          GPP = GPP_filled, ER = ER_filled,
          light, Q = discharge) 
+
+# save the files that have potential as the real gaussian dataset
 
 write_csv(dd, 'data/NWIS_MissingTS_subset_new.csv')
