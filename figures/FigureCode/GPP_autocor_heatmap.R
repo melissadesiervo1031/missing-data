@@ -38,7 +38,7 @@ figDat <- gauss_sim_figDat %>%
     scale_fill_distiller(palette = "Spectral", direction = 1, name = "value")+
     facet_grid(~factor(figDat$param, levels = c("Intercept","Phi", "Beta covariates")) ~ type) +
     xlab("Proportion of missing data")+
-    ylab("Autocorrellation in missingness") +
+    ylab("Autocorrelation in missingness") +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     ggtitle("Median of parameter bias across sims.")) 
@@ -50,7 +50,7 @@ figDat <- gauss_sim_figDat %>%
     scale_fill_distiller(palette = "Greys", direction = 1, name = "value") +#value = SD
   #viridis_c(begin=1, end=0, option = "plasma", name = "value" )+ 
     xlab("Proportion of missing data")+
-    ylab("Autocorrellation in missingness") +
+    ylab("Autocorrelation in missingness") +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     ggtitle("SD of parameter bias across sims."))
@@ -93,7 +93,7 @@ figDat <- gauss_sim_figDat %>%
     facet_grid(~factor(figDat$param, levels = c("Intercept","Phi", "Beta covariates")) ~ type) +
     #scale_fill_viridis_c(begin=1, end=0, option = "inferno")+
     xlab("Proportion of missing data")+
-    ylab("Autocorrellation in missingness") +
+    ylab("Autocorrelation in missingness") +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1),
           axis.text.y = element_blank(),
@@ -108,7 +108,7 @@ figDat <- gauss_sim_figDat %>%
     facet_grid(~factor(figDat$param, levels = c("Intercept","Phi", "Beta covariates")) ~ type) +
     #scale_fill_viridis_c(begin=1, end=0, option = "plasma", name = "value" )+
     xlab("Proportion of missing data")+
-    ylab("Autocorrellation in missingness") +
+    ylab("Autocorrelation in missingness") +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1),
           axis.text.y = element_blank(),
