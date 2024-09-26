@@ -7,7 +7,7 @@ setwd('/project/modelscape/users/astears/')
 library(tidyverse)
 library(brms)
 
-# This script will run 3 ARIMA functions (drop missing, Kalman, Multiple imputations 
+# This script will run data augmentation models using the BRMS package 
 #over a nested list with increasing prop missing, over 1000+ simulations ###)
 
 #CurSim = like a loop ##
@@ -26,7 +26,7 @@ gauss_sim_randMiss_autoCorr_01 <- readRDS("/project/modelscape/users/astears/gau
 OutFile <- paste0("gauss_sim_MAR_B_brms_results_normPriorNB/", CurSim, "brmsvals.csv")
 
 #########################################################################################
-### MY ARIMA FUNCTIONS #####
+### MY BRNS FUNCTIONS #####
 ##########################################################################################
 ### Function to fit a BRMS model on a time series ###
 fit_brms_model <- function(sim_list, sim_pars, 
@@ -77,7 +77,7 @@ fit_brms_model <- function(sim_list, sim_pars,
 
 
 #####################################################
-#### MODEL RUN ARIMA DROP ##############
+#### MODEL RUN BRMS DROP ##############
 #########################################################
 
 brms_MAR <- fit_brms_model(sim_list = gauss_sim_randMiss_autoCorr_01[[CurSim]]$y,
