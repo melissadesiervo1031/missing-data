@@ -1,10 +1,8 @@
 # Load packages ## 
 #make sure these are already in the folder on supercomputer where I need them ##
 
-#.libPaths("/pfs/tc1/home/astears/R/x86_64-pc-linux-gnu-library/4.2")
 
 library(tidyverse)
-#library(forecast) ## it hates this package...run with lowercase arima# 
 library(Amelia)
 library(here)
 
@@ -20,19 +18,6 @@ gauss_badger_randMiss <- readRDS(here("data/missingDatasets/gauss_real_badger_ra
 au_sable_river_full <- read_csv(here("data/au_sable_river_prepped.csv"))
 badger_mill_creek_full <- read_csv(here("data/badger_mill_Creek_prepped.csv"))
 
-
-
-#gauss_real_randMiss <- readRDS("/project/modelscape/users/astears/gauss_real_randMiss.rds")
-#pine_river_full <- read_csv(here("data/pine_river_data_prepped.csv"))
-
-# Code/ objects for checking the functions (many broken spots at first):
-
-# sim_list.50 <- gauss_real_randMiss$gauss_real_randMiss_autoCor_50
-# sim_list <- sim_list.50$y
-# nms <- stringr::str_which(names(sim_list), "^prop")
-# sim_list <- sim_list[nms]
-# sim_pars <- sim_list.50$sim_params
-# imputationsnum <- 5
 
 # Functions for missing data# approaches -----------------------------------
 
