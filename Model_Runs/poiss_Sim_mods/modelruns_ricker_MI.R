@@ -144,19 +144,39 @@ res1 <- lapply(
 
 res1
 
-# compile results
-results_vec[1]=res1[[1]][1][[1]][1] # estim_r
-results_vec[2]=res1[[1]][1][[1]][2] # estim_alpha
-results_vec[3]=res1[[1]][2][[1]][1] # se_r
-results_vec[4]=res1[[1]][2][[1]][2] # se_alpha
-results_vec[5]=res1[[1]][3][[1]][1] # lower_r
-results_vec[6]=res1[[1]][3][[1]][2] # lower_alpha
-results_vec[7]=res1[[1]][4][[1]][1] # upper_r
-results_vec[8]=res1[[1]][4][[1]][2] # upper_alpha
+if(is.na(res1[[1]][1][[1]][1])){
+  results_vec[1]=res1[[1]][2][[1]][1] # estim_r
+  results_vec[2]=NA # estim_alpha
+  results_vec[3]=NA # se_r
+  results_vec[4]=NA # se_alpha
+  results_vec[5]=NA # lower_r
+  results_vec[6]=NA # lower_alpha
+  results_vec[7]=NA # upper_r
+  results_vec[8]=NA # upper_alpha
+} else {
+  # compile results
+  results_vec[1]=res1[[1]][1][[1]][1] # estim_r
+  results_vec[2]=res1[[1]][1][[1]][2] # estim_alpha
+  results_vec[3]=res1[[1]][2][[1]][1] # se_r
+  results_vec[4]=res1[[1]][2][[1]][2] # se_alpha
+  results_vec[5]=res1[[1]][3][[1]][1] # lower_r
+  results_vec[6]=res1[[1]][3][[1]][2] # lower_alpha
+  results_vec[7]=res1[[1]][4][[1]][1] # upper_r
+  results_vec[8]=res1[[1]][4][[1]][2] # upper_alpha
+}
 
 })
 
-# save results to file
-write.csv(cbind(pars_full,as.data.frame(t(results_vec))),file = here(in_args[4]))
+if(is.na(in_args[8])){
+  ran20=F
+} else {
+  ran20=as.numeric(in_args[8])>18
+}
+if(is.na(results_vec[2])&results_vec[1]!="population extinction"&!ran20){
+  # don't save if result was NA, and reason wasn't extinction and we haven't run 20 yet
+} else {
+  # save results to file
+  write.csv(cbind(pars_full,as.data.frame(t(results_vec))),file = here(in_args[4]))
+}
 
 

@@ -18,7 +18,7 @@ module load arcc/1.0 gcc/12.2.0 r/4.4.0
 
 cd /project/modelscape/analyses/MissingTS/missing-data
 
-config=Model_Runs/poiss_Sim_mods/RickerConfigA_1.txt
+config=Model_Runs/poiss_Sim_mods/RickerConfigA_2.txt
 
 datFile=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $2}' $config)
 parFile=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $3}' $config)
@@ -45,7 +45,7 @@ then
 else
     echo "shoot trying to rerun and current run number is: " $cur_runs
     ((seed++))
-    Rscript Model_Runs/poiss_Sim_mods/modelruns_ricker_MI.R ${datFile} ${parFile} ${clsize} ${saveFile} ${index1} ${index2} ${seed} cur_runs > Model_Runs/poiss_trial/outputRickerTrial_${SLURM_ARRAY_TASK_ID}.txt
+    Rscript Model_Runs/poiss_Sim_mods/modelruns_ricker_MI.R ${datFile} ${parFile} ${clsize} ${saveFile} ${index1} ${index2} ${seed} > Model_Runs/poiss_trial/outputRickerTrial_${SLURM_ARRAY_TASK_ID}.txt
     ((cur_runs++))
 fi
 
