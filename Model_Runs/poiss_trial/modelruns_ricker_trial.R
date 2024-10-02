@@ -27,7 +27,7 @@ lapply(f_list, source)
 # (5) beginnning index (6) ending index (7) optional- model list
 
 # for testing outside of command line, can use this next line
-in_args=c("data/missingDatasets/pois_sim_randMiss_A.rds", "data/missingDatasets/pois_sim_params.rds", 2, "Model_Runs/RickerA_resultTable1.csv", 5, 5)
+in_args=c("data/missingDatasets/pois_sim_randMiss_A.rds", "data/missingDatasets/pois_sim_params.rds", 2, "Model_Runs/RickerA_resultTable243EX.csv", 243, 243)
 #in_args <- commandArgs(trailingOnly = T)
 cat(in_args)
 # read in datafile
@@ -143,15 +143,26 @@ res1 <- lapply(
 
 res1
 
-# compile results
-results_vec[1]=res1[[1]][1][[1]][1] # estim_r
-results_vec[2]=res1[[1]][1][[1]][2] # estim_alpha
-results_vec[3]=res1[[1]][2][[1]][1] # se_r
-results_vec[4]=res1[[1]][2][[1]][2] # se_alpha
-results_vec[5]=res1[[1]][3][[1]][1] # lower_r
-results_vec[6]=res1[[1]][3][[1]][2] # lower_alpha
-results_vec[7]=res1[[1]][4][[1]][1] # upper_r
-results_vec[8]=res1[[1]][4][[1]][2] # upper_alpha
+if(is.na(res1[[1]][1][[1]][1])){
+  results_vec[1]=res1[[1]][2][[1]][1] # estim_r
+  results_vec[2]=NA # estim_alpha
+  results_vec[3]=NA # se_r
+  results_vec[4]=NA # se_alpha
+  results_vec[5]=NA # lower_r
+  results_vec[6]=NA # lower_alpha
+  results_vec[7]=NA # upper_r
+  results_vec[8]=NA # upper_alpha
+} else {
+  # compile results
+  results_vec[1]=res1[[1]][1][[1]][1] # estim_r
+  results_vec[2]=res1[[1]][1][[1]][2] # estim_alpha
+  results_vec[3]=res1[[1]][2][[1]][1] # se_r
+  results_vec[4]=res1[[1]][2][[1]][2] # se_alpha
+  results_vec[5]=res1[[1]][3][[1]][1] # lower_r
+  results_vec[6]=res1[[1]][3][[1]][2] # lower_alpha
+  results_vec[7]=res1[[1]][4][[1]][1] # upper_r
+  results_vec[8]=res1[[1]][4][[1]][2] # upper_alpha
+}
 
 })
 
