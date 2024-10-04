@@ -45,7 +45,7 @@ then
 else
     echo "shoot trying to rerun and current run number is: " $cur_runs
     ((seed++))
-    Rscript Model_Runs/poiss_Sim_mods/modelruns_ricker_MI.R ${datFile} ${parFile} ${clsize} ${saveFile} ${index1} ${index2} ${seed} cur_runs > Model_Runs/poiss_trial/outputRickerTrial_${SLURM_ARRAY_TASK_ID}.txt
+    Rscript Model_Runs/poiss_Sim_mods/modelruns_ricker_MI.R ${datFile} ${parFile} ${clsize} ${saveFile} ${index1} ${index2} ${seed} $cur_runs > Model_Runs/poiss_trial/outputRickerTrial_${SLURM_ARRAY_TASK_ID}.txt
     ((cur_runs++))
 fi
 
