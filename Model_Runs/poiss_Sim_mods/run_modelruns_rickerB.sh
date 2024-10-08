@@ -28,5 +28,5 @@ index1=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $6}' $c
 index2=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $7}' $config)
 
 
-Rscript Model_Runs/poiss_Sim_mods/modelruns_ricker.R ${datFile} ${parFile} ${clsize} ${saveFile} ${index1} ${index2} > Model_Runs/poiss_Sim_mods/outputRickerB_${oldName}.txt
+Rscript Model_Runs/poiss_Sim_mods/modelruns_ricker_DA.R ${datFile} ${parFile} ${clsize} ${saveFile} ${index1} ${index2} > Model_Runs/poiss_Sim_mods/outputRickerB_${oldName}.txt
 
