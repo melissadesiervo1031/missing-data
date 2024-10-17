@@ -363,8 +363,8 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
 #################################################################################################
 ############################# fit models to data ------------------------------------------------------
 
-# make file for output beforehand in supercomputer folder 
-# will put them all together after all run, using the command line
+### Make file for output beforehand in supercomputer folder 
+  # will put them all together after all run, using the command line
 if (!dir.exists("data/model_results/gauss_real_MAR_arima_modResults/au_sable")) {
   dir.create("data/model_results/gauss_real_MAR_arima_modResults/au_sable")
 }
@@ -373,7 +373,7 @@ if (!dir.exists("data/model_results/gauss_real_MAR_arima_modResults/badger_mill"
   dir.create("data/model_results/gauss_real_MAR_arima_modResults/badger_mill")
 }
 
-# Use to run Au Sable data
+### Run with Au Sable River data --------------------------------------------
 dat_full <- au_sable_river_full
 dirname <- "./data/model_results/gauss_real_MAR_arima_modResults/au_sable/"
 
@@ -509,8 +509,8 @@ for (i in  seq_along(gauss_auSable_randMiss)) {
 }
 
 
+### Run with Badger Mill Creek data  ---------------------------------------------
 
-# use to run Badger Mill data
 dirname <- "./data/model_results/gauss_real_MAR_arima_modResults/badger_mill/"
 
 for (i in 1:10) {
@@ -644,7 +644,8 @@ for (i in 1:10) {
 }
 ############# check outputs -------------------
 
-# compile for auSable river
+### compile for Au Sable river ----------------
+
 # compile script output and save 
 dirname <- "./data/model_results/gauss_real_MAR_arima_modResults/au_sable/"
 predNames <- list.files(dirname, pattern = "preds.csv")
@@ -661,7 +662,8 @@ valsAll <- map_df(valNames, function(x) {
 #write.csv(valsAll, file = "./data/model_results/gauss_real_MAR_arima_FORECASTvals.csv")
 write.csv(valsAll, file = paste(dirname, "gauss_auSable_real_MAR_arima_FORECASTvals.csv", sep = ""))
 
-# compile for badger mill creek
+### compile for Badger Mill Creek ---------------
+
 # compile script output and save 
 dirname <- "./data/model_results/gauss_real_MAR_arima_modResults/badger_mill/"
 predNames <- list.files(dirname, pattern = "preds.csv")
