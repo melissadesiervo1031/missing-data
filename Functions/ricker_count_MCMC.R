@@ -33,11 +33,19 @@ posterior_mode <- function(x){
 #' 
 MH_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
   
-  theta_init <- fit_ricker_EM(dat$y)$estim
+  fit_init <- fit_ricker_cc(dat$y)
   # convert alpha to log-alpha
-  theta_init[2] <- log(theta_init[2])
+  # but take care that alpha was estimated as positive
+  if(fit_init$estim[2] < 0){
+    if(fit_init$upper[2] < 0){
+      theta_init <- c(fit_init$estim[1], 0.001)
+    } else{
+      theta_init <- c(fit_init$estim[1], log(fit_init$upper[2]))
+    }
+  }
   names(theta_init)[2] <- "lalpha"
   y_full_init <- fill_rng(theta_init, dat)
+  # define negative log-likelihood
   nll <- function(x, y){
     
     n <- length(y)
@@ -55,7 +63,11 @@ MH_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
     ))
   }
   
+  # derive hessian around optimal values
   hess <- optim(theta_init, nll, y = y_full_init, hessian = T)$hessian
+  
+  # get covariance matrix for proposal distribution based on 
+  # hessian
   Sigma <- solve(hess)
   
   # define proposal distribution
@@ -145,9 +157,16 @@ MH_Gibbs_DA <- function(dat, fill_rng, lp, burnin, iter, nthin = 1){
   # initialize
   S <- (burnin + iter) * nthin
   
-  theta_init <- fit_ricker_EM(dat$y)$estim
+  fit_init <- fit_ricker_cc(dat$y)
   # convert alpha to log-alpha
-  theta_init[2] <- log(theta_init[2])
+  # but take care that alpha was estimated as positive
+  if(fit_init$estim[2] < 0){
+    if(fit_init$upper[2] < 0){
+      theta_init <- c(fit_init$estim[1], 0.001)
+    } else{
+      theta_init <- c(fit_init$estim[1], log(fit_init$upper[2]))
+    }
+  }
   names(theta_init)[2] <- "lalpha"
   y_full_init <- fill_rng(theta_init, dat)
   nll <- function(x, y){
@@ -312,7 +331,7 @@ fit_ricker_DA <- function(
   }
   
   # Check for population extinction
-  if(sum(y==0,na.rm=T)>1){
+  if(sum(y==0,na.rm=T)>0){
     warning("population extinction caused a divide by zero problem, returning NA")
     return(list(
       NA,
@@ -435,7 +454,7 @@ fit_ricker_DA <- function(
       {
         source(here::here("Functions/ricker_drop_function.R"))
         source(here::here("Functions/ricker_count_MCMC.R"))
-        source(here::here("Functions/ricker_count_EM.R"))
+        source(here::here("Functions/ricker_count_cc.R"))
         source(here::here("Functions/ricker_count_likelihood_functions.R"))
         }
     )
@@ -468,7 +487,7 @@ fit_ricker_DA <- function(
       {
         source(here::here("Functions/ricker_drop_function.R"))
         source(here::here("Functions/ricker_count_MCMC.R"))
-        source(here::here("Functions/ricker_count_EM.R"))
+        source(here::here("Functions/ricker_count_cc.R"))
         source(here::here("Functions/ricker_count_likelihood_functions.R"))
         }
     )
