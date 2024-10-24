@@ -38,13 +38,14 @@ MH_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
   # but take care that alpha was estimated as positive
   if(fit_init$estim[2] < 0){
     if(fit_init$upper[2] < 0){
-      theta_init <- c(fit_init$estim[1], 0.001)
+      theta_init <- c(fit_init$estim[1], log(0.001))
     } else{
       theta_init <- c(fit_init$estim[1], log(fit_init$upper[2]))
     }
+  } else{
+    theta_init <- c(fit_init$estim[1], log(fit_init$estim[2]))
   }
   names(theta_init)[2] <- "lalpha"
-  y_full_init <- fill_rng(theta_init, dat)
   # define negative log-likelihood
   nll <- function(x, y){
     
@@ -64,7 +65,7 @@ MH_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
   }
   
   # derive hessian around optimal values
-  hess <- optim(theta_init, nll, y = y_full_init, hessian = T)$hessian
+  hess <- optim(theta_init, nll, y = dat$y, hessian = T)$hessian
   
   # get covariance matrix for proposal distribution based on 
   # hessian
@@ -78,8 +79,8 @@ MH_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
   }
   
   # define proposal density
-  q_lpdf <- function(prop, theta_s, Sigma){
-    mvtnorm::dmvnorm(prop, theta_s, Sigma, log = T)
+  q_lpdf <- function(prop, theta, Sigma){
+    mvtnorm::dmvnorm(prop, theta, Sigma, log = T)
   }
   
   
@@ -95,13 +96,16 @@ MH_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
     
     # define components of the MH algorithm
     theta_s <- theta_samps[s - 1, ]
-    theta_prop <- q_rng(theta_s, sd = 0.02)
+    theta_prop <- q_rng(theta_s, Sigma)
     lp_prop <- lp(theta_prop, dat)
     lp_curr <- lp_samps[s - 1]
     
     # compute the ratio
-    mh_ratio <- exp((lp_prop + q_lpdf(theta_s, theta_prop)) - (lp_curr + q_lpdf(theta_prop, theta_s)))
+    mh_ratio <- exp((lp_prop + q_lpdf(theta_s, theta_prop, Sigma)) - (lp_curr + q_lpdf(theta_prop, theta_s, Sigma)))
     
+    if(is.nan(mh_ratio)){
+      mh_ratio <- 0
+    }
     # accept or reject the update
     A <- min(1, mh_ratio)
     accept[s] <- rbinom(1, 1, prob = A)
@@ -118,6 +122,7 @@ MH_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
   # thin out, then return the post-burnin samples
   samps2keep <- seq(1, S, by = nthin)
   theta_samps2keep <- theta_samps[samps2keep, ]
+  colnames(theta_samps2keep) <- names(theta_init)
   return(
     list(
       theta = theta_samps2keep[(burnin + 1):(burnin + iter), ],
@@ -162,10 +167,12 @@ MH_Gibbs_DA <- function(dat, fill_rng, lp, burnin, iter, nthin = 1){
   # but take care that alpha was estimated as positive
   if(fit_init$estim[2] < 0){
     if(fit_init$upper[2] < 0){
-      theta_init <- c(fit_init$estim[1], 0.001)
+      theta_init <- c(fit_init$estim[1], log(0.001))
     } else{
       theta_init <- c(fit_init$estim[1], log(fit_init$upper[2]))
     }
+  } else{
+    theta_init <- c(fit_init$estim[1], log(fit_init$estim[2]))
   }
   names(theta_init)[2] <- "lalpha"
   y_full_init <- fill_rng(theta_init, dat)
@@ -454,7 +461,6 @@ fit_ricker_DA <- function(
       {
         source(here::here("Functions/ricker_drop_function.R"))
         source(here::here("Functions/ricker_count_MCMC.R"))
-        source(here::here("Functions/ricker_count_cc.R"))
         source(here::here("Functions/ricker_count_likelihood_functions.R"))
         }
     )
@@ -487,7 +493,6 @@ fit_ricker_DA <- function(
       {
         source(here::here("Functions/ricker_drop_function.R"))
         source(here::here("Functions/ricker_count_MCMC.R"))
-        source(here::here("Functions/ricker_count_cc.R"))
         source(here::here("Functions/ricker_count_likelihood_functions.R"))
         }
     )
