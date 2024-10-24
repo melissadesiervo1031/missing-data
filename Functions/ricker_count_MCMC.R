@@ -313,7 +313,7 @@ fit_ricker_DA <- function(
     y, fam = "poisson", 
     chains = 4, 
     samples = 1000, 
-    burnin = 2000,
+    burnin = 5000,
     priors_list = list(
       m_r = 0,
       sd_r = 2.5,
