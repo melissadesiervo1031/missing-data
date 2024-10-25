@@ -373,10 +373,12 @@ fit_ricker_DA <- function(
   
   # check for too few non-missing sets y(t) and y(t-1) for initial estimates from fit_ricker_cc 
   # compile into sliced dataframe
+  n <- length(y)
   dat <- data.frame(
     yt = y[2:n],
     ytm1 = y[1:(n - 1)]
   )
+  
   # drop incomplete cases
   dat_cc <- dat[complete.cases(dat), ]
   
