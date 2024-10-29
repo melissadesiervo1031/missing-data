@@ -2,10 +2,10 @@
 
 #SBATCH --account=modelscape
 #SBATCH --nodes=1
-#SBATCH --time=24:00:00
+#SBATCH --time=72:00:00
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=5
-#SBATCH --mem-per-cpu=4G
+#SBATCH --mem-per-cpu=8G
 #SBATCH --mail-type=ALL
 ### please enter your own email address below in order to track the results
 #SBATCH --mail-user=apatte12@uwyo.edu
@@ -28,5 +28,5 @@ index1=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $6}' $c
 index2=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $7}' $config)
 
 
-Rscript Model_Runs/poiss_Sim_mods/modelruns_ricker_DA.R ${datFile} ${parFile} ${clsize} ${saveFile} ${index1} ${index2} > Model_Runs/poiss_Sim_mods/outputRickerB_${oldName}.txt
+Rscript Model_Runs/poiss_Sim_mods/modelruns_ricker_DA.R ${datFile} ${parFile} ${clsize} ${saveFile} ${index1} ${index2} > Model_Runs/poiss_Sim_mods/outputRickerB_${SLURM_ARRAY_TASK_ID}.txt
 
