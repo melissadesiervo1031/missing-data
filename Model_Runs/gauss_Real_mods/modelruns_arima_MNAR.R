@@ -8,17 +8,19 @@ library(here)
 
 gauss_auSable_MinMaxMiss <- readRDS(here("data/missingDatasets/gauss_real_auSable_MinMaxMiss.rds"))
 au_sable_river_full <- read_csv(here("data/au_sable_river_prepped.csv"))
-#badger_mill_creek_full <- read_csv(here("data/badger_mill_Creek_prepped.csv"))
 
 gauss_badger_MinMaxMiss <- readRDS(here("data/missingDatasets/gauss_real_badger_MinMaxMiss.rds"))
 badger_full <- read_csv(here("data/badger_mill_creek_prepped.csv"))
 
+################### objects for code troubleshooting (running code line by line)
 # sim_list.50 <- gauss_real_randMiss$gauss_real_randMiss_autoCor_50
 # sim_list <- sim_list.50$y
 # nms <- stringr::str_which(names(sim_list), "^prop")
 # sim_list <- sim_list[nms]
 # sim_pars <- sim_list.50$sim_params
 # imputationsnum <- 5
+
+
 #################### Functions for missing data approaches -----------------------------------
 
 # Drop missing (simple case) + arima function ---------------------------------------------------
@@ -364,10 +366,8 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
 
 ###################### RUN MODELS WITH DATA ------------------------------
 
-# Run with au sable river data --------------------------------------------
-
-# make file for output beforehand in supercomputer folder 
-# will put them all together after all run, using the command line
+### make file for output beforehand in supercomputer folder 
+  # will put them all together after all run, using the command line
 if (!dir.exists("data/model_results/gauss_real_MNAR_arima_modResults/au_sable")) {
   dir.create("data/model_results/gauss_real_MNAR_arima_modResults/au_sable")
 }
@@ -377,7 +377,8 @@ if (!dir.exists("data/model_results/gauss_real_MNAR_arima_modResults/badger_mill
 }
 
 
-# Use to run Au Sable data
+### Run with au Sable River data --------------------------------------------
+
 dat_full <- au_sable_river_full
 dirname <- "./data/model_results/gauss_real_MNAR_arima_modResults/au_sable/"
 
@@ -505,9 +506,7 @@ write.csv(predsAll, file = "./data/model_results/gauss_real_MNAR_arima_modResult
 write.csv(valsAll, file = "./data/model_results/gauss_real_MNAR_arima_modResults/au_sable/gauss_auSable_real_MNAR_arima_FORECASTvals.csv")
 
 
-# Run with Badger Creek data  ---------------------------------------------
-
-# use to run Badger Mill data
+### Run with Badger Mill Creek data  ---------------------------------------------
 
 # make sure sim_list and sim_params are not pointing to the whole list, which starts w character elements
 sim_list<- gauss_badger_MinMaxMiss[[CurSim]]$y
@@ -599,10 +598,7 @@ Output<- paramarimaall_df
 # add all the output data together
 valsAll <-cbind(CurSim,Output)
 
-# Write the output to the folder which will contain all output files as separate csv
-#    files with a single line of data.
-
-## save prediction data
+# save prediction data
 
 paramarimaall_preds<-rbind(arimadrop_MNAR_preds, arimadropCC_MNAR_preds, arimaKalman_MNAR_preds, arimaMI_MNAR_preds)
 
@@ -616,8 +612,6 @@ predsAll <-cbind(CurSim,Output3)
 
 # Write the output to the folder which will contain all output files as separate csv
 #    files with a single line of data.
-
-
 
 write.csv(predsAll, file = "./data/model_results/gauss_real_MNAR_arima_modResults/badger_mill/gauss_badger_real_MNAR_arima_FORECASTpreds.csv")
 

@@ -33,11 +33,20 @@ posterior_mode <- function(x){
 #' 
 MH_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
   
-  theta_init <- fit_ricker_EM(dat$y)$estim
+  fit_init <- fit_ricker_cc(dat$y)
   # convert alpha to log-alpha
-  theta_init[2] <- log(theta_init[2])
+  # but take care that alpha was estimated as positive
+  if(fit_init$estim[2] < 0){
+    if(fit_init$upper[2] < 0){
+      theta_init <- c(fit_init$estim[1], log(0.001))
+    } else{
+      theta_init <- c(fit_init$estim[1], log(fit_init$upper[2]))
+    }
+  } else{
+    theta_init <- c(fit_init$estim[1], log(fit_init$estim[2]))
+  }
   names(theta_init)[2] <- "lalpha"
-  y_full_init <- fill_rng(theta_init, dat)
+  # define negative log-likelihood
   nll <- function(x, y){
     
     n <- length(y)
@@ -55,7 +64,11 @@ MH_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
     ))
   }
   
-  hess <- optim(theta_init, nll, y = y_full_init, hessian = T)$hessian
+  # derive hessian around optimal values
+  hess <- optim(theta_init, nll, y = dat$y, hessian = T)$hessian
+  
+  # get covariance matrix for proposal distribution based on 
+  # hessian
   Sigma <- solve(hess)
   
   # define proposal distribution
@@ -66,8 +79,8 @@ MH_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
   }
   
   # define proposal density
-  q_lpdf <- function(prop, theta_s, Sigma){
-    mvtnorm::dmvnorm(prop, theta_s, Sigma, log = T)
+  q_lpdf <- function(prop, theta, Sigma){
+    mvtnorm::dmvnorm(prop, theta, Sigma, log = T)
   }
   
   
@@ -83,13 +96,16 @@ MH_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
     
     # define components of the MH algorithm
     theta_s <- theta_samps[s - 1, ]
-    theta_prop <- q_rng(theta_s, sd = 0.02)
+    theta_prop <- q_rng(theta_s, Sigma)
     lp_prop <- lp(theta_prop, dat)
     lp_curr <- lp_samps[s - 1]
     
     # compute the ratio
-    mh_ratio <- exp((lp_prop + q_lpdf(theta_s, theta_prop)) - (lp_curr + q_lpdf(theta_prop, theta_s)))
+    mh_ratio <- exp((lp_prop + q_lpdf(theta_s, theta_prop, Sigma)) - (lp_curr + q_lpdf(theta_prop, theta_s, Sigma)))
     
+    if(is.nan(mh_ratio)){
+      mh_ratio <- 0
+    }
     # accept or reject the update
     A <- min(1, mh_ratio)
     accept[s] <- rbinom(1, 1, prob = A)
@@ -106,6 +122,7 @@ MH_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
   # thin out, then return the post-burnin samples
   samps2keep <- seq(1, S, by = nthin)
   theta_samps2keep <- theta_samps[samps2keep, ]
+  colnames(theta_samps2keep) <- names(theta_init)
   return(
     list(
       theta = theta_samps2keep[(burnin + 1):(burnin + iter), ],
@@ -145,9 +162,18 @@ MH_Gibbs_DA <- function(dat, fill_rng, lp, burnin, iter, nthin = 1){
   # initialize
   S <- (burnin + iter) * nthin
   
-  theta_init <- fit_ricker_EM(dat$y)$estim
+  fit_init <- fit_ricker_cc(dat$y)
   # convert alpha to log-alpha
-  theta_init[2] <- log(theta_init[2])
+  # but take care that alpha was estimated as positive
+  if(fit_init$estim[2] < 0){
+    if(fit_init$upper[2] < 0){
+      theta_init <- c(fit_init$estim[1], log(0.001))
+    } else{
+      theta_init <- c(fit_init$estim[1], log(fit_init$upper[2]))
+    }
+  } else{
+    theta_init <- c(fit_init$estim[1], log(fit_init$estim[2]))
+  }
   names(theta_init)[2] <- "lalpha"
   y_full_init <- fill_rng(theta_init, dat)
   nll <- function(x, y){
@@ -294,7 +320,7 @@ fit_ricker_DA <- function(
     y, fam = "poisson", 
     chains = 4, 
     samples = 1000, 
-    burnin = 2000,
+    burnin = 5000,
     priors_list = list(
       m_r = 0,
       sd_r = 2.5,
@@ -312,7 +338,7 @@ fit_ricker_DA <- function(
   }
   
   # Check for population extinction
-  if(sum(y==0,na.rm=T)>1){
+  if(sum(y==0,na.rm=T)>0){
     warning("population extinction caused a divide by zero problem, returning NA")
     return(list(
       NA,
@@ -343,6 +369,25 @@ fit_ricker_DA <- function(
     warning("Removing starting NAs...")
     start <- min(which(!is.na(y)))
     y <- y[start:length(y)]
+  }
+  
+  # check for too few non-missing sets y(t) and y(t-1) for initial estimates from fit_ricker_cc 
+  # compile into sliced dataframe
+  n <- length(y)
+  dat <- data.frame(
+    yt = y[2:n],
+    ytm1 = y[1:(n - 1)]
+  )
+  
+  # drop incomplete cases
+  dat_cc <- dat[complete.cases(dat), ]
+  
+  if(nrow(dat_cc) < 5){
+    warning("There are not enough non-missing sets y(t) and y(t-1)")
+    return(list(
+      NA,
+      reason = "missingness limit"
+    ))
   }
   
   
@@ -435,7 +480,6 @@ fit_ricker_DA <- function(
       {
         source(here::here("Functions/ricker_drop_function.R"))
         source(here::here("Functions/ricker_count_MCMC.R"))
-        source(here::here("Functions/ricker_count_EM.R"))
         source(here::here("Functions/ricker_count_likelihood_functions.R"))
         }
     )
@@ -468,7 +512,6 @@ fit_ricker_DA <- function(
       {
         source(here::here("Functions/ricker_drop_function.R"))
         source(here::here("Functions/ricker_count_MCMC.R"))
-        source(here::here("Functions/ricker_count_EM.R"))
         source(here::here("Functions/ricker_count_likelihood_functions.R"))
         }
     )

@@ -27,14 +27,13 @@ lapply(f_list, source)
 # (5) beginnning index (6) ending index (7) optional- model list
 
 # for testing outside of command line, can use this next line
-#in_args=c("data/missingDatasets/pois_sim_randMiss_A.rds", "data/missingDatasets/pois_sim_params.rds", 2, "Model_Runs/RickerA_resultTable1.csv", 1648, 1648,1493)
+#in_args=c("data/missingDatasets/pois_sim_randMiss_A.rds", "data/missingDatasets/pois_sim_params.rds", 2, "Model_Runs/RickerA_resultTable1.rds", 60, 60)
 in_args <- commandArgs(trailingOnly = T)
 cat(in_args)
 # read in datafile
 dat <- readRDS(here(in_args[1]))
 pars <- readRDS(here(in_args[2]))
 cat("data has been loaded")
-set.seed(in_args[7])
 
 # count number of missingness proportions
 nmiss_props <- length(dat[[1]]$y)
@@ -129,54 +128,52 @@ pars_full <- pars_full[as.numeric(in_args[5]):as.numeric(in_args[6]),]
 
 ### fitting the models ###
 
-system.time({
-  
-# store results in a vector
-results_vec <- numeric(8)
-names(results_vec) <- c("estim_r","estim_alpha","se_r","se_alpha","lower_r","lower_alpha","upper_r","upper_alpha")
-
-# only use MI
-
-res1 <- lapply(
-  X = dat_flat,
-  FUN = fit_ricker_MI
-)
-
-res1
-
-if(is.na(res1[[1]][1][[1]][1])){
-  results_vec[1]=res1[[1]][2][[1]][1] # estim_r
-  results_vec[2]=NA # estim_alpha
-  results_vec[3]=NA # se_r
-  results_vec[4]=NA # se_alpha
-  results_vec[5]=NA # lower_r
-  results_vec[6]=NA # lower_alpha
-  results_vec[7]=NA # upper_r
-  results_vec[8]=NA # upper_alpha
-} else {
-  # compile results
-  results_vec[1]=res1[[1]][1][[1]][1] # estim_r
-  results_vec[2]=res1[[1]][1][[1]][2] # estim_alpha
-  results_vec[3]=res1[[1]][2][[1]][1] # se_r
-  results_vec[4]=res1[[1]][2][[1]][2] # se_alpha
-  results_vec[5]=res1[[1]][3][[1]][1] # lower_r
-  results_vec[6]=res1[[1]][3][[1]][2] # lower_alpha
-  results_vec[7]=res1[[1]][4][[1]][1] # upper_r
-  results_vec[8]=res1[[1]][4][[1]][2] # upper_alpha
+# define methods to be used
+if(is.na(in_args[7])){
+  methods <- paste0(
+    c("DA")
+  )
 }
 
+system.time({
+
+# make cluster for parallel computing
+cl <- parallelly::makeClusterPSOCK(as.numeric(in_args[3]))
+
+clusterEvalQ(cl = cl, expr = {
+  library(here)
+  f_list <- list.files(here("Functions/"), full.names = T)
+  f_list=f_list[-grep("README",f_list)]
+  lapply(f_list, source)
 })
 
-if(is.na(in_args[8])){
-  ran20=F
-} else {
-  ran20=as.numeric(in_args[8])>18
+# store results in a list
+results_list <- vector(mode = "list", length = length(methods))
+names(results_list) <- paste0(
+  methods, "_fits"
+)
+
+for(i in 1:length(methods)){
+  results_list[[i]] <- parLapply(
+    cl = cl,
+    X = dat_flat,
+    fun = eval(parse(
+      text = paste0("fit_ricker_", methods[i])
+    ))
+  )
 }
-if(is.na(results_vec[2])&results_vec[1]!="population extinction"&!ran20){
-  # don't save if result was NA, and reason wasn't extinction and we haven't run 20 yet
-} else {
-  # save results to file
-  write.csv(cbind(pars_full,as.data.frame(t(results_vec))),file = here(in_args[4]))
-}
+
+stopCluster(cl)
+
+
+# compile results into a tibble
+results <- cbind(
+  as_tibble(pars_full),
+  as_tibble(results_list)
+)
+})
+
+# save results to file
+saveRDS(results, file = here(in_args[4]))
 
 

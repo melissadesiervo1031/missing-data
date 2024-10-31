@@ -1,6 +1,7 @@
 # ReadMe
 
  This repository contains code for our manuscript about missing data in ecological time series
+ A separate gitHub repository that serves as version control for the Overleaf version of this manuscript can be found here: https://github.com/aestears/MissingDataManuscript/tree/main
 
 ### Contents
 `data/` This folder contains the real population size and GPP datasets used in this analysis, the simulated datsets, the datasets with missingness introduced, and model results. 

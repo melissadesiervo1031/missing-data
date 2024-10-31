@@ -10,7 +10,7 @@
 ### please enter your own email address below in order to track the results
 #SBATCH --mail-user=apatte12@uwyo.edu
 ### enter any job name that you prefer
-#SBATCH --job-name=rickerRerunA_1
+#SBATCH --job-name=rickerRerunB_1
 #SBATCH --array=1-7500
 
 
@@ -18,7 +18,7 @@ module load arcc/1.0 gcc/12.2.0 r/4.4.0
 
 cd /project/modelscape/analyses/MissingTS/missing-data
 
-config=Model_Runs/poiss_Sim_mods/RickerConfigA_9.txt
+config=Model_Runs/poiss_Sim_mods/RickerConfigB_1.txt
 
 datFile=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $2}' $config)
 parFile=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $3}' $config)
@@ -38,7 +38,7 @@ cur_runs=1
 while [ $cur_runs -lt $max_runs ]
 do
 
-if [ -e Model_Runs/poiss_Sim_mods/RickerA_resultTable_$SLURM_ARRAY_TASK_ID.csv ]
+if [ -e Model_Runs/poiss_Sim_mods/RickerB_resultTable_$SLURM_ARRAY_TASK_ID.csv ]
 then
     echo "yay this run is done"
     cur_runs=100
