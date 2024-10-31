@@ -299,7 +299,8 @@ gauss_sim_figDat <- gauss_sim_figDat %>%
 
 # calculate the standardized difference between parameter estimates and simulated values
 gauss_sim_figDat <- gauss_sim_figDat %>% 
-  dplyr::mutate(paramDiff = ((value - param_simVal)/abs(param_simVal)))
+  dplyr::mutate(paramDiff = ((value - param_simVal)/abs(param_simVal)),
+                paramDiff_absDiff = abs((value - param_simVal)/abs(param_simVal))) 
 
 
 saveRDS(gauss_sim_figDat, file = "./data/model_results/gauss_sim_ModelResults.rds")
@@ -349,7 +350,10 @@ gauss_sim_figDat_normPrior <- gauss_sim_figDat_normPrior %>%
 
 # calculate the standardized difference between parameter estimates and simulated values
 gauss_sim_figDat_normPrior <- gauss_sim_figDat_normPrior %>% 
-  dplyr::mutate(paramDiff = ((value - param_simVal)/abs(param_simVal)))
+
+
+  dplyr::mutate(paramDiff = ((value - param_simVal)/abs(param_simVal)),
+                paramDiff_absDiff = abs((value - param_simVal)/abs(param_simVal))) 
 
 
 saveRDS(gauss_sim_figDat_normPrior, file = "./data/model_results/gauss_sim_ModelResults_normPrior.rds")

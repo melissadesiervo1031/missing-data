@@ -33,10 +33,14 @@ figDat_lines <- figDat_temp %>%
          param = replace(param, param == "phi", "Phi")
          ) %>% 
   group_by(missingness, type, param, amtMiss) %>% 
-  summarize(paramDiff_mean = mean(paramDiff, na.rm = TRUE),
-            paramDiff_med = median(paramDiff, na.rm = TRUE),
-            paramDiff_SD = sd(paramDiff, na.rm = TRUE),
-            n = length(paramDiff)) %>% 
+
+  summarize(paramDiff_mean = mean(paramDiff_absDiff, na.rm = TRUE),
+            paramDiff_med = median(paramDiff_absDiff, na.rm = TRUE),
+            paramDiff_SD = sd(paramDiff_absDiff, na.rm = TRUE),
+            n = length(paramDiff),
+            SE_mean = mean(SE, na.rm = TRUE) # the mean of the parameter standard error (not standardized, but maybe should be?)
+            ) %>% 
+
   #filter(n  > 50)  %>% # drop combinations that have fewer than 300 observations
   filter(amtMiss <=.5)
 
@@ -60,6 +64,7 @@ figDat_lines <- figDat_temp %>%
   ylab("Median of parameter bias across sims.")+ 
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) +
    xlim(c(-0.03,0.55)) + 
+   #ylim(c(0,.3)) +
   scale_color_discrete(type = c("#1B9E77", "#66A61E", "#E7298A","#D95F02", "#7570B3",  "#E6AB02"),
                        labels = c("Data Augmentation", "Data Deletion-Complete","Data Deletion-Simple", "Kalman Filter", "Multiple Imputations"))
 )
@@ -88,6 +93,30 @@ largeSD <- figDat_lines[figDat_lines$amtMiss <= 0.5 &
   #geom_point(data = largeSD, aes(x = amtMiss, y = c(3.99,3.99), color = as.factor(type)), 
             # position = position_dodge(width=0.03), pch = 8)
   ) 
+
+# # figure of SD that's averaged 
+#   (gauss_sim_SDFig_trimmed <- ggplot(data = figDat_lines, aes(x = amtMiss, y = SE_mean)) +
+#     facet_grid(~factor(param, levels = c("Intercept","Phi", "Beta covariates")) 
+#                ~ factor(missingness, levels = c("MAR: Low AC", "MAR: Med. AC", "MAR: High AC", "MNAR"))) + 
+#     geom_line(aes(color = as.factor(type)), position = position_dodge(width=0.03)) + 
+#     geom_point(aes(color = as.factor(type)), alpha = .8, position = position_dodge(width=0.03)) +
+#     geom_hline(aes(yintercept = 0), colour = "grey") + theme_classic() +
+#     xlab("Proportion of missing data")+ 
+#     theme(legend.position="top")+
+#     theme(legend.title=element_blank())+
+#     xlim(c(0,.35)) +
+#     ylim(c(0,.2)) +
+#     ylab("Mean SE of parameter estimates across all sims. ")+ 
+#     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))+ 
+#     scale_color_discrete(type = c("#1B9E77", "#66A61E", "#E7298A","#D95F02", "#7570B3",  "#E6AB02"),
+#                          labels = c("Data Augmentation", "Data Deletion-Complete","Data Deletion-Simple", "Kalman Filter", "Multiple Imputations"))
+#   #+
+#   #xlim(c(-0.03,0.43)) #+ 
+#   #ylim(c(0,5)) #+
+#   #geom_point(data = largeSD, aes(x = amtMiss, y = c(3.99,3.99), color = as.factor(type)), 
+#   # position = position_dodge(width=0.03), pch = 8)
+# ) 
+
 
 # put into one figure
   Gauss_paramRecov_trimmed <- ggarrange(gauss_sim_MedsFig_trimmed, gauss_sim_SDFig_trimmed, common.legend = TRUE)
