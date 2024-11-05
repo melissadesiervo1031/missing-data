@@ -19,7 +19,9 @@ library(Amelia)
 ## read in the autocor_01 list ##
 
 gauss_sim_randMiss_autoCorr_01 <- readRDS("/project/modelscape/users/astears/gauss_sim_randMiss_A.rds")
-# gauss_sim_randMiss_autoCorr_01 <- readRDS("./data/missingDatasets/gauss_sim_randMiss_A.rds")
+
+# gauss_sim_randMiss_autoCorr_01 <- readRDS("./data/missingDatasets/gauss_sim_randMiss_B.rds")
+
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
 #OutFile <- paste("gauss_sim_randMiss_modResults_A/", CurSim, "arimavals.csv", sep = "")
@@ -188,7 +190,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum){
   
   # make return values
   #paramlistsim <- map(listcoefsessim , ~.["q.mi"])
-
+  
   paramlistsim <- lapply(seq(1:15), function(x) 
     matrix(c(listcoefsessim[[x]]$q.mi, sigmas[x]),
            nrow = 1, byrow = TRUE, 
@@ -201,7 +203,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum){
   
   return(list(paramlistsim, 
               selistsim
-              ))
+  ))
   
 }
 
@@ -211,9 +213,14 @@ for (i in 1:1000) {
   #####################################################
   #### MODEL RUN ARIMA DROP ##############
   #########################################################
+
+  gauss_sim_CurSim_vals <- gauss_sim_randMiss_autoCorr_01[[CurSim]]$y
+  #gauss_sim_CurSim_vals <- gauss_sim_randMiss_autoCorr_01$gauss_sim997_randMiss_autoCorr_50$y
+  gauss_sim_CurSim_params <- gauss_sim_randMiss_autoCorr_01[[CurSim]]$sim_params
+  #gauss_sim_CurSim_params <- gauss_sim_randMiss_autoCorr_01$gauss_sim997_randMiss_autoCorr_50$sim_params
   
-  arima_drop_MAR<- fit_arima_dropmissing(gauss_sim_randMiss_autoCorr_01[[CurSim]]$y,gauss_sim_randMiss_autoCorr_01[[CurSim]]$sim_params)
-  
+  arima_drop_MAR<- fit_arima_dropmissing(gauss_sim_CurSim_vals,gauss_sim_CurSim_params)
+
   
   ########### formatting for figure #############
   
@@ -247,8 +254,8 @@ for (i in 1:1000) {
   #### MODEL RUN ARIMA DROP --complete case ##############
   #########################################################
   
-  arima_drop_CC_MAR <- fit_arima_dropmissing_CC(gauss_sim_randMiss_autoCorr_01[[CurSim]]$y,gauss_sim_randMiss_autoCorr_01[[CurSim]]$sim_params)
-  
+  arima_drop_CC_MAR <- fit_arima_dropmissing_CC(gauss_sim_CurSim_vals,gauss_sim_CurSim_params)
+
   
   ########### formatting for figure #############
   
@@ -283,8 +290,8 @@ for (i in 1:1000) {
   #########################################################
   
   
-  arima_kalman_MAR<- fit_arima_Kalman(gauss_sim_randMiss_autoCorr_01[[CurSim]]$y,gauss_sim_randMiss_autoCorr_01[[CurSim]]$sim_params)
-  
+  arima_kalman_MAR<- fit_arima_Kalman(gauss_sim_CurSim_vals,gauss_sim_CurSim_params)
+
   
   ## pull out and label what we need ###
   
@@ -323,8 +330,8 @@ for (i in 1:1000) {
   #### MODEL RUN MULTIPLE IMPUTATIONS  ##############
   #########################################################
   
-  arima_mi_MAR <-  fit_arima_MI(gauss_sim_randMiss_autoCorr_01[[CurSim]]$y,gauss_sim_randMiss_autoCorr_01[[CurSim]]$sim_params, imputationsnum=5)
-  
+  arima_mi_MAR <-  fit_arima_MI(gauss_sim_CurSim_vals,gauss_sim_CurSim_params, imputationsnum=5)
+
   ##pulls out parameters and ses ##
   
   paramlistsim<-arima_mi_MAR[[1]]

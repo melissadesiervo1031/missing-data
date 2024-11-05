@@ -8,6 +8,10 @@ library(tidyverse)
 
 # source functions
 f_list <- list.files("./Functions/", full.names = T)
+
+
+f_list <- f_list[!str_detect(f_list, pattern = "README.md")]
+
 #f_list <- list.files(here("Functions/"), full.names = T)
 lapply(f_list, source)
 
