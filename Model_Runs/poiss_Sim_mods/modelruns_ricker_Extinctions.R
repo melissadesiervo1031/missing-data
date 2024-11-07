@@ -47,8 +47,31 @@ dat_flat <- map(
 ) %>% list_flatten()
 
 
-## get rid of time series that are fewer than 5 observations (arbitrary thing here?)
-dat_flat <- keep(dat_flat, function(x) length(x) >= 5)
+
+# dat_flat <- keep(dat_flat, function(x) length(x) >= 5)
+## get rid of time series that have fewer than 5 complete cases, following the drop_cc function
+# check for too few non-missing sets y(t) and y(t-1) for initial estimates from fit_ricker_cc 
+# compile into sliced dataframe
+
+check_cc=function(y,limN=5){
+  n <- length(y)
+  dat <- data.frame(
+    yt = y[2:n],
+    ytm1 = y[1:(n - 1)]
+  )
+  
+  # drop incomplete cases
+  dat_cc <- dat[complete.cases(dat), ]
+  
+  if(nrow(dat_cc) < limN){
+    return(FALSE)
+  } else {
+    return(TRUE)
+  }
+}
+
+dat_flat=keep(dat_flat,check_cc)
+
 
 # double check the autocorrelation of each timeseries
 autoCorr_actual <- map(dat_flat, 
