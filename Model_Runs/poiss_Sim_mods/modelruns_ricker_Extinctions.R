@@ -71,7 +71,7 @@ check_cc=function(y,limN=5){
 }
 
 dat_flat=keep(dat_flat,check_cc)
-
+#saveRDS(dat_flat,"data/model_results/ricker_Sim_reruns/extinctSets.rds")
 
 # double check the autocorrelation of each timeseries
 autoCorr_actual <- map(dat_flat, 
@@ -109,7 +109,7 @@ dropNA_fits <- map(dat_flat, function(x) fit_ricker_drop(x, fam = "poisson"))
 dropNAcc_fits <- map(dat_flat, function(x) fit_ricker_cc(y = x, fam = "poisson")) 
 
 # multiple imputations
-MI_fits <- map(dat_flat, function(x) fit_ricker_MI(y = x))
+MI_fits <- map(dat_flat, function(x) fit_ricker_MI_lead(y = x))
 
 # expectation maximization
 EM_fits <- map(dat_flat, function(x) fit_ricker_EM(y = x))
