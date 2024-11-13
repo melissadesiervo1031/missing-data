@@ -194,6 +194,14 @@ MH_Gibbs_DA <- function(dat, fill_rng, lp, burnin, iter, nthin = 1){
   }
   
   hess <- optim(theta_init, nll, y = y_full_init, hessian = T)$hessian
+  
+  # Check eigenvalues
+  eigenvalues <- eigen(hess)$values
+  if (any(eigenvalues < 1e-8)) {
+    warning("Hessian matrix is near-singular. Regularizing...")
+    hess <- hess + diag(1e-6, nrow(hess))
+  }
+  
   Sigma <- solve(hess)
   
   # define proposal distribution
@@ -253,6 +261,9 @@ MH_Gibbs_DA <- function(dat, fill_rng, lp, burnin, iter, nthin = 1){
         (lp_curr + q_lpdf(theta_prop, theta_s, Sigma))
     )
     
+    if(is.nan(mh_ratio)){
+      mh_ratio <- 0
+    }
     # accept or reject the update
     A <- min(1, mh_ratio)
     accept[s] <- rbinom(1, 1, prob = A)
