@@ -236,11 +236,16 @@ figDat_covMNAR <- figDat_cov %>%
 (Gauss_paramRecovMNAR <- ggarrange(gauss_paramRecovery_bias_MNAR, gauss_paramRecovery_SE_MNAR, 
                                   gauss_paramRecovery_coverage_MNAR, common.legend = TRUE, nrow = 1))
 
+#(gauss_paramRecovAll <- ggarrange(Gauss_paramRecovMAR, Gauss_paramRecovMNAR, nrow = 2))
+
 ## save results
-png(file = "./figures/parameterRecovery_sim_Guassian_medsSD.png", width = 9, height = 4, units = "in", res = 700)
-Gauss_paramRecov
+png(file = "./figures/parameterRecovery_MAR.png", width = 12, height = 4, units = "in", res = 700)
+Gauss_paramRecovMAR
 dev.off()
 
+png(file = "./figures/parameterRecovery_MNAR.png", width = 9, height = 4, units = "in", res = 700)
+Gauss_paramRecovMNAR
+dev.off()
 # old figures -------------------------------------------------------------
 
 # Figure of parameter recovery (mean and sd in separate panels) -----------
