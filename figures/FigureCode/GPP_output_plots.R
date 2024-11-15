@@ -239,11 +239,11 @@ figDat_covMNAR <- figDat_cov %>%
 #(gauss_paramRecovAll <- ggarrange(Gauss_paramRecovMAR, Gauss_paramRecovMNAR, nrow = 2))
 
 ## save results
-png(file = "./figures/parameterRecovery_MAR.png", width = 12, height = 4, units = "in", res = 700)
+png(file = "./figures/parameterRecoveryGaussian_MAR.png", width = 12, height = 4, units = "in", res = 700)
 Gauss_paramRecovMAR
 dev.off()
 
-png(file = "./figures/parameterRecovery_MNAR.png", width = 9, height = 4, units = "in", res = 700)
+png(file = "./figures/parameterRecoveryGaussian_MNAR.png", width = 9, height = 4, units = "in", res = 700)
 Gauss_paramRecovMNAR
 dev.off()
 # old figures -------------------------------------------------------------
