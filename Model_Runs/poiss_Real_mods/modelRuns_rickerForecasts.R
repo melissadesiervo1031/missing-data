@@ -19,7 +19,11 @@ lapply(f_list, source)
 # Prepping data -----------------------------------------------------------
 
 # read in datafile
-dat <- readRDS("./data/missingDatasets/pois_real_randMiss.rds")
+# now using the randMiss10 data so as not to redo missingness counts
+dat <- readRDS("./data/missingDatasets/pois_real_randMiss10.rds")
+
+# full Wytham great tit data
+dat_full <- read.csv('data/Wytham_tits.csv')
 
 # count number of missingness proportions (within each level of autocorrelation)
 nmiss_props <- length(dat[[1]]$y)
@@ -40,14 +44,16 @@ dat_flat <- map(
 ) %>% list_flatten()
 
 
-### leaving out data for forecasting (last 5 years)
+### leaving out data for forecasting (last 10 years)
+# we want to use train_length of 49
+train_length=49
 dat_complete <- dat_flat
 dat_trimmed <- map(dat_flat, function(x) {
-  temp <- x[1:54]
+  temp <- x[1:train_length]
   # remove NAs at the end of the dataset (not a realistic scenario... will this
   # be problematic? because the length of time series will be different?)
   if (sum(is.na(temp)) > 0) {
-    if (max(which(!is.na(temp))) < 54) {
+    if (max(which(!is.na(temp))) < train_length) {
       temp2 <- temp[1:max(which(!is.na(temp)))]
     } else {
       temp2 <- temp
@@ -233,7 +239,7 @@ allDat$forecasts <- (apply(allDat, MARGIN = 1, FUN = function(x) {
 
 #plot the results for one output 
 plot(x = as.numeric(row.names(allDat[1,"forecasts"][[1]])), 
-     y = allDat[1,"forecasts"][[1]][,"real_ts"], 
+     y = dat_full$Broods, 
      type = "l")
 lines(x = 1:59, 
       y = allDat[1,"forecasts"][[1]][,"dropNA_est"], col = "red")
@@ -252,15 +258,15 @@ allDat$RMSE <- lapply(allDat$forecasts, FUN = function(x) {
   # get starting index
   startTimeStep <- which(!is.na(x$timeStep))[2]
   # calculate RMSE for dropNA
-  RMSE_dropNA <- sqrt(mean((x$dropNA_est[startTimeStep:59] - x$real_ts[startTimeStep:59])^2))
+  RMSE_dropNA <- sqrt(mean((x$dropNA_est[startTimeStep:59] - dat_full$Broods[startTimeStep:59])^2))
   # calculate RMSE for dropNA_cc
-  RMSE_dropCC <- sqrt(mean((x$dropCC_est[startTimeStep:59] - x$real_ts[startTimeStep:59])^2))
+  RMSE_dropCC <- sqrt(mean((x$dropCC_est[startTimeStep:59] - dat_full$Broods[startTimeStep:59])^2))
   # calculate RMSE for MI
-  RMSE_MI <- sqrt(mean((x$MI_est[startTimeStep:59] - x$real_ts[startTimeStep:59])^2))
+  RMSE_MI <- sqrt(mean((x$MI_est[startTimeStep:59] - dat_full$Broods[startTimeStep:59])^2))
   # calculate RMSE for EM
-  RMSE_EM <- sqrt(mean((x$EM_est[startTimeStep:59] - x$real_ts[startTimeStep:59])^2))
+  RMSE_EM <- sqrt(mean((x$EM_est[startTimeStep:59] - dat_full$Broods[startTimeStep:59])^2))
   # calculate RMSE for DA
-  RMSE_DA <- sqrt(mean((x$DA_est[startTimeStep:59] - x$real_ts[startTimeStep:59])^2))
+  RMSE_DA <- sqrt(mean((x$DA_est[startTimeStep:59] - dat_full$Broods[startTimeStep:59])^2))
   return(c("dropNA" = RMSE_dropNA, "dropCC" = RMSE_dropCC, "MI" = RMSE_MI, "EM" = RMSE_EM, "DA" = RMSE_DA))
   }
 )
@@ -275,4 +281,4 @@ ggplot(x) +
 
 
 ## save the output     
-saveRDS(allDat, file = "./data/model_results/RickerForecast_resultTableAll.rds")
+saveRDS(allDat, file = "./data/model_results/RickerForecast_resultTableAll_10.rds")
