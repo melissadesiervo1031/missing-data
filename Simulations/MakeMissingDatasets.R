@@ -254,6 +254,9 @@ for (i in 1:length(pois_sim_minMaxMiss)) {
 # read in data
 pois_real <- read.csv('data/Wytham_tits.csv')
 
+# cut off the last 10 values before going to missingness procedure so we don't need to recalculate
+pois_real=pois_real[1:49,]
+
 ## make missing data types
 ## make missing data types for increasing levels of autocorrelation
 # possible autocorrelation vector
@@ -488,7 +491,7 @@ saveRDS(pois_sim_minMaxMiss, file = "./data/missingDatasets/pois_sim_MinMaxMiss.
 ## save poisson real MNAR data
 saveRDS(pois_real_minMaxMiss, file = "./data/missingDatasets/pois_real_MinMaxMiss.rds")
 ## save poisson real MAR data
-saveRDS(pois_real_randMiss, file = "./data/missingDatasets/pois_real_randMiss.rds")
+saveRDS(pois_real_randMiss, file = "./data/missingDatasets/pois_real_randMiss10.rds")
 
 
 
