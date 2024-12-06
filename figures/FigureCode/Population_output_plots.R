@@ -304,6 +304,9 @@ ricDat_new_long[ricDat_new_long$autoCorr >0.3 & ricDat_new_long$autoCorr <0.6 & 
 ricDat_new_long[ricDat_new_long$autoCorr  >= 0.6 & !is.na(ricDat_new_long$autoCorr), "missingness"] <- "MAR: High AC"
 
 
+ricDat_new_long$type <- factor(ricDat_new_long$type, levels = c("DataAugmentation", "CompleteCaseDropNA", 
+                                                          "dropNA", "ExpectationMaximization", "MultipleImputations"))
+
 # reformat data 
 figDat_lines <- ricDat_new_long %>% 
   mutate(autoCor = round(autoCorr, 1), 
@@ -323,12 +326,13 @@ figDat_lines <- ricDat_new_long %>%
   
   #filter(n  > 50)  %>% # drop combinations that have fewer than 300 observations
   filter(amtMiss <=.5)
-
+  # make types in the 'correct' order
+ 
 
 # parameter recovery bias -------------------------------------------------
 (poiss_paramRecovery_bias_MAR <- ggplot(data = figDat_lines, aes(x = amtMiss, y = paramDiff_med)) +
    facet_grid(~factor(param, levels = c("r","alpha")) 
-              ~ factor(missingness, levels = c("MAR: Low AC", "MAR: Med. AC", "MAR: High AC", "MNAR")), 
+              ~ factor(missingness, levels = c("MAR: Low AC", "MAR: Med. AC", "MAR: High AC")), 
               scales = "free_y") + 
    geom_hline(aes(yintercept = 0), colour = "grey") + 
    #geom_errorbar(aes(ymin=paramDiff_mean - paramDiff_SD, ymax=paramDiff_mean + paramDiff_SD, color = as.factor(type)), 
@@ -345,14 +349,14 @@ figDat_lines <- ricDat_new_long %>%
    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) +
    xlim(c(-0.03,0.55)) + 
    #ylim(c(0,.3)) +
-   scale_color_discrete(type = c("#66A61E","#1B9E77", "#E7298A", "#E6AB02","#7570B3"),
-                        labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Expectation Maximization", "Multiple Imputation"))#+
+   scale_color_discrete(type = c("#1B9E77", "#66A61E", "#E7298A", "#E6AB02","#7570B3"),
+                       labels = c("Data Augmentation", "Data Deletion-Complete", "Data Deletion-Simple", "Expectation Maximization", "Multiple Imputation"))#+
 )
 
 # parameter recovery SE ---------------------------------------------------
 (poiss_paramRecovery_SE_MAR <- ggplot(data = figDat_lines, aes(x = amtMiss, y = paramDiffAbsDiff_med)) +
    facet_grid(~factor(param, levels = c( "r","alpha")) 
-              ~ factor(missingness, levels = c("MAR: Low AC", "MAR: Med. AC", "MAR: High AC", "MNAR")), 
+              ~ factor(missingness, levels = c("MAR: Low AC", "MAR: Med. AC", "MAR: High AC")), 
               scales = "free_y") + 
    geom_hline(aes(yintercept = 0), colour = "grey") + 
    #geom_errorbar(aes(ymin=paramDiff_mean - paramDiff_SD, ymax=paramDiff_mean + paramDiff_SD, color = as.factor(type)), 
@@ -369,9 +373,8 @@ figDat_lines <- ricDat_new_long %>%
    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) +
    xlim(c(-0.03,0.55)) + 
    #ylim(c(0,.3)) +
-   scale_color_discrete(type = c("#66A61E","#1B9E77", "#E7298A", "#E6AB02","#7570B3"),
-                        labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Expectation Maximization", "Multiple Imputation"
-                        ))#+
+   scale_color_discrete(type = c("#1B9E77", "#66A61E", "#E7298A", "#E6AB02","#7570B3"),
+                        labels = c("Data Augmentation", "Data Deletion-Complete", "Data Deletion-Simple", "Expectation Maximization", "Multiple Imputation"))#+
 )
 # parameter recovery coverage ---------------------------------------------
 # does the confidence interval contain the true parameter? 
@@ -417,9 +420,12 @@ figDat_cov <- figDat_cov_temp %>%
     ylab("% of model runs where the 95% CI \n includes the simulation parameter")+ 
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) +
     xlim(c(-0.03,0.55)) + 
+    scale_color_discrete(type = c("#1B9E77", "#66A61E", "#E7298A","#7570B3"),
+                       labels = c("Data Augmentation", "Data Deletion-Complete", "Data Deletion-Simple", "Multiple Imputation"))#+
+  
     #ylim(c(0,.3)) +
-    scale_color_discrete(type = c("#66A61E","#1B9E77", "#E7298A","#7570B3"),
-                         labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple",  "Multiple Imputation"))#+
+   # scale_color_discrete(type = c("#66A61E","#1B9E77", "#E7298A","#7570B3"),
+ #                        labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple",  "Multiple Imputation"))#+
 )
 
 # put figures together ----------------------------------------------------
