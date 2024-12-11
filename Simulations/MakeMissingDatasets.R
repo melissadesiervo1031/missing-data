@@ -260,46 +260,70 @@ pois_real=pois_real[1:49,]
 ## make missing data types
 ## make missing data types for increasing levels of autocorrelation
 # possible autocorrelation vector
-inputAutocor <- c(.0, .10, .20, .30, .40, .50, .60, .70, .80, .90)
-
-for (i in 1:length(inputAutocor)) {
+inputAutocor <- c(.25, .50, .75)
+reps=50
+tolerance=0.05
+for (i in 1:(reps*length(inputAutocor))) {
   # calculate missing vectors with increasing levels of missingness
-  tempOutDf <- as.data.frame(makeMissing(timeSeries = pois_real$Broods, 
-                                         typeMissing = "random", 
-                                         autoCorr = inputAutocor[i]))
+  
+  # loop for making sure propMiss and inputAutocor are within a short distance of desired values (for both + or - 0.05 from desired value)
+  check=F
+  while(!check){
+    propMiss=c(0.2,0.4,0.6)
+    tempOutDf <- as.data.frame(makeMissing(timeSeries = pois_real$Broods, propMiss = propMiss,
+                                           typeMissing = "random", 
+                                           autoCorr = inputAutocor[((i-1)%%length(inputAutocor))+1]))
+    
+    
+    miss_actual <- as.numeric(sub(".*propMissAct_([0-9\\.]+).*", "\\1", names(tempOutDf)))
+    print(miss_actual)
+    autocor_actual <- as.numeric(sub(".*autoCorr_([0-9\\.]+).*", "\\1", names(tempOutDf)))
+    print(autocor_actual)
+    
+    # check
+    if(abs(miss_actual[1]-propMiss[1])<=tolerance&abs(miss_actual[2]-propMiss[2])<=tolerance&abs(miss_actual[3]-propMiss[3])<=tolerance&
+       abs(autocor_actual[1]-inputAutocor[((i-1)%%length(inputAutocor))+1])<=tolerance&abs(autocor_actual[2]-inputAutocor[((i-1)%%length(inputAutocor))+1])<=tolerance&abs(autocor_actual[2]-inputAutocor[((i-1)%%length(inputAutocor))+1])<=tolerance){
+      check=T
+    } else {
+      print(paste0("retrying on i=",i))
+    }
+  }
   
   # name the elements of the Df with the amount of missingness 
   names(tempOutDf) <- paste0("Broods_",names(tempOutDf))
   tempOutDf <- cbind(pois_real, tempOutDf)
   
   # rename the output list to reflect the input autocorrelation
-  if (i == 1) {
-    assign(x = paste0("pois_real_randMiss_autoCorr_0") , 
-           value = tempOutDf)
-  } else {
+  # if (((i-1)%%length(inputAutocor))+1 == 1) {
+  #   assign(x = paste0("pois_real_randMiss_autoCorr_0_i",rep(1:50, each = 4)[i]) , 
+  #          value = tempOutDf)
+  # } else 
+    {
     assign(x = paste0("pois_real_randMiss_autoCorr_", 
-                      str_pad(str_extract_all(string = inputAutocor[i], pattern = "\\d+" , simplify = TRUE)[,2], width = 2, side = "right", pad = "0")) , 
+                      str_pad(str_extract_all(string = inputAutocor[((i-1)%%length(inputAutocor))+1], pattern = "\\d+" , simplify = TRUE)[,2], width = 2, side = "right", pad = "0"),"_i",rep(1:50, each = 4)[i]) , 
            value = tempOutDf)
   }
 }
 
 # put all of the data into one list
-autcorVector <- c(0, 10, 20, 30, 40, 50, 60, 70, 80, 90)
-pois_real_randMiss_list <- vector(mode = "list", length = 10) 
-names(pois_real_randMiss_list) <- paste0("pois_real_randMiss_autoCor_", autcorVector)
-for (i in 1:length(inputAutocor)) {
+autcorVector <- c(25, 50, 75)
+pois_real_randMiss_list <- vector(mode = "list", length = length(inputAutocor)*reps)
+names(pois_real_randMiss_list) <- paste0("pois_real_randMiss_autoCor_", rep(autcorVector,reps),"_i",rep(1:reps,each=3))
+for (i in 1:(reps*length(inputAutocor))) {
   # get the correct autocorrelation/missing data data.frame
-  tempDF <- get(x = paste0("pois_real_randMiss_autoCorr_", autcorVector[i]))
+  tempDF <- get(x = paste0("pois_real_randMiss_autoCorr_", autcorVector[((i-1)%%length(inputAutocor))+1],"_i",rep(1:50, each = 4)[i]))
   # change into a list element
-  pois_real_randMiss_list[[i]]$y <- tempDF %>% 
-    rename_with(~ str_replace(string = names(tempDF), pattern = "Broods_", replacement = "")) %>% 
-    rename("y" = "Broods" ) %>% 
-    select(-Year) %>% 
+  pois_real_randMiss_list[[i]]$y <- tempDF %>%
+    rename_with(~ str_replace(string = names(tempDF), pattern = "Broods_", replacement = "")) %>%
+    rename("y" = "Broods" ) %>%
+    select(-Year) %>%
     as.list()
   pois_real_randMiss_list[[i]]$sim_params <- NA
 }
 pois_real_randMiss <- pois_real_randMiss_list
 
+
+# No longer using this min max missing chunk of code
 ## missing in min and max of data
 pois_real_minMaxMiss_TEMP <- as.data.frame(makeMissing(timeSeries = pois_real$Broods, 
                                                        typeMissing = "minMax"))
