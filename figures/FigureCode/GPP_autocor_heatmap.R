@@ -50,12 +50,13 @@ type_names <- c(
 ## make heatmap for median of parameter recovery
 (heatMap_median_MAR <-ggplot(data = figDat, aes(x=amtMiss, y=autoCor)) + 
     geom_tile(aes(fill=paramDiff_med), size=5) + 
-    #scale_fill_viridis_c(name = "value" , option = "magma") +
-    scale_fill_distiller(palette = "Spectral", direction = 1, name = "value")+
+    scale_fill_viridis_c(name = "value" , option = "A") +
+    #scale_fill_distiller(palette = "Spectral", direction = 1, name = "value")+
     facet_grid(~factor(figDat$param, levels = c("Phi", "Beta covariates")) ~ type, 
                labeller = as_labeller(type_names)) +
     xlab("Proportion of missing data")+
     ylab("Autocorrelation in missingness") +
+    guides(fill = guide_colorbar("Bias")) +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     ggtitle("Median of parameter bias across sims.")) 
@@ -63,11 +64,12 @@ type_names <- c(
 ## make heatmap for SE of parameter recovery
 (heatMap_SE_MAR <-ggplot(data = figDat, aes(x=amtMiss, y=autoCor)) + 
     geom_tile(aes(fill=paramDiffAbsDiff_med), size=5) + 
-    #scale_fill_viridis_c(name = "value" , option = "magma") +
-    scale_fill_distiller(palette = "Spectral", direction = 1, name = "value")+
+    scale_fill_viridis_c(name = "value" , option = "D") +
+    #scale_fill_distiller(palette = "Spectral", direction = 1, name = "value")+
     facet_grid(~factor(figDat$param, levels = c("Phi", "Beta covariates")) ~ type, 
                labeller = as_labeller(type_names)) +xlab("Proportion of missing data")+
     ylab("Autocorrelation in missingness") +
+    guides(fill = guide_colorbar("Stand. Error")) +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     ggtitle("Absolute Standard Error of Parameter Recovery")) 
@@ -107,13 +109,15 @@ figDat_covMNAR <- figDat_cov %>%
   filter(missingness %in% c("MNAR"))
  
 (heatMap_cov_MAR <- ggplot(data = figDat_covMAR, aes(x=amtMiss, y=autoCor)) + 
-    geom_tile(aes(fill=coveragePerc), size=5) + 
+    geom_tile(aes(fill=coveragePerc*100), size=5) + 
     facet_grid(~factor(figDat_covMAR$param, levels = c("Phi", "Beta covariates")) ~ type, 
                labeller = as_labeller(type_names)) +
-     scale_fill_distiller(palette = "Greys", direction = 1, name = "value") +#value = SD
-  #viridis_c(begin=1, end=0, option = "plasma", name = "value" )+ 
+     #scale_fill_distiller(palette = "Greys", direction = 1, name = "value") +#value = SD
+    scale_fill_viridis_c(begin=0, end=1, option = "G", name = "value" )+ 
+    guides(fill = guide_colorbar("Stand. Error")) +
     xlab("Proportion of missing data")+
     ylab("Autocorrelation in missingness") +
+    guides(fill = guide_colorbar("% Coverage")) +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     ggtitle("% of model runs where the 95% CI \n includes the simulation parameter"))
@@ -161,12 +165,13 @@ figDat <- gauss_sim_figDat %>%
 ## make heatmap for mean of parameter recovery
 (heatMap_medians_MNAR <-ggplot(data = figDat, aes(x=amtMiss, y=autoCor)) + 
     geom_tile(aes(fill=paramDiff_med), size=5) + 
-    scale_fill_distiller(palette = "Spectral", direction = 1, name = "value")+
+    #scale_fill_distiller(palette = "Spectral", direction = 1, name = "value")+
     facet_grid(~factor(figDat$param, levels = c("Phi", "Beta covariates")) ~ type, 
                labeller = as_labeller(type_names)) +
-    #scale_fill_viridis_c(begin=1, end=0, option = "inferno")+
+    scale_fill_viridis_c(begin=1, end=0, option = "A")+
     xlab("Proportion of missing data")+
     ylab("Autocorrelation in missingness") +
+    guides(fill = guide_colorbar("Bias")) +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1),
           axis.text.y = element_blank(),
@@ -177,43 +182,30 @@ figDat <- gauss_sim_figDat %>%
 ## make heatmap for mean of parameter recovery
 (heatMap_SE_MNAR <-ggplot(data = figDat, aes(x=amtMiss, y=autoCor)) + 
     geom_tile(aes(fill=paramDiffAbsDiff_med), size=5) + 
-    scale_fill_distiller(palette = "Spectral", direction = 1, name = "value")+
+    #scale_fill_distiller(palette = "Spectral", direction = 1, name = "value")+
     facet_grid(~factor(figDat$param, levels = c("Phi", "Beta covariates")) ~ type,
                labeller = as_labeller(type_names)) +
-    #scale_fill_viridis_c(begin=1, end=0, option = "inferno")+
+    scale_fill_viridis_c(begin=1, end=0, option = "D")+
     xlab("Proportion of missing data")+
     ylab("Autocorrelation in missingness") +
     theme_classic() +
+    guides(fill = guide_colorbar("Stand. Error")) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1),
           axis.text.y = element_blank(),
           axis.ticks.y = element_blank(),
           axis.title.y = element_blank()) +
     ggtitle("Absolute standard error of parameter recovery")) 
 
-## make heatmap for SD of parameter recovery
-(heatMap_SD_MNAR <-ggplot(data = figDat, aes(x=amtMiss, y=autoCor)) + 
-    geom_tile(aes(fill=paramDiff_SD), size=5) + 
-    scale_fill_distiller(palette = "Greys", direction = 1, name = "value")+
-    facet_grid(~factor(figDat$param, levels = c("Phi", "Beta covariates")) ~ type,
-               labeller = as_labeller(type_names)) +
-    #scale_fill_viridis_c(begin=1, end=0, option = "plasma", name = "value" )+
-    xlab("Proportion of missing data")+
-    ylab("Autocorrelation in missingness") +
-    theme_classic() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1),
-          axis.text.y = element_blank(),
-          axis.ticks.y = element_blank(),
-          axis.title.y = element_blank()) +
-    ggtitle("SD of standardized parameter estimates"))
 
 figDat_covMNAR$autoCor <- 0
 (heatMap_cov_MNAR <- ggplot(data = figDat_covMNAR, aes(x=amtMiss, y=autoCor)) + 
-    geom_tile(aes(fill=coveragePerc), size=5) + 
+    geom_tile(aes(fill=coveragePerc*100), size=5) + 
     facet_grid(~factor(figDat_covMNAR$param, levels = c("Phi", "Beta covariates")) ~ type,
                labeller = as_labeller(type_names)) +
-    scale_fill_distiller(palette = "Greys", direction = 1, name = "value") +#value = SD
-    #viridis_c(begin=1, end=0, option = "plasma", name = "value" )+ 
+    #scale_fill_distiller(palette = "Greys", direction = 1, name = "value") +#value = SD
+    scale_fill_viridis_c(begin=0, end=1, option = "G", name = "value" )+ 
     xlab("Proportion of missing data")+
+    guides(fill = guide_colorbar("% Coverage")) +
     ylab("Autocorrelation in missingness") +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
