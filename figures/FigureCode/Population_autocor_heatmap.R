@@ -326,11 +326,12 @@ figDat <- ric_sim_figDat %>%
 ## make heatmap for mean of parameter recovery
 (heatMap_median_MAR <-ggplot(data = figDat, aes(x=propMiss, y=autoCorr)) + 
     geom_tile(aes(fill=paramDiff_med), size=5) + 
-    #scale_fill_viridis_c(name = "value" , option = "magma") +
-    scale_fill_distiller(palette = "Spectral", direction = 1, name = "value")+
+    scale_fill_viridis_c(name = "value" , option = "A") +
+    #scale_fill_distiller(palette = "Spectral", direction = 1, name = "value")+
     facet_grid(~factor(figDat$param, levels = c("alpha", "r")) ~ type) +
     xlab("Proportion of missing data")+
     ylab("Autocorrellation in missingness") +
+    guides(fill = guide_colorbar("Bias")) +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     ggtitle("Parameter bias across simulations")) 
@@ -338,11 +339,12 @@ figDat <- ric_sim_figDat %>%
 ## make heatmap for mean of *absolute value* of parameter recovery
 (heatMap_SE_MAR <-ggplot(data = figDat, aes(x=propMiss, y=autoCorr)) + 
     geom_tile(aes(fill=paramDiffAbsDiff_med), size=5) + 
-    #scale_fill_viridis_c(name = "value" , option = "magma") +
-    scale_fill_distiller(palette = "Spectral", direction = 1, name = "value")+
+    scale_fill_viridis_c(name = "value" , option = "D") +
+    #scale_fill_distiller(palette = "Spectral", direction = 1, name = "value")+
     facet_grid(~factor(figDat$param, levels = c("alpha", "r")) ~ type) +
     xlab("Proportion of missing data")+
     ylab("Autocorrellation in missingness") +
+    guides(fill = guide_colorbar("Stand. Error")) +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     ggtitle("Absolute Standard Error of Parameter Recover")) 
@@ -373,13 +375,14 @@ figDat_cov <- figDat_cov_temp %>%
   mutate(coveragePerc = coverageNumber/modelRunN)
 
 (heatMap_cov_MAR <- ggplot(data = figDat_cov, aes(x=propMiss, y=autoCorr)) + 
-    geom_tile(aes(fill=coveragePerc), size=5) + 
+    geom_tile(aes(fill=coveragePerc*100), size=5) + 
     facet_grid(~factor(figDat_cov$param, levels = c("alpha", "r")) ~ type) +
     #scale_fill_distiller(palette = "Greys", direction = 1, name = "value") +
-    #viridis_c(begin=1, end=0, option = "plasma", name = "value" )+
+    scale_fill_viridis_c(begin=0, end=1, option = "G", name = "value" )+
     xlab("Proportion of missing data")+
     ylab("Autocorrellation in missingness") +
     theme_classic() +
+    guides(fill = guide_colorbar("% Coverage")) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     ggtitle("% of model runs where the 95% CI \n includes the simulation parameter"))
 
