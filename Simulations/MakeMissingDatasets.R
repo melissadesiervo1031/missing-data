@@ -64,13 +64,16 @@ for (i in 1:length(gauss_sim_minMaxMiss)) {
 gauss_auSable <- read.csv("./data/au_sable_river_prepped.csv")
 ## make missing data types for increasing levels of autocorrelation
 # possible autocorrelation vector
-inputAutocor <- c(.0, .10, .20, .30, .40, .50, .60, .70, .80, .90)
+#inputAutocor <- c(.0, .10, .20, .30, .40, .50, .60, .70, .80, .90)
+inputAutocor <- c(0, .25, .25, .25, .5, .5, .5, .75, .75, .75)
+inputPropMiss <- c(.2, .2, .2, .2, .2, .4, .4, .4, .4, 4., .6, .6, .6, .6, .6)
 
 for (i in 1:length(inputAutocor)) {
   # calculate missing vectors with increasing levels of missingness
   tempOutDf <- as.data.frame(makeMissing(timeSeries = gauss_auSable$GPP, 
                                          typeMissing = "random", 
-                                         autoCorr = inputAutocor[i]))
+                                         autoCorr = inputAutocor[i], 
+                                         propMiss = inputPropMiss))
   
   # name the elements of the Df with the amount of missingness 
   names(tempOutDf) <- paste0("GPP_",names(tempOutDf))
@@ -89,7 +92,7 @@ for (i in 1:length(inputAutocor)) {
 }
 
 # put all of the data into one list
-autcorVector <- c(0, 10, 20, 30, 40, 50, 60, 70, 80, 90)
+autcorVector <- c(0, 25, 25, 25, 50, 50, 50, 75, 75, 75)
 gauss_auSable_randMiss_list <- vector(mode = "list", length = 10) 
 names(gauss_auSable_randMiss_list) <- paste0("gauss_auSable_randMiss_autoCor_", autcorVector)
 for (i in 1:length(inputAutocor)) {
@@ -112,8 +115,12 @@ for (i in 1:length(inputAutocor)) {
 gauss_auSable_randMiss <- gauss_auSable_randMiss_list
 
 ## missing in min and max of data
+## for the MNAR data, we need to do slightly different propMissing values, since the same proportion will cutoff the same exact values 
+
+inputPropMiss <- c(.18, .19, .2, .21, .22, .38, .39, .4, .41, 42., .58, .59, .6, .61, .62)
 gauss_auSable_minMaxMiss_TEMP <- as.data.frame(makeMissing(timeSeries = gauss_auSable$GPP, 
-                                                           typeMissing = "minMax"))
+                                                           typeMissing = "minMax", 
+                                                           propMiss = inputPropMiss))
 
 
 #names(gauss_auSable_minMaxMiss_TEMP) <- paste0("GPP_",names(gauss_auSable_minMaxMiss_TEMP))
@@ -138,13 +145,16 @@ gauss_auSable_minMaxMiss <- gauss_auSable_minMaxMiss_list
 gauss_badger <- read.csv("./data/badger_mill_creek_prepped.csv")
 ## make missing data types for increasing levels of autocorrelation
 # possible autocorrelation vector
-inputAutocor <- c(.0, .10, .20, .30, .40, .50, .60, .70, .80, .90)
+#inputAutocor <- c(.0, .10, .20, .30, .40, .50, .60, .70, .80, .90)
+inputAutocor <- c(0, .25, .25, .25, .5, .5, .5, .75, .75, .75)
+inputPropMiss <- c(.2, .2, .2, .2, .2, .4, .4, .4, .4, 4., .6, .6, .6, .6, .6)
 
 for (i in 1:length(inputAutocor)) {
   # calculate missing vectors with increasing levels of missingness
   tempOutDf <- as.data.frame(makeMissing(timeSeries = gauss_badger$GPP, 
                                          typeMissing = "random", 
-                                         autoCorr = inputAutocor[i]))
+                                         autoCorr = inputAutocor[i], 
+                                         propMiss = inputPropMiss))
   
   # name the elements of the Df with the amount of missingness 
   names(tempOutDf) <- paste0("GPP_",names(tempOutDf))
@@ -163,7 +173,7 @@ for (i in 1:length(inputAutocor)) {
 }
 
 # put all of the data into one list
-autcorVector <- c(0, 10, 20, 30, 40, 50, 60, 70, 80, 90)
+autcorVector <- c(0, 25, 25, 25, 50, 50, 50, 75, 75, 75)
 gauss_badger_randMiss_list <- vector(mode = "list", length = 10) 
 names(gauss_badger_randMiss_list) <- paste0("gauss_badger_randMiss_autoCor_", autcorVector)
 for (i in 1:length(inputAutocor)) {
@@ -186,10 +196,12 @@ for (i in 1:length(inputAutocor)) {
 gauss_badger_randMiss <- gauss_badger_randMiss_list
 
 ## missing in min and max of data
+## for the MNAR data, we need to do slightly different propMissing values, since the same proportion will cutoff the same exact values 
+
+inputPropMiss <- c(.18, .19, .2, .21, .22, .38, .39, .4, .41, 42., .58, .59, .6, .61, .62)
 gauss_badger_minMaxMiss_TEMP <- as.data.frame(makeMissing(timeSeries = gauss_badger$GPP, 
-                                                          typeMissing = "minMax"))
-
-
+                                                           typeMissing = "minMax", 
+                                                           propMiss = inputPropMiss))
 #names(gauss_badger_minMaxMiss_TEMP) <- paste0("GPP_",names(gauss_badger_minMaxMiss_TEMP))
 
 gauss_badger_minMaxMiss <- cbind(gauss_badger, gauss_badger_minMaxMiss_TEMP)
