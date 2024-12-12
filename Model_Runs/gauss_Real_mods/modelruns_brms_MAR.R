@@ -209,3 +209,4 @@ valsAll <- map_df(valNames, function(x) {
 })
 
 write.csv(valsAll, file = paste(dirname, "gauss_badger_real_MAR_arima_FORECASTvals.csv", sep = ""))
+\

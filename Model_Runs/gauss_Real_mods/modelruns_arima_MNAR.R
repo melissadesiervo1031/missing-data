@@ -292,6 +292,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
     modelobjectlist[[i]] <- mod_a
   }
   
+  
   ### Averages the models together back to 1 model per missing data prop ##
   
   listcoefsessim<-mapply(function(X,Y) {
@@ -308,7 +309,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
   # make return values
   #paramlistsim <- map(listcoefsessim , ~.["q.mi"])
   
-  paramlistsim <- map_df(seq(1:15),
+  paramlistsim <- map_df(seq(1:length(listcoefsessim)),
                          function(x){
                            data.frame("parameters" = c("intercept", "xreg1", "xreg2", "phi", "sigma"),
                                       "param_value" = c(listcoefsessim[[x]]$q.mi, sigmas[x]),
@@ -316,7 +317,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
                          }, 
                          .id = "tempNum")
   # update missingPropAutocor column
-  numName_df <- data.frame("tempNum" = c(1:15), 
+  numName_df <- data.frame("tempNum" = c(1:length(listcoefsessim)), 
                            "missingprop_autocor" = names(listcoefsessim)) %>% 
     mutate("tempNum" = as.character(tempNum))
   
@@ -327,7 +328,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
   
   # reframe list of coefficients and s.e.s into a single object for forecasting
   
-  forecastList <- map(c(1:15), function(x) {
+  forecastList <- map(c(1:length(listcoefsessim)), function(x) {
     test <- modelobjectlist[[i]]$imp1  
     test$coef <- as.vector(listcoefsessim[[x]]$q.mi)
     names(test$coef) <- c("ar1","intercept","matrix(c(xreg1, xreg2), ncol = 2)1","matrix(c(xreg1, xreg2), ncol = 2)2")
@@ -362,6 +363,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
               selistsim
   ))
 }
+
 
 
 ###################### RUN MODELS WITH DATA ------------------------------
@@ -453,7 +455,9 @@ arimaKalman_MNAR_preds$run_no <- CurSim
 
 # Run models w/ Multiple Imputations --------------------------------------
 
-arima_mi_MNAR <-  fit_arima_MI(sim_list,gauss_auSable_MinMaxMiss[[CurSim]]$sim_params, imputationsnum=5,
+arima_mi_MNAR <-  fit_arima_MI(sim_list,
+                               gauss_auSable_MinMaxMiss[[CurSim]]$sim_params, 
+                               imputationsnum=5,
                                forecast = TRUE, forecast_days = forecast_days,
                                dat_full = au_sable_river_full)
 ## formatting for figure
@@ -616,3 +620,4 @@ predsAll <-cbind(CurSim,Output3)
 write.csv(predsAll, file = "./data/model_results/gauss_real_MNAR_arima_modResults/badger_mill/gauss_badger_real_MNAR_arima_FORECASTpreds.csv")
 
 write.csv(valsAll, file = "./data/model_results/gauss_real_MNAR_arima_modResults/badger_mill/gauss_badger_real_MNAR_arima_FORECASTvals.csv")
+
