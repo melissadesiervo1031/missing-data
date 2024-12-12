@@ -177,7 +177,7 @@ figDat <- gauss_sim_figDat %>%
           axis.text.y = element_blank(),
           axis.ticks.y = element_blank(),
           axis.title.y = element_blank()) +
-    ggtitle("Median of standardized parameter estimates")) 
+    ggtitle("Median of parameter bias across sims.")) 
 
 ## make heatmap for mean of parameter recovery
 (heatMap_SE_MNAR <-ggplot(data = figDat, aes(x=amtMiss, y=autoCor)) + 

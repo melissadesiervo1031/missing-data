@@ -165,7 +165,7 @@ png(file = "./figures/RMSE_boxplot_gaussian_auSable.png", width = 8, height = 4,
 rmse_boxFig
 dev.off()
 
-# read in prediction data for au-sable river ------------------------------------------------------------
+# read in prediction data for badger mill creek ------------------------------------------------------------
 # read in real, complete dataset
 realData <- read.csv("./data/badger_mill_creek_prepped.csv") %>% 
   mutate(date = lubridate::as_datetime(date))
@@ -196,7 +196,8 @@ MNAR_brms <- read.csv("./data/model_results/gauss_real_MNAR_brms_modResults/badg
          missingness = "MNAR")
 
 # join all data together
-allDat_temp <- rbind(MAR_arima, MAR_brms, MNAR_arima, MNAR_brms)
+allDat_temp <- rbind(MAR_arima, MAR_brms, MNAR_arima, MNAR_brms) %>% 
+  filter(lubridate::year(date) == 2015)
 
 # remove rows w/ no missingness (missingprop_autocor = "y)
 allDat_temp <- allDat_temp %>% 
@@ -257,9 +258,9 @@ allDat_fig <- allDat %>%
 
 (forecastFig <- ggplot() +
     facet_grid(. ~ as.factor(type) ~ as.factor(missingness)) +
-    geom_line(data = realData[lubridate::year(realData$date) == 2014,]
+    geom_line(data = realData[lubridate::year(realData$date) == 2015,]
               , aes(x = date, y = GPP), col = "grey60") +
-    geom_line(data = allDat_fig, aes(x = date, y = Estimate_mean, col = propMiss_fac, group = propMiss_fac), alpha = .8) +
+    geom_line(data = allDat_fig[lubridate::year(allDat_fig$date) == 2015,], aes(x = date, y = Estimate_mean, col = propMiss_fac, group = propMiss_fac), alpha = .8) +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 )
@@ -271,9 +272,9 @@ dev.off()
 # Make figure of predictions aucorr x missingness ----------------------------------------------
 (forecastFig_2 <- ggplot() +
    facet_grid(. ~ as.factor(propMiss_fac) ~ as.factor(missingness)) +
-   geom_line(data = realData[lubridate::year(realData$date) == 2014,]
+   geom_line(data = realData[lubridate::year(realData$date) == 2015,]
              , aes(x = date, y = GPP), col = "grey60") +
-   geom_line(data = allDat_fig, aes(x = date, y = Estimate_mean, col = type, group = type), alpha = .8) +
+   geom_line(data = allDat_fig[lubridate::year(allDat_fig$date) == 2015,], aes(x = date, y = Estimate_mean, col = type, group = type), alpha = .8) +
    theme_classic() +
    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
    scale_color_discrete(type = c("#66A61E","#1B9E77", "#E7298A", "#E6AB02","#7570B3"),
