@@ -241,7 +241,7 @@ fit_arima_Kalman <- function(sim_list, sim_pars, forecast = TRUE, forecast_days 
 fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, forecast_days = 365,
                          dat_full){
   
-  days<-seq(1, nrow(dat_full))
+  days<-seq(1, (nrow(dat_full)-forecast_days))
   
   simmissingdf <-lapply(X = sim_list, 
                         FUN = function(X) cbind.data.frame(days= days,
