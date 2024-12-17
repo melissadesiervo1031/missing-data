@@ -10,9 +10,9 @@ library(forecast)
 library(RColorBrewer)
 
 ## read in data 
-figDat_temp <- readRDS("./data/model_results/gauss_sim_ModelResults.rds")
+figDat_temp <- readRDS("C:/Users/Melissa/Dropbox/Academic stuff/MODELSCAPES/Missing data/local files/gauss_sim_ModelResults.rds") ##RDS file too big so on dropbox, not git. Read in from local drive##
 
-# remove data for simluation 376... has one really small parameter, which is causing a lot of outliers
+# remove data for simluation 376... has one really small parameter, which is causing a lot of outliers   ##
 
 figDat_temp <- figDat_temp[!(figDat_temp$simName %in% c(376, 831, 816, 461, 808, 129, 366, 208, 385)),]
 
@@ -45,11 +45,17 @@ figDat_lines <- figDat_temp %>%
   filter(amtMiss <=.5)
 
 
+# subset for plotting to just the medium level of autocorrellation for MAR, exclude intercept###
+
+figDat_lines2 <- figDat_lines %>% filter(missingness=="MAR: Med. AC"|missingness=="MNAR")  %>%  filter(param=="Beta covariates"| param=="Phi")
+
+
+
 # Figure of parameter recovery (mean and sd in separate panels) -----------
 # figure of means for each model type and level of missingness (with shortened x-axis)
-(gauss_sim_MedsFig_trimmed <- ggplot(data = figDat_lines, aes(x = amtMiss, y = paramDiff_med)) +
-  facet_grid(~factor(param, levels = c( "Intercept","Phi", "Beta covariates")) 
-                                       ~ factor(missingness, levels = c("MAR: Low AC", "MAR: Med. AC", "MAR: High AC", "MNAR"))) + 
+(gauss_sim_MedsFig_trimmed <- ggplot(data = figDat_lines2, aes(x = amtMiss, y = paramDiff_med)) +
+  facet_grid(~factor(param, levels = c("Phi", "Beta covariates")) 
+                                       ~ factor(missingness, levels = c("MAR: Med. AC", "MNAR"))) + 
   geom_hline(aes(yintercept = 0), colour = "grey") + 
   #geom_errorbar(aes(ymin=paramDiff_mean - paramDiff_SD, ymax=paramDiff_mean + paramDiff_SD, color = as.factor(type)), 
                 #size=0.3, width=0, position = position_dodge(width=0.03))+
@@ -74,8 +80,8 @@ largeSD <- figDat_lines[figDat_lines$amtMiss <= 0.5 &
                              figDat_lines$paramDiff_SD > 5,]
   
 # figure of SDfor each model type and level of missingness
-(gauss_sim_SDFig_trimmed <- ggplot(data = figDat_lines, aes(x = amtMiss, y = paramDiff_SD)) +
-  facet_grid(~factor(param, levels = c("Intercept","Phi", "Beta covariates")) 
+(gauss_sim_SDFig_trimmed <- ggplot(data = figDat_lines2, aes(x = amtMiss, y = paramDiff_SD)) +
+  facet_grid(~factor(param, levels = c("Phi", "Beta covariates")) 
              ~ factor(missingness, levels = c("MAR: Low AC", "MAR: Med. AC", "MAR: High AC", "MNAR"))) + 
   geom_line(aes(color = as.factor(type)), position = position_dodge(width=0.03)) + 
   geom_point(aes(color = as.factor(type)), alpha = .8, position = position_dodge(width=0.03)) +
@@ -130,7 +136,8 @@ dev.off()
 #
 figDat_long <- figDat_temp %>% 
   filter(param != "sigma") %>%
-  filter(missingness %in% c("MAR: High AC", "MAR: Med. AC", "MAR: Low AC", "MNAR")) %>% 
+  filter(missingness %in% c("MAR: Low AC",  "MAR: Med. AC", "MAR: High AC", "MNAR"  )) %>% 
+  filter(amtMiss < 0.5)  %>% 
   mutate(autoCor = round(autoCor, 1), 
          amtMiss = round(amtMiss, 1),
          param = replace(param, param %in% c("discharge", "light"), "Beta covariates"),
@@ -140,14 +147,17 @@ figDat_long <- figDat_temp %>%
   summarize(paramDiff_mean = mean(paramDiff, na.rm = TRUE),
             paramDiff_med = median(paramDiff, na.rm = TRUE),
             paramDiff_SD = sd(paramDiff, na.rm = TRUE),
-            n = length(paramDiff)) #%>% 
-  #filter(n  > 100)  
+            n = length(paramDiff)) 
+
+
+
+figDat_long2 <- figDat_long %>% filter(missingness=="MAR: Med. AC"|missingness=="MNAR")  %>%  filter(param=="Beta covariates"| param=="Phi")
 
 # make a figure like the one above, but without a trimmed x axis
 # figure of means for each model type and level of missingness
-(gauss_sim_MedsFig_reg<- ggplot(data = figDat_long, aes(x = amtMiss, y = paramDiff_med)) +
-    facet_grid(~factor(param, levels = c("Intercept", "Phi", "Beta covariates")) 
-               ~ factor(missingness, levels = c("MAR: Low AC", "MAR: Med. AC", "MAR: High AC", "MNAR"))) + 
+(gauss_sim_MedsFig_reg<- ggplot(data = figDat_long2, aes(x = amtMiss, y = paramDiff_med)) +
+    ggh4x::facet_grid2(~factor(param, levels = c("Phi", "Beta covariates")) 
+               ~ factor(missingness, levels = c("MAR: Med. AC", "MNAR"), labels =c("MAR", "MNAR")), scales = "free_y", independent = "y") + 
     geom_hline(aes(yintercept = 0), colour = "grey") + 
     #geom_errorbar(aes(ymin=paramDiff_mean - paramDiff_SD, ymax=paramDiff_mean + paramDiff_SD, color = as.factor(type)), 
     #size=0.3, width=0, position = position_dodge(width=0.03))+
@@ -158,16 +168,16 @@ figDat_long <- figDat_temp %>%
     xlab("Proportion of missing data")+ 
     theme(legend.position="top")+
     theme(legend.title=element_blank())+
-    ylab("Mean of parameter bias across sims.")+ 
+    ylab("Median of parameter bias across sims.")+ 
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) + 
     scale_color_discrete(type = c("#1B9E77", "#66A61E", "#E7298A","#D95F02", "#7570B3",  "#E6AB02"),
                          labels = c("Data Augmentation", "Data Deletion-Complete","Data Deletion-Simple", "Kalman Filter", "Multiple Imputations"))
 )
 
 # figure of SD for each model type and level of missingness
-(gauss_sim_SDFig_reg<- ggplot(data = figDat_long, aes(x = amtMiss, y = paramDiff_SD)) +
-    facet_grid(~factor(param, levels = c("Intercept", "Phi", "Beta covariates")) 
-               ~ factor(missingness, levels = c("MAR: Low AC", "MAR: Med. AC", "MAR: High AC", "MNAR"))) + 
+(gauss_sim_SDFig_reg<- ggplot(data = figDat_long2, aes(x = amtMiss, y = paramDiff_SD)) +
+    ggh4x::facet_grid2(~factor(param, levels = c("Phi", "Beta covariates")) 
+               ~ factor(missingness, levels = c("MAR: Med. AC", "MNAR"),labels =c("MAR", "MNAR")), scales = "free_y", independent = "y") + 
     geom_hline(aes(yintercept = 0), colour = "grey") + 
     geom_line(aes(color = as.factor(type)), position = position_dodge(width=0.03)) + 
     geom_point(aes(color = as.factor(type)), alpha = .8, position = position_dodge(width=0.03)) +
