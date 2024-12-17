@@ -25,15 +25,14 @@ figDat_temp[figDat_temp$missingness=="MAR" & figDat_temp$autoCor >=  0.6, "missi
 figDat_lines <- figDat_temp %>% 
   filter(param != "sigma") %>%
   # try removing simulations that have a parameter that is very, very small
- # filter( param_simVal > 0.05) %>% 
+  # filter( param_simVal > 0.05) %>% 
   mutate(autoCor = round(autoCor, 1), 
          amtMiss = round(amtMiss, 1),
          param = replace(param, param %in% c("discharge", "light"), "Beta covariates"),
          param = replace(param, param == "intercept", "Intercept"),
          param = replace(param, param == "phi", "Phi")
-         ) %>% 
+  ) %>% 
   group_by(missingness, type, param, amtMiss) %>% 
-
   summarize(paramDiffAbsDiff_mean = mean(paramDiff_absDiff, na.rm = TRUE),
             paramDiffAbsDiff_med = median(paramDiff_absDiff, na.rm = TRUE),
             paramDiffAbsDiff_SD = sd(paramDiff_absDiff, na.rm = TRUE),
@@ -43,8 +42,8 @@ figDat_lines <- figDat_temp %>%
             paramDiff_SD = sd(paramDiff, na.rm = TRUE),
             n_paramDiff = length(paramDiff),
             SE_mean = mean(SE, na.rm = TRUE) # the mean of the parameter standard error (not standardized, but maybe should be?)
-            ) %>% 
-
+  ) %>% 
+  
   #filter(n  > 50)  %>% # drop combinations that have fewer than 300 observations
   filter(amtMiss <=.5, 
          param != "Intercept")
@@ -502,5 +501,4 @@ ggplot(data = brmsDat) +
   xlab("Missingness Approach") + 
   ylab("[(true param-sim param)/abs(sim param)]") +
   ggtitle("phi parameter recovery")
-
 
