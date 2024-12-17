@@ -241,7 +241,7 @@ fit_arima_Kalman <- function(sim_list, sim_pars, forecast = TRUE, forecast_days 
 fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, forecast_days = 365,
                          dat_full){
   
-  days<-seq(1, nrow(dat_full))
+  days<-seq(1, (nrow(dat_full)-forecast_days))
   
   simmissingdf <-lapply(X = sim_list, 
                         FUN = function(X) cbind.data.frame(days= days,
@@ -305,7 +305,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
   # make return values
   #paramlistsim <- map(listcoefsessim , ~.["q.mi"])
   
-  paramlistsim <- map_df(seq(1:15),
+  paramlistsim <- map_df(seq(1:length(listcoefsessim)),
                          function(x){
                            data.frame("parameters" = c("intercept", "xreg1", "xreg2", "phi", "sigma"),
                                       "param_value" = c(listcoefsessim[[x]]$q.mi, sigmas[x]),
@@ -313,7 +313,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
                          }, 
                          .id = "tempNum")
   # update missingPropAutocor column
-  numName_df <- data.frame("tempNum" = c(1:15), 
+  numName_df <- data.frame("tempNum" = c(1:length(listcoefsessim)), 
                            "missingprop_autocor" = names(listcoefsessim)) %>% 
     mutate("tempNum" = as.character(tempNum))
   
@@ -324,7 +324,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
   
   # reframe list of coefficients and s.e.s into a single object for forecasting
   
-  forecastList <- map(c(1:15), function(x) {
+  forecastList <- map(c(1:length(listcoefsessim)), function(x) {
     test <- modelobjectlist[[i]]$imp1  
     test$coef <- as.vector(listcoefsessim[[x]]$q.mi)
     names(test$coef) <- c("ar1","intercept","matrix(c(xreg1, xreg2), ncol = 2)1","matrix(c(xreg1, xreg2), ncol = 2)2")

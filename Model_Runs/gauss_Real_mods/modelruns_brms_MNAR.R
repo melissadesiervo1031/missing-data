@@ -39,7 +39,7 @@ fit_brms_model <- function(sim_list, sim_pars,
   }
   
   # Make the model formula and priors
-  bform <- brms::bf(GPP | mi() ~ light + Q + ar(p = 1))
+  bform <- brms::bf(GPP | mi() ~ light + discharge + ar(p = 1))
   bprior <- c(prior(normal(0,1), class = 'ar'),
               prior(normal(0,5), class = 'b'))
   
@@ -73,7 +73,8 @@ fit_brms_model <- function(sim_list, sim_pars,
   if(forecast){  
     dat_forecast <- dat_full %>%
       slice((nrow(dat_full)-forecast_days):nrow(dat_full)) %>%
-      select(date, GPP, light, Q)
+      select(date, GPP, light, Q) %>% 
+      rename(discharge = Q)
     
     predictions <- lapply(bmod, function(mod){
       predict(mod, newdata = dat_forecast[,-2]) %>%
@@ -162,66 +163,6 @@ brms_MNAR_preds$run_no <- 1
 #    files with a single line of data.
 write_csv(brms_MNAR_df, file = OutFile_params)
 write_csv(brms_MNAR_preds, file = OutFile_preds)
-
-
-
-
-
-
-
-
-#////////
-#####
-
-########### formatting for figure #############
-
-brms_MNAR_df <- map_df(brms_MNAR$brms_pars, ~as.data.frame(.x),
-                       .id = "missingprop_autocor")
-brms_MNAR_df$missingness <- 'MAR'
-brms_MNAR_df$type <- 'brms'
-brms_MNAR_df$run_no <- CurSim
-
-brms_MNAR_preds <- map_df(brms_MNAR$brms_forecast, ~as.data.frame(.x),
-                          .id = "missingprop_autocor")
-brms_MNAR_preds$missingness <- 'MAR'
-brms_MNAR_preds$type <- 'brms'
-brms_MNAR_preds$run_no <- CurSim
-
-# fix "missingprop_autocor" column in brms_MNAR_preds so it shows the actual missingness quantity
-unique(brms_MNAR_preds$missingprop_autocor)
-
-namesActual <- data.frame("missingprop_autocor" = as.character(c(1:16)),
-                          "actualName" =unique(names(gauss_real_MNAR[[1]]$y)))
-
-brms_MNAR_preds <- brms_MNAR_preds %>% 
-  #left_join(brms_MNAR_preds, namesActual) %>% 
-  #select(-missingprop_autocor) %>% 
-  #rename(missingprop_autocor = actualName) %>% 
-  select("missingprop_autocor", "Estimate", "Est.Error", "Q2.5", "Q97.5", "date", "GPP", "missingness", "type", "run_no")
-
-###################################################
-#### SAVE #########
-#################################################
-# Write the output to the folder which will contain all output files as separate csv
-#    files with a single line of data.
-write_csv(brms_MNAR_df, file = paste0("./data/model_results/", OutFile))
-write_csv(brms_MNAR_preds, file = paste0("./data/model_results/", OutFile_preds))
-
-
-# Once the job finishes, you can use the following command from within the folder
-#    containing all single line csv files to compile them into a single csv file:
-#     awk '(NR == 1) || (FNR > 1)' *vals.csv > AllResults.csv
-# The * is a wildcard character so the input to this will match any file within
-#    your current folder that ends with vals.csv regardless of the rest of the filename.
-#    These will then all be combined into a single file (AllResults.csv). The order
-#    will be based on how linux orders the file names within the directory, so it 
-#    might not match the original order of your parameter input file, but all the
-#    entries will be there and it can be sorted later. Alternatively, you can name
-#    your output files in a way in which the proper order will be enforced (e.g.,
-#    if you will have a total of 100 jobs, you can name them all with 3 digits like
-#    001_vals.csv, 002_vals.csv, etc.)
-# Once you have combined all the single line csv files into your master results file,
-#    you can remove them using the wildcard character again (e.g., rm *vals.csv)
 
 
 
