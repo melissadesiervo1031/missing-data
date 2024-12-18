@@ -80,7 +80,7 @@ RMSE_df$propMissCat[which(RMSE_df$propMiss>=0.15&RMSE_df$propMiss<=0.25)]=0.2
 RMSE_df$propMissCat[which(RMSE_df$propMiss>=0.35&RMSE_df$propMiss<=0.45)]=0.4
 RMSE_df$propMissCat[which(RMSE_df$propMiss>=0.55&RMSE_df$propMiss<=0.65)]=0.6
 
-# Plot RMSE against missingness -------------------------------------------
+# Plot RMSE against missingness line plot-------------------------------------------
 rmse_missingness_p <- ggplot(RMSE_df) +
   geom_point(aes(x = propMiss, y = RMSE, col = modelType), alpha = .5) +
   geom_smooth(aes(x = propMiss, y = RMSE, col = modelType), method = "lm", se = FALSE) + 
@@ -95,7 +95,7 @@ rmse_missingness_p
 dev.off()
 
 
-# Plot RMSE against missingness new -------------------------------------------
+# Plot RMSE against missingness boxplots -------------------------------------------
 rmse_missingness_box <- ggplot(RMSE_df) +
   geom_boxplot(aes(x = factor(propMissCat), y = RMSE, fill = modelType), alpha = 0.7) +
   facet_wrap(~autocorr_binned) +
@@ -113,6 +113,47 @@ rmse_missingness_box <- ggplot(RMSE_df) +
   )
 
 rmse_missingness_box
+
+# Plot RMSE against missingness intervals plus lines -------------------------------------------
+# for this we may have to custom create segments to go with each method
+group_means <- tapply(RMSE_df$RMSE, list(RMSE_df$modelType,RMSE_df$autocorr_binned,RMSE_df$propMissCat), mean, na.rm = TRUE)
+group_LQ<- tapply(RMSE_df$RMSE, list(RMSE_df$modelType,RMSE_df$autocorr_binned,RMSE_df$propMissCat), quantile, na.rm = TRUE, probs=0.25)
+group_HQ <- tapply(RMSE_df$RMSE, list(RMSE_df$modelType,RMSE_df$autocorr_binned,RMSE_df$propMissCat), quantile, na.rm = TRUE, probs=0.75)
+custom_seg=data.frame(
+  x=c(rep(as.numeric(colnames(group_LQ[,1,])),each=nrow(group_LQ[,1,])),rep(as.numeric(colnames(group_LQ[,2,])),each=nrow(group_LQ[,2,])),rep(as.numeric(colnames(group_LQ[,3,])),each=nrow(group_LQ[,3,])))+rep(c(-0.04,-0.02,0,0.02,0.04),times=12),
+  xend=c(rep(as.numeric(colnames(group_LQ[,1,])),each=nrow(group_LQ[,1,])),rep(as.numeric(colnames(group_LQ[,2,])),each=nrow(group_LQ[,2,])),rep(as.numeric(colnames(group_LQ[,3,])),each=nrow(group_LQ[,3,])))+rep(c(-0.04,-0.02,0,0.02,0.04),times=12),
+  y=c(as.vector(group_LQ[,1,]),as.vector(group_LQ[,2,]),as.vector(group_LQ[,3,])),
+  yend=c(as.vector(group_HQ[,1,]),as.vector(group_HQ[,2,]),as.vector(group_HQ[,3,])),
+  autocorr_binned=rep(c("low_autocorr","med_autocorr","high_autocorr"),each=nrow(group_LQ[,1,])*ncol(group_LQ[,1,])),
+  modelType=rep(rownames(group_LQ[,1,]),12),
+  means1=c(as.vector(group_means[,1,]),as.vector(group_means[,2,]),as.vector(group_means[,3,]))
+)
+
+
+RMSE_df$autocorr_binned <- factor(RMSE_df$autocorr_binned, levels = c("low_autocorr","med_autocorr","high_autocorr"))
+custom_seg$autocorr_binned <- factor(custom_seg$autocorr_binned, levels = c("low_autocorr","med_autocorr","high_autocorr"))
+
+
+rmse_missingness_int <- ggplot(RMSE_df) +
+  geom_smooth(aes(x = propMiss, y = RMSE, col = modelType), method = "lm", se = FALSE) + 
+  geom_segment(data=custom_seg,aes(x=x,y=y,xend=xend,yend=yend,col=modelType),size=0.6)+
+  geom_point(data=custom_seg,aes(x=x,y=means1,col=modelType),size=1)+
+  facet_wrap(~autocorr_binned) +
+  scale_fill_manual(values = c("#1B9E77","#66A61E", "#E7298A", "#E6AB02","#7570B3"),
+                    labels = c("Data Aug.","Data Del.-Complete", "Data Del.-Simple", "Expectation Max.", "Multiple Imp.")) +
+  labs(
+    x = "Proportion Missingness",
+    y = "Root Mean Squared Error (RMSE)",
+    fill = "Model Type"
+  ) +
+  theme_classic() +
+  theme(
+    strip.text = element_text(size = 12),  # Customize facet labels
+    axis.text.x = element_text(angle = 45, hjust = 1)  # Rotate x-axis text for better readability
+  )
+
+rmse_missingness_int
+
 
 
 # Make figure of predictions ----------------------------------------------
