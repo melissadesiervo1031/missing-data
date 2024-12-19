@@ -259,10 +259,10 @@ allDat$forecasts <- (apply(allDat, MARGIN = 1, FUN = function(x) {
   
   outDat <- cbind(outDat, 
                   # add in trimmed ds
-                  c(x$trimmed_ts,
-                            rep(NA, length.out = (61- length(x$trimmed_ts[[1]]))),recursive = TRUE),
+                  c(x$trimmed_ts[[1]],
+                    rep(NA, length.out = (59- length(x$trimmed_ts[[1]]))),recursive = TRUE),
                   # add in complete time series
-                  c(dat$pois_real_randMiss_autoCor_0$y$y, NA, recursive = TRUE)
+                  dat_full$Broods
                   ) 
   outDat <- as.data.frame(outDat) 
   names(outDat) <- c("timeStep", "dropNA_L", "dropCC_L", "MI_L", "DA_L", "dropNA_est", "dropCC_est", "MI_est", "EM_est", "DA_est", "dropNA_H", "dropCC_H", "MI_H", "DA_H", "trimmedInput_ts", "real_ts")
@@ -272,6 +272,81 @@ allDat$forecasts <- (apply(allDat, MARGIN = 1, FUN = function(x) {
   outDat <- NULL
 }
  ))
+
+
+allDat$forecasts_opt2 <- (apply(allDat, MARGIN = 1, FUN = function(x) {
+  # get starting value (last value of input time series)
+  N_tminus1 <-  x$trimmed_ts[length(x$trimmed_ts)]
+  counter <- length(x$trimmed_ts)
+  # make empty matrix to store values
+  outDat <- matrix(nrow = 59, ncol = 14)
+  # define starting values for each value
+  N_now_dropNA_L <- N_now_cc_L <- N_now_MI_L <- N_now_DA_L <-N_now_dropNA <- N_now_cc <- N_now_MI <- N_now_EM <-  N_now_DA <-N_now_dropNA_H<- N_now_cc_H <- N_now_MI_H <- N_now_DA_H  <- N_tminus1
+  outDat[counter,] <- c(counter, N_now_dropNA_L, N_now_cc_L, N_now_MI_L, N_now_DA_L, N_now_dropNA, N_now_cc, N_now_MI, N_now_EM, N_now_DA,N_now_dropNA_H, N_now_cc_H, N_now_MI_H, N_now_DA_H)
+  while(counter < 59) {
+    # define the "next value" for each model type (lower limit)
+    N_next_dropNA_L <- min(possibleFutures(N_now_dropNA_L,x$drop_fits[[3]][1],x$drop_fits[[3]][2],x$drop_fits[[4]][1],x$drop_fits[[4]][2]))
+    N_next_cc_L <- min(possibleFutures(N_now_cc_L,x$cc_fits[[3]][1],x$cc_fits[[3]][2],x$cc_fits[[4]][1],x$cc_fits[[4]][2]))
+    N_next_DA_L <- min(possibleFutures(N_now_DA_L,x$DA_fits[[3]][1],x$DA_fits[[3]][2],x$DA_fits[[4]][1],x$DA_fits[[4]][2]))
+    
+    # define the "next value" for each model type (estimate)
+    N_next_dropNA <- N_now_dropNA * exp(x$drop_fits[[1]]["r"] - x$drop_fits[[1]]["alpha"]*N_now_dropNA)
+    N_next_cc <- N_now_cc * exp(x$cc_fits[[1]]["r"] - x$cc_fits[[1]]["alpha"]*N_now_cc)
+    N_next_EM <- N_now_EM * exp(x$EM_fits[[1]]["r"] - x$EM_fits[[1]]["alpha"]*N_now_EM)
+    N_next_DA <- N_now_DA * exp(x$DA_fits[[1]]["r"] - x$DA_fits[[1]]["alpha"]*N_now_DA)
+    
+    # define the "next value" for each model type (upper limit)
+    N_next_dropNA_H <- max(possibleFutures(N_now_dropNA_L,x$drop_fits[[3]][1],x$drop_fits[[3]][2],x$drop_fits[[4]][1],x$drop_fits[[4]][2]))
+    N_next_cc_H <- max(possibleFutures(N_now_cc_L,x$cc_fits[[3]][1],x$cc_fits[[3]][2],x$cc_fits[[4]][1],x$cc_fits[[4]][2]))
+    N_next_DA_H <- max(possibleFutures(N_now_DA_L,x$DA_fits[[3]][1],x$DA_fits[[3]][2],x$DA_fits[[4]][1],x$DA_fits[[4]][2]))
+    
+    
+    #special case for MI since it can have NA values
+    if(is.na(x$MI_fits[[1]][1])){
+      N_next_MI_L <- NA
+      N_next_MI <- NA
+      N_next_MI_H <- NA
+    } else {
+      N_next_MI_L <- min(possibleFutures(N_now_MI_L,x$MI_fits[[3]][1],x$MI_fits[[3]][2],x$MI_fits[[4]][1],x$MI_fits[[4]][2]))
+      N_next_MI <- N_now_MI * exp(x$MI_fits[[1]]["r"] - x$MI_fits[[1]]["alpha"]*N_now_MI)
+      N_next_MI_H <- max(possibleFutures(N_now_MI_L,x$MI_fits[[3]][1],x$MI_fits[[3]][2],x$MI_fits[[4]][1],x$MI_fits[[4]][2]))
+    }
+    # save values w/ the time step
+    outDat[counter+1,] <- c(counter+1, N_next_dropNA_L, N_next_cc_L, N_next_MI_L, N_next_DA_L, N_next_dropNA, N_next_cc, N_next_MI, N_next_EM, N_next_DA, N_next_dropNA_H, N_next_cc_H, N_next_MI_H, N_next_DA_H)
+    # update "now" values
+    N_now_dropNA_L <- N_next_dropNA_L
+    N_now_cc_L <- N_next_cc_L
+    N_now_MI_L <- N_next_MI_L
+    N_now_DA_L <- N_next_DA_L
+    N_now_dropNA <- N_next_dropNA
+    N_now_cc <- N_next_cc
+    N_now_MI <- N_next_MI
+    N_now_EM <- N_next_EM
+    N_now_DA <- N_next_DA
+    N_now_dropNA_H <- N_next_dropNA_H
+    N_now_cc_H <- N_next_cc_H
+    N_now_MI_H <- N_next_MI_H
+    N_now_DA_H <- N_next_DA_H
+    #udpate counter
+    counter <- counter+1
+  }
+  # add a column to "outDat" that has the intput time series
+  
+  outDat <- cbind(outDat, 
+                  # add in trimmed ds
+                  c(x$trimmed_ts[[1]],
+                    rep(NA, length.out = (59- length(x$trimmed_ts[[1]]))),recursive = TRUE),
+                  # add in complete time series
+                  dat_full$Broods
+  ) 
+  outDat <- as.data.frame(outDat) 
+  names(outDat) <- c("timeStep", "dropNA_L", "dropCC_L", "MI_L", "DA_L", "dropNA_est", "dropCC_est", "MI_est", "EM_est", "DA_est", "dropNA_H", "dropCC_H", "MI_H", "DA_H", "trimmedInput_ts", "real_ts")
+  
+  return(outDat)
+  counter <- NULL
+  outDat <- NULL
+}
+))
 
 #plot the results for one output 
 simnum=2

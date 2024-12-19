@@ -52,6 +52,39 @@ coverages=lapply(allDat$forecasts,FUN=function(x){
 allDat$coverage=coverages
 
 
+# Alternative coverage calculation
+coverages_opt2=lapply(allDat$forecasts_opt2,FUN=function(x){
+  
+  # make sure all the H are lower than the L, if not return warning code of -10
+  # otherwise, count how many out of the 10 predicted values are within the interval
+  
+  is_between <- realDat$Broods >= pmin(x$dropNA_L, x$dropNA_H) & realDat$Broods <= pmax(x$dropNA_L, x$dropNA_H)
+  num_covered1=length(which(is_between[50:59]))
+  
+  is_between <- realDat$Broods >= pmin(x$dropCC_L, x$dropCC_H) & realDat$Broods <= pmax(x$dropCC_L, x$dropCC_H)
+  num_covered2=length(which(is_between[50:59]))
+  
+  if(any(is.na(c(x$MI_H[50:59],x$MI_L[50:59])))){
+    num_covered3=NA
+  } else {
+    is_between <- realDat$Broods >= pmin(x$MI_L, x$MI_H) & realDat$Broods <= pmax(x$MI_L, x$MI_H)
+    num_covered3=length(which(is_between[50:59]))
+  }
+  
+  is_between <- realDat$Broods >= pmin(x$DA_L, x$DA_H) & realDat$Broods <= pmax(x$DA_L, x$DA_H)
+  num_covered4=length(which(is_between[50:59]))
+  
+  num_covered_all=c(num_covered1,num_covered2,num_covered3,NA,num_covered4)
+  names(num_covered_all)=c("cov_dropNA","cov_dropCC","cov_MI","cov_EM","cov_DA")
+  
+  return(num_covered_all)
+})
+
+# ok wow, coverage is very low, but it seems correct also weird that coverage is worse for MI but also RMSE is good?
+# probably MI just has awful CIs, maybe extra small CIs? Certainly the IQR around the mean RMSE is a lot smaller...
+allDat$coverage_opt2=coverages_opt2
+
+
 # remove runs where the truncated "missing data" ended in an NA (because we
 # can't accurately intiate the model predicting the last ten years in that
 # case)
@@ -97,7 +130,8 @@ RMSE_df <- list_rbind(apply(allDat_new, MARGIN = 1, FUN = function(x) {
     "newName" = x$newName, "autoCorr" = x$actAutoCorr_trim, "propMiss" = x$actPropMiss_trim,
     "RMSE" = x$RMSE, 
     "modelType" = names(x$RMSE),
-    "coverage" = x$coverage
+    "coverage" = x$coverage,
+    "coverage_opt2"=x$coverage_opt2
   )
 }))
 rownames(RMSE_df) <- NULL
@@ -270,6 +304,90 @@ coverage_int <- ggplot(RMSE_df) +
   )
 
 coverage_int
+
+
+# Make figure of ALTERNATE CI coverage -------------------------------------------
+# Error/confidence intervals should expand over time like for simulations with temporal autocorrelation
+# This is because we are basing each next data point prediction on the last data point prediction
+# We will therefore need to re-calculate the CI- I think we would do it in the modelRuns_rickerForecasts.R script
+# Use the lower and upper estimates to expand a lower and upper CI over time
+# We didn't need to do this with the simulated data because it was just measuring coverage of a simple CI
+# Will need to add extra prediction columns for each
+
+# make coverage into proportion
+RMSE_df$coverage_opt2=RMSE_df$coverage_opt2/10
+
+# simple scatterplot- kind of ugly honestly ----------------------------------------------
+coverage_opt2_plot <- ggplot(RMSE_df) +
+  geom_point(aes(x = propMiss, y = coverage_opt2, col = modelType), alpha = .5) +
+  geom_smooth(aes(x = propMiss, y = coverage_opt2, col = modelType), method = "lm", se = FALSE) + 
+  facet_wrap(~autocorr_binned, ) +
+  scale_color_discrete(type = c("#1B9E77","#66A61E", "#E7298A", "#E6AB02","#7570B3"),
+                       labels = c("Data Aug.","Data Del.-Complete",  "Data Del.-Simple", "Expectation Max.", "Multiple Imp.")) +
+  theme_classic()
+
+coverage_opt2_plot
+
+# simple boxplot- even more ugly honestly ----------------------------------------------
+coverage_opt2_box <- ggplot(RMSE_df) +
+  geom_boxplot(aes(x = factor(propMissCat), y = coverage_opt2, fill = modelType), alpha = 0.7) +
+  facet_wrap(~autocorr_binned) +
+  scale_fill_manual(values = c("#1B9E77","#66A61E", "#E7298A", "#E6AB02","#7570B3"),
+                    labels = c("Data Aug.","Data Del.-Complete", "Data Del.-Simple", "Expectation Max.", "Multiple Imp.")) +
+  labs(
+    x = "Proportion Missingness",
+    y = "Coverage",
+    fill = "Model Type"
+  ) +
+  theme_classic() +
+  theme(
+    strip.text = element_text(size = 12),  # Customize facet labels
+    axis.text.x = element_text(angle = 45, hjust = 1)  # Rotate x-axis text for better readability
+  )
+
+coverage_opt2_box
+
+# Plot coverage_opt2 against missingness intervals plus lines -------------------------------------------
+# for this we may have to custom create segments to go with each method
+group_means <- tapply(RMSE_df$coverage_opt2, list(RMSE_df$modelType,RMSE_df$autocorr_binned,RMSE_df$propMissCat), mean, na.rm = TRUE)
+group_LQ<- tapply(RMSE_df$coverage_opt2, list(RMSE_df$modelType,RMSE_df$autocorr_binned,RMSE_df$propMissCat), quantile, na.rm = TRUE, probs=0.25)
+group_HQ <- tapply(RMSE_df$coverage_opt2, list(RMSE_df$modelType,RMSE_df$autocorr_binned,RMSE_df$propMissCat), quantile, na.rm = TRUE, probs=0.75)
+custom_seg=data.frame(
+  x=c(rep(as.numeric(colnames(group_LQ[,1,])),each=nrow(group_LQ[,1,])),rep(as.numeric(colnames(group_LQ[,2,])),each=nrow(group_LQ[,2,])),rep(as.numeric(colnames(group_LQ[,3,])),each=nrow(group_LQ[,3,])))+rep(c(-0.024,-0.012,0,0.012,0.024),times=12),
+  xend=c(rep(as.numeric(colnames(group_LQ[,1,])),each=nrow(group_LQ[,1,])),rep(as.numeric(colnames(group_LQ[,2,])),each=nrow(group_LQ[,2,])),rep(as.numeric(colnames(group_LQ[,3,])),each=nrow(group_LQ[,3,])))+rep(c(-0.024,-0.012,0,0.012,0.024),times=12),
+  y=c(as.vector(group_LQ[,1,]),as.vector(group_LQ[,2,]),as.vector(group_LQ[,3,])),
+  yend=c(as.vector(group_HQ[,1,]),as.vector(group_HQ[,2,]),as.vector(group_HQ[,3,])),
+  autocorr_binned=rep(c("low_autocorr","med_autocorr","high_autocorr"),each=nrow(group_LQ[,1,])*ncol(group_LQ[,1,])),
+  modelType=rep(rownames(group_LQ[,1,]),12),
+  means1=c(as.vector(group_means[,1,]),as.vector(group_means[,2,]),as.vector(group_means[,3,]))
+)
+
+
+RMSE_df$autocorr_binned <- factor(RMSE_df$autocorr_binned, levels = c("low_autocorr","med_autocorr","high_autocorr"))
+custom_seg$autocorr_binned <- factor(custom_seg$autocorr_binned, levels = c("low_autocorr","med_autocorr","high_autocorr"))
+
+
+coverage_opt2_int <- ggplot(RMSE_df) +
+  geom_smooth(aes(x = propMiss, y = coverage_opt2, col = modelType), method = "lm", se = FALSE) + 
+  geom_segment(data=custom_seg,aes(x=x,y=y,xend=xend,yend=yend,col=modelType),size=0.6)+
+  geom_point(data=custom_seg,aes(x=x,y=means1,col=modelType),size=1)+
+  facet_wrap(~autocorr_binned) +
+  scale_fill_manual(values = c("#1B9E77","#66A61E", "#E7298A", "#E6AB02","#7570B3"),
+                    labels = c("Data Aug.","Data Del.-Complete", "Data Del.-Simple", "Expectation Max.", "Multiple Imp.")) +
+  labs(
+    x = "Proportion Missingness",
+    y = "Coverage",
+    fill = "Model Type"
+  ) +
+  theme_classic() +
+  theme(
+    strip.text = element_text(size = 12),  # Customize facet labels
+    axis.text.x = element_text(angle = 45, hjust = 1)  # Rotate x-axis text for better readability
+  )
+
+coverage_opt2_int
+
+
 
 # Make figure of predictions ----------------------------------------------
 forecasts_long$propMiss_binned <- NA
