@@ -118,7 +118,7 @@ namesDF$n_trimmed <- unlist(map(dat_trimmed, function(x) length(x)))
 
 # Fitting Models ----------------------------------------------------------
 # few enough that I think I can run locally... 
-
+dat_flat=dat_flat[1:5]
 # dropNA simple case
 dropNA_fits <- map(dat_trimmed, function(x) fit_ricker_drop(x, fam = "poisson"))
 
@@ -126,7 +126,10 @@ dropNA_fits <- map(dat_trimmed, function(x) fit_ricker_drop(x, fam = "poisson"))
 dropNAcc_fits <- map(dat_flat, function(x) fit_ricker_cc(y = x, fam = "poisson")) 
 
 # multiple imputations
-MI_fits <- map(dat_flat, function(x) fit_ricker_MI(y = x))
+
+MI_fits_1 <- map(dat_flat, function(x) fit_ricker_MI(y = x))
+MI_fits <- map(dat_flat, function(x) fit_ricker_MI(y = x,pro_conf="sim"))
+MI_fits_3 <- map(dat_flat, function(x) fit_ricker_MI(y = x,pro_conf="boot"))
 
 # expectation maximization
 EM_fits <- map(dat_flat, function(x) fit_ricker_EM(y = x))

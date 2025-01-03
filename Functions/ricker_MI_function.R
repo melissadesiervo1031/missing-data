@@ -8,6 +8,7 @@
 library(stats)
 library(Amelia)
 library(R.utils)
+library(MASS)
 
 
 #' Title Fit Ricker Model to population count data with Multiple Imputation using Amelia
@@ -20,6 +21,7 @@ library(R.utils)
 #' @param method Each missing data point will be filled in twice by Amelia, once as y_t and once as y_t-1, should Amelia only predict y_t ("forward"), only predict y_t-1 ("backward"), use both and allow discrepancies ("dual", default), or use both and average out discrepancies ("averaging")
 #' @param p2samelia an integer value to pass to amelia taking either 0 for no screen output, 1 for normal screen printing of iteration numbers, and 2 for detailed screen output
 #' @param ameliatimeout a number in seconds indicating when to cut off Amelia's fitting algorithm and indicate convergence issues, default is 1 minute
+#' @param pro_conf what type of projection confidence to provide, defaults to "none", "sim" returns 1000 simulated estimates, "boot" returns 1000 bootstrapped estimates
 #'
 #' @return List of estimates, standard errors, and confidence intervals, or NA if an error occurred
 #'
@@ -28,7 +30,7 @@ library(R.utils)
 #' y <- readRDS("data/missingDatasets/pois_sim_randMiss_B.rds")[[1]]$y[[10]]
 #' fit_ricker_MI(y,ameliatimeout=10)
 #' 
-fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2samelia=1, ameliatimeout=60){
+fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2samelia=1, ameliatimeout=60, pro_conf="none"){
   
   # Check for population extinction
   if(sum(y==0,na.rm=T)>0){
@@ -322,14 +324,62 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
   ses=rowMeans(ses1)
   names(ses) <- c("r", "alpha")
   
+  # no need for 1000 betas for projection CI
+  if(pro_conf=="none"){
+    # return as a list
+    return(list(
+      estim = estims,
+      se = ses,
+      lower = l1,
+      upper = u1
+    ))
+  }
   
-  # return as a list
-  return(list(
-    estim = estims,
-    se = ses,
-    lower = l1,
-    upper = u1
-  ))
+  # simulated 1000 betas for projection CI
+  if(pro_conf=="sim"){
+    sim_per_fit=1000/length(fit)
+
+    results <- lapply(fit, function(model) {
+      betas <- coef(model)     # Get coefficients
+      vcov_mat <- vcov(model)  # Get variance-covariance matrix
+      mvrnorm(sim_per_fit, betas, vcov_mat)  # Generate random samples
+    })
+
+    CI_results=do.call(rbind, results)
+    
+    return(list(
+      estim = estims,
+      se = ses,
+      lower = l1,
+      upper = u1,
+      CI_results=CI_results
+    ))
+    
+  }
+  
+  # bootstrapped 1000 betas for projection CI
+  if(pro_conf=="boot"){
+    sim_per_fit=1000/length(fit)
+    
+    boot = function(x, model){
+      data = model.frame(model)
+      data_sample = data[sample(seq_len(nrow(data)), replace = TRUE), ]
+      names(data_sample)=c("yt","ytm1","offset")
+      coef(update(model, data = data_sample))
+    }
+    
+    CI_results <- do.call(rbind, lapply(fit, function(single_fit) {
+      do.call(rbind, lapply(1:sim_per_fit, boot, single_fit))
+    }))
+    
+    return(list(
+      estim = estims,
+      se = ses,
+      lower = l1,
+      upper = u1,
+      CI_results=CI_results
+    ))
+  }
   
 }
 
