@@ -4,7 +4,8 @@
 #'
 #' @param y Vector of population counts through time. NA should be used for missing data.
 #' @param fam Error distribution to use. Options include c("poisson", "neg_binom").
-#'
+#' @param pro_conf what type of projection confidence to provide, defaults to "none", "sim" returns 1000 simulated estimates, "boot" returns 1000 bootstrapped estimates
+#' 
 #' @return List of intrinsic growth factor and intra-specific competitive effect estimates,
 #' standard errors, and 95% confidence limits.
 #'
@@ -13,7 +14,7 @@
 #' y <- readRDS("data/missingDatasets/pois_sim_randMiss_A.rds")[[1]]$y[[1]]
 #' fit_ricker_cc(y)
 #' 
-fit_ricker_cc <- function(y, fam = "poisson"){
+fit_ricker_cc <- function(y, fam = "poisson", pro_conf="none"){
   
   # Check for population extinction
   if(sum(y==0,na.rm=T)>1){
@@ -88,15 +89,68 @@ fit_ricker_cc <- function(y, fam = "poisson"){
   ses <- sqrt(diag(vcov(fit)))
   names(ses) <- names(estims)
   
-  # return as a list
-  return(list(
-    estim = estims * c(1, -1),
-    se = ses,
-    lower = as.double(diag(cis) * c(1, -1)),
-    upper = as.double(
-      c(cis[1,2], cis[2,1]) * c(1, -1)
-    )
-  ))
+
+  
+  # no need for 1000 betas for projection CI
+  if(pro_conf=="none"){
+    # return as a list
+    return(list(
+      estim = estims * c(1, -1),
+      se = ses,
+      lower = as.double(diag(cis) * c(1, -1)),
+      upper = as.double(
+        c(cis[1,2], cis[2,1]) * c(1, -1)
+      )
+    ))
+  }
+  
+  # simulated 1000 betas for projection CI
+  if(pro_conf=="sim"){
+    sim_per_fit=1000
+    
+    betas <- coef(fit)     # Get coefficients
+    vcov_mat <- vcov(fit)  # Get variance-covariance matrix
+    CI_results=mvrnorm(sim_per_fit, betas, vcov_mat)  # Generate random samples
+    
+    
+    # return as a list
+    return(list(
+      estim = estims * c(1, -1),
+      se = ses,
+      lower = as.double(diag(cis) * c(1, -1)),
+      upper = as.double(
+        c(cis[1,2], cis[2,1]) * c(1, -1)
+      ),
+      CI_results=CI_results
+    ))
+    
+  }
+  
+  # bootstrapped 1000 betas for projection CI
+  if(pro_conf=="boot"){
+    sim_per_fit=1000
+    
+    boot = function(x, model){
+      data = model.frame(model)
+      data_sample = data[sample(seq_len(nrow(data)), replace = TRUE), ]
+      names(data_sample)=c("yt","ytm1","offset")
+      coef(update(model, data = data_sample))
+    }
+    
+    CI_results <- do.call(rbind, lapply(1:sim_per_fit, boot, fit))
+    
+    
+    # return as a list
+    return(list(
+      estim = estims * c(1, -1),
+      se = ses,
+      lower = as.double(diag(cis) * c(1, -1)),
+      upper = as.double(
+        c(cis[1,2], cis[2,1]) * c(1, -1)
+      ),
+      CI_results=CI_results
+    ))
+  }
   
 }
 
@@ -110,6 +164,7 @@ fit_ricker_cc <- function(y, fam = "poisson"){
 #'
 #' @param y Vector of population counts through time. NA should be used for missing data.
 #' @param fam Error distribution to use. Options include c("poisson", "neg_binom").
+#' @param pro_conf what type of projection confidence to provide, defaults to "none", "sim" returns 1000 simulated estimates, "boot" returns 1000 bootstrapped estimates
 #'
 #' @return List of intrinsic growth factor and intra-specific competitive effect estimates,
 #' standard errors, and 95% confidence limits.
@@ -119,7 +174,7 @@ fit_ricker_cc <- function(y, fam = "poisson"){
 #' y <- readRDS("data/missingDatasets/pois_sim_randMiss_A.rds")[[1]]$y[[1]]
 #' fit_ricker_cc(y)
 #' 
-fit_ricker_drop <- function(y, fam = "poisson"){
+fit_ricker_drop <- function(y, fam = "poisson", pro_conf="none"){
   
   # Check for population extinction
   if(sum(y==0,na.rm=T)>1){
@@ -193,15 +248,68 @@ fit_ricker_drop <- function(y, fam = "poisson"){
   ses <- sqrt(diag(vcov(fit)))
   names(ses) <- names(estims)
   
-  # return as a list
-  return(list(
-    estim = estims * c(1, -1),
-    se = ses,
-    lower = as.double(diag(cis) * c(1, -1)),
-    upper = as.double(
-      c(cis[1,2], cis[2,1]) * c(1, -1)
-    )
-  ))
+
+  
+  # no need for 1000 betas for projection CI
+  if(pro_conf=="none"){
+    # return as a list
+    return(list(
+      estim = estims * c(1, -1),
+      se = ses,
+      lower = as.double(diag(cis) * c(1, -1)),
+      upper = as.double(
+        c(cis[1,2], cis[2,1]) * c(1, -1)
+      )
+    ))
+  }
+  
+  # simulated 1000 betas for projection CI
+  if(pro_conf=="sim"){
+    sim_per_fit=1000
+    
+    betas <- coef(fit)     # Get coefficients
+    vcov_mat <- vcov(fit)  # Get variance-covariance matrix
+    CI_results=mvrnorm(sim_per_fit, betas, vcov_mat)  # Generate random samples
+    
+    
+    # return as a list
+    return(list(
+      estim = estims * c(1, -1),
+      se = ses,
+      lower = as.double(diag(cis) * c(1, -1)),
+      upper = as.double(
+        c(cis[1,2], cis[2,1]) * c(1, -1)
+      ),
+      CI_results=CI_results
+    ))
+    
+  }
+  
+  # bootstrapped 1000 betas for projection CI
+  if(pro_conf=="boot"){
+    sim_per_fit=1000
+    
+    boot = function(x, model){
+      data = model.frame(model)
+      data_sample = data[sample(seq_len(nrow(data)), replace = TRUE), ]
+      names(data_sample)=c("yt","ytm1","offset")
+      coef(update(model, data = data_sample))
+    }
+    
+    CI_results <- do.call(rbind, lapply(1:sim_per_fit, boot, fit))
+   
+    
+    # return as a list
+    return(list(
+      estim = estims * c(1, -1),
+      se = ses,
+      lower = as.double(diag(cis) * c(1, -1)),
+      upper = as.double(
+        c(cis[1,2], cis[2,1]) * c(1, -1)
+      ),
+      CI_results=CI_results
+    ))
+  }
   
 }
 
