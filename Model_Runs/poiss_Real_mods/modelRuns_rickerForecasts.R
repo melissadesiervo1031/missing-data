@@ -8,6 +8,7 @@ library(tidyverse)
 
 # source functions
 f_list <- list.files("./Functions/", full.names = T)
+source(here("Simulations/ricker_data_sims.R"))
 
 
 f_list <- f_list[!str_detect(f_list, pattern = "README.md")]
@@ -128,6 +129,7 @@ dropNAcc_fits <- map(dat_flat, function(x) fit_ricker_cc(y = x, fam = "poisson")
 # multiple imputations
 MI_fits <- map(dat_flat, function(x) fit_ricker_MI(y = x))
 
+
 # expectation maximization
 EM_fits <- map(dat_flat, function(x) fit_ricker_EM(y = x))
 
@@ -182,16 +184,23 @@ allDat <- full_join(dropNA_fits_df, dropNAcc_fits_df, by = c("name")) %>%
 allDat <- allDat %>% 
   rename(oldName = name) %>% 
   left_join(namesDF, by = "oldName") %>% 
-  select(newName_trimmed, oldName, actAutoCorr_trim, actPropMiss_trim, drop_fits, cc_fits, MI_fits, 
+  dplyr::select(newName_trimmed, oldName, actAutoCorr_trim, actPropMiss_trim, drop_fits, cc_fits, MI_fits, 
          EM_fits, DA_fits) %>% 
   rename(newName = newName_trimmed)
 # add in trimmed time series
 names(dat_trimmed) <- NULL
 allDat$trimmed_ts <- dat_trimmed
 
+
 # Predict remaining values ------------------------------------------------
 # use 263 as the starting value, even though some of the missing datasets end in an NA
 #forecast_outputs <- 
+# for corrections, load previous file since it's correct up to this point
+# allDat=readRDS("./data/model_results/RickerForecast_resultTableAll_10.rds")
+# allDat$forecasts=NULL
+# allDat$RMSE=NULL
+
+
 allDat$forecasts <- (apply(allDat, MARGIN = 1, FUN = function(x) {
   # get starting value (last value of input time series)
   N_tminus1 <-  x$trimmed_ts[length(x$trimmed_ts)]
@@ -202,12 +211,18 @@ allDat$forecasts <- (apply(allDat, MARGIN = 1, FUN = function(x) {
   N_now_dropNA <- N_now_cc <- N_now_MI <- N_now_EM <-  N_now_DA <- N_tminus1
   outDat[counter,] <- c(counter, N_now_dropNA, N_now_cc, N_now_MI, N_now_EM, N_now_DA)
   while(counter < 59) {
-    # define the "next value" for each model type
-    N_next_dropNA <- rpois(1, lambda = N_now_dropNA * exp(x$drop_fits[[1]]["r"] - x$drop_fits[[1]]["alpha"]*N_now_dropNA))
-    N_next_cc <- rpois(1, lambda = N_now_cc * exp(x$drop_fits[[1]]["r"] - x$drop_fits[[1]]["alpha"]*N_now_cc))
-    N_next_MI <- rpois(1, lambda = N_now_MI * exp(x$drop_fits[[1]]["r"] - x$drop_fits[[1]]["alpha"]*N_now_MI))
-    N_next_EM <- rpois(1, lambda = N_now_EM * exp(x$drop_fits[[1]]["r"] - x$drop_fits[[1]]["alpha"]*N_now_EM))
-    N_next_DA <- rpois(1, lambda = N_now_DA * exp(x$drop_fits[[1]]["r"] - x$drop_fits[[1]]["alpha"]*N_now_DA))
+    # define the "next value" for each model type (estimate)
+    N_next_dropNA <- N_now_dropNA * exp(x$drop_fits[[1]]["r"] - x$drop_fits[[1]]["alpha"]*N_now_dropNA)
+    N_next_cc <- N_now_cc * exp(x$cc_fits[[1]]["r"] - x$cc_fits[[1]]["alpha"]*N_now_cc)
+    N_next_EM <- N_now_EM * exp(x$EM_fits[[1]]["r"] - x$EM_fits[[1]]["alpha"]*N_now_EM)
+    N_next_DA <- N_now_DA * exp(x$DA_fits[[1]]["r"] - x$DA_fits[[1]]["alpha"]*N_now_DA)
+    
+    #special case for MI since it can have NA values
+    if(is.na(x$MI_fits[[1]][1])){
+      N_next_MI <- NA
+    } else {
+      N_next_MI <- N_now_MI * exp(x$MI_fits[[1]]["r"] - x$MI_fits[[1]]["alpha"]*N_now_MI)
+    }
     # save values w/ the time step
     outDat[counter+1,] <- c(counter+1, N_next_dropNA, N_next_cc, N_next_MI, N_next_EM, N_next_DA)
     # update "now" values
@@ -223,10 +238,10 @@ allDat$forecasts <- (apply(allDat, MARGIN = 1, FUN = function(x) {
   
   outDat <- cbind(outDat, 
                   # add in trimmed ds
-                  c(x$trimmed_ts,
-                            rep(NA, length.out = (61- length(x$trimmed_ts[[1]]))),recursive = TRUE),
+                  c(x$trimmed_ts[[1]],
+                    rep(NA, length.out = (59- length(x$trimmed_ts[[1]]))),recursive = TRUE),
                   # add in complete time series
-                  c(dat$pois_real_randMiss_autoCor_0$y$y, NA, recursive = TRUE)
+                  dat_full$Broods
                   ) 
   outDat <- as.data.frame(outDat) 
   names(outDat) <- c("timeStep", "dropNA_est", "dropCC_est", "MI_est", "EM_est", "DA_est", "trimmedInput_ts", "real_ts")
@@ -235,22 +250,49 @@ allDat$forecasts <- (apply(allDat, MARGIN = 1, FUN = function(x) {
   counter <- NULL
   outDat <- NULL
 }
- ))
+))
+
+# for now we are going to skip working on these
+forecast1k_all_MI <- lapply(seq_along(allDat$MI_fits), function(i) {
+  if(length(allDat$MI_fits[[i]])==2){
+    return(NA)
+  } else {
+    apply(allDat$MI_fits[[i]][[5]], MARGIN = 1, FUN = function(x) {
+      ricker_sim(11, x[1], -1 * x[2], dat_full[49, 2])
+    })
+  }
+})
+
+
+allDat$proj_conf_MI=lapply(forecast1k_all_MI,function(x){
+  if(length(x)==1){
+    return(NA)
+  } else {
+    apply(x,MARGIN=1,FUN=function(x){
+      quantile(x,probs=c(0.025,0.975))
+    })
+    
+  }
+})
+
+
+
 
 #plot the results for one output 
-plot(x = as.numeric(row.names(allDat[1,"forecasts"][[1]])), 
+simnum=2
+plot(x = as.numeric(row.names(allDat[simnum,"forecasts"][[1]])), 
      y = dat_full$Broods, 
      type = "l")
 lines(x = 1:59, 
-      y = allDat[1,"forecasts"][[1]][,"dropNA_est"], col = "red")
+      y = allDat[simnum,"forecasts"][[1]][,"dropNA_est"], col = "red")
 lines(x = 1:59, 
-      y = allDat[1,"forecasts"][[1]][,"dropCC_est"], col = "orange")
+      y = allDat[simnum,"forecasts"][[1]][,"dropCC_est"], col = "orange")
 lines(x = 1:59, 
-      y = allDat[1,"forecasts"][[1]][,"MI_est"], col = "green")
+      y = allDat[simnum,"forecasts"][[1]][,"MI_est"], col = "green")
 lines(x = 1:59, 
-      y = allDat[1,"forecasts"][[1]][,"EM_est"], col = "blue")
+      y = allDat[simnum,"forecasts"][[1]][,"EM_est"], col = "blue")
 lines(x = 1:59, 
-      y = allDat[1,"forecasts"][[1]][,"DA_est"], col = "purple")
+      y = allDat[simnum,"forecasts"][[1]][,"DA_est"], col = "purple")
 
 
 # Calculate RMSE  ---------------------------------------------------------

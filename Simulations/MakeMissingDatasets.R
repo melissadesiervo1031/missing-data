@@ -346,7 +346,7 @@ for (i in 1:(reps*length(inputAutocor))) {
     
     # check
     if(abs(miss_actual[1]-propMiss[1])<=tolerance&abs(miss_actual[2]-propMiss[2])<=tolerance&abs(miss_actual[3]-propMiss[3])<=tolerance&
-       abs(autocor_actual[1]-inputAutocor[((i-1)%%length(inputAutocor))+1])<=tolerance&abs(autocor_actual[2]-inputAutocor[((i-1)%%length(inputAutocor))+1])<=tolerance&abs(autocor_actual[2]-inputAutocor[((i-1)%%length(inputAutocor))+1])<=tolerance){
+       abs(autocor_actual[1]-inputAutocor[((i-1)%%length(inputAutocor))+1])<=tolerance&abs(autocor_actual[2]-inputAutocor[((i-1)%%length(inputAutocor))+1])<=tolerance&abs(autocor_actual[3]-inputAutocor[((i-1)%%length(inputAutocor))+1])<=tolerance){
       check=T
     } else {
       print(paste0("retrying on i=",i))
@@ -380,7 +380,7 @@ for (i in 1:(reps*length(inputAutocor))) {
   pois_real_randMiss_list[[i]]$y <- tempDF %>%
     rename_with(~ str_replace(string = names(tempDF), pattern = "Broods_", replacement = "")) %>%
     rename("y" = "Broods" ) %>%
-    select(-Year) %>%
+    dplyr::select(-Year) %>%
     as.list()
   pois_real_randMiss_list[[i]]$sim_params <- NA
 }
