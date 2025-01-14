@@ -169,8 +169,65 @@ dev.off()
 #  Expectation maximization: #BBBBBB (gray, rather than black)
 
 # save figure
-png(file = "./figures/RMSE_gaussian_auSable.png", width = 8, height = 4, units = "in", res = 700)
+png(file = "./figures/RMSE_gaussian_auSable.png", width = 11, height = 5, units = "in", res = 700)
 rmse_fig
+dev.off()
+
+# RMSE figure only med. autocorr and MNAR-------------------------------------------------------------
+(rmse_fig2 <- RMSE %>% 
+   filter(missingness %in% c("MNAR", "MAR: medium autocorrelation")) %>% 
+   ggplot() +
+   facet_grid(.~missingness) +
+   geom_point(aes(x = jitter(propMiss_bin, factor = 1.5), y = RMSE, col = type), alpha = .3) +
+   geom_smooth(aes(x = propMiss_bin, y = RMSE, col = type), method = "lm", se = FALSE) +
+   theme_classic() +
+   #ylim(c(0,1.25)) + 
+   ggplot2::labs(x = "Proportion of Missing Data", 
+                 y = "Root Mean Square Error (RMSE)")+
+   scale_color_discrete(type = c("#D55E00","#CC79A7", "#E69F00", "#0072B2","#009E73"),
+                        labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Kalman Filter", "Multiple Imp."), 
+   )  +
+   guides(col = guide_legend(title = "Model Type"))
+)
+
+# Data deletion simple: #E69F00 (orange)
+#   Data deletion complete:  #D55E00  (red)
+#   Multiple imputation: #009E73 (green)
+#   Kalman filter: #0072B2 (blue)
+#   Data augmentation: #CC79A7 (pink)
+#  Expectation maximization: #BBBBBB (gray, rather than black)
+
+# save figure
+png(file = "./figures/RMSE_medAutoCorrAndMNAR_gaussian_auSable.png", width = 7, height = 5, units = "in", res = 700)
+rmse_fig2
+dev.off()
+
+# RMSE figure With Error Band -------------------------------------------------------------
+(rmse_fig2 <- RMSE %>% 
+   ggplot() +
+   facet_grid(.~missingness) +
+   geom_point(aes(x = jitter(propMiss_bin, factor = 1.5), y = RMSE, col = type), alpha = .3) +
+   geom_smooth(aes(x = propMiss_bin, y = RMSE, col = type), method = "lm", se = FALSE) +
+   theme_classic() +
+   #ylim(c(0,1.25)) + 
+   ggplot2::labs(x = "Proportion of Missing Data", 
+                 y = "Root Mean Square Error (RMSE)")+
+   scale_color_discrete(type = c("#D55E00","#CC79A7", "#E69F00", "#0072B2","#009E73"),
+                        labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Kalman Filter", "Multiple Imp."), 
+   )  +
+   guides(col = guide_legend(title = "Model Type"))
+)
+
+# Data deletion simple: #E69F00 (orange)
+#   Data deletion complete:  #D55E00  (red)
+#   Multiple imputation: #009E73 (green)
+#   Kalman filter: #0072B2 (blue)
+#   Data augmentation: #CC79A7 (pink)
+#  Expectation maximization: #BBBBBB (gray, rather than black)
+
+# save figure
+png(file = "./figures/RMSE_medAutoCorrAndMNAR_gaussian_auSable.png", width = 7, height = 5, units = "in", res = 700)
+rmse_fig2
 dev.off()
 
 # RMSE figure - boxplot style -------------------------------------------------------------
