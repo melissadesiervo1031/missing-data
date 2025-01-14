@@ -6,9 +6,7 @@
 library(tidyverse)
 library(Metrics)
 library(RColorBrewer)
-library(grid)
-library(gridExtra)
-library(gridGraphics)
+library(ggpubr)
 
 
 # read in prediction data ------------------------------------------------------------
@@ -88,78 +86,79 @@ RMSE_df$propMissCat[which(RMSE_df$propMiss>=0.55&RMSE_df$propMiss<=0.65)]=0.6
 RMSE_df=RMSE_df[-which(RMSE_df$propMissCat==0),]
 
 # Plot RMSE against missingness line plot-------------------------------------------
-facet_labels <- c(
-  "low_autocorr" = "Low Autocorrelation",
-  "med_autocorr" = "Medium Autocorrelation",
-  "high_autocorr" = "High Autocorrelation"
-)
-
-rmse_missingness_p <- ggplot(RMSE_df) +
-  geom_point(aes(x = propMiss, y = RMSE, col = modelType), alpha = .5) +
-  geom_smooth(aes(x = propMiss, y = RMSE, col = modelType), method = "lm", se = FALSE) + 
-  facet_wrap(~autocorr_binned, labeller = labeller(autocorr_binned = facet_labels)) +
-  scale_color_discrete(type = c("#CC79A7","#D55E00", "#E69F00", "#BBBBBB","#009E73"),
-                       labels = c("Data Augmentation","Data Deletion-Complete",  "Data Deletion-Simple", "Expectation Maximization", "Multiple Imputations")) +
-  xlab("Proportion Missing")+
-  ylab("Root Mean Square Error (RMSE)")+
-  labs(color="Model Type")+
-  theme_classic()
-
-
-# save figure
-png(file = "./figures/RMSE_poisson.png", width = 8, height = 4, units = "in", res = 700)
-rmse_missingness_p
-dev.off()
+# facet_labels <- c(
+#   "low_autocorr" = "Low Autocorrelation",
+#   "med_autocorr" = "Medium Autocorrelation",
+#   "high_autocorr" = "High Autocorrelation"
+# )
+# 
+# rmse_missingness_p <- ggplot(RMSE_df) +
+#   geom_point(aes(x = propMiss, y = RMSE, col = modelType), alpha = .5) +
+#   geom_smooth(aes(x = propMiss, y = RMSE, col = modelType), method = "lm", se = FALSE) + 
+#   facet_wrap(~autocorr_binned, labeller = labeller(autocorr_binned = facet_labels)) +
+#   scale_color_discrete(type = c("#CC79A7","#D55E00", "#E69F00", "#BBBBBB","#009E73"),
+#                        labels = c("Data Augmentation","Data Deletion-Complete",  "Data Deletion-Simple", "Expectation Maximization", "Multiple Imputations")) +
+#   xlab("Proportion Missing")+
+#   ylab("Root Mean Square Error (RMSE)")+
+#   labs(color="Model Type")+
+#   theme_classic()
+# 
+# 
+# # save figure
+# png(file = "./figures/RMSE_poisson.png", width = 8, height = 4, units = "in", res = 700)
+# rmse_missingness_p
+# dev.off()
 
 
 # plot just the medium autocorrelation
-RMSE_df_med=RMSE_df[which(RMSE_df$autocorr_binned=="med_autocorr"),]
-rmse_missingness_med <- ggplot(RMSE_df_med) +
-  geom_point(aes(x = propMiss, y = RMSE, col = modelType), alpha = .5) +
-  geom_smooth(aes(x = propMiss, y = RMSE, col = modelType), method = "lm", se = FALSE) + 
-  scale_color_discrete(type = c("#CC79A7","#D55E00", "#E69F00", "#BBBBBB","#009E73"),
-                       labels = c("Data Augmentation","Data Deletion-Complete",  "Data Deletion-Simple", "Expectation Maximization", "Multiple Imputations")) +
-  xlab("Proportion Missing")+
-  ylab("Root Mean Square Error (RMSE)")+
-  labs(color="Model Type")+
-  theme_classic()
+# RMSE_df_med=RMSE_df[which(RMSE_df$autocorr_binned=="med_autocorr"),]
+# rmse_missingness_med <- ggplot(RMSE_df_med) +
+#   geom_point(aes(x = propMiss, y = RMSE, col = modelType), alpha = .5) +
+#   geom_smooth(aes(x = propMiss, y = RMSE, col = modelType), method = "lm", se = FALSE) + 
+#   scale_color_discrete(type = c("#CC79A7","#D55E00", "#E69F00", "#BBBBBB","#009E73"),
+#                        labels = c("Data Augmentation","Data Deletion-Complete",  "Data Deletion-Simple", "Expectation Maximization", "Multiple Imputations")) +
+#   xlab("Proportion Missing")+
+#   ylab("Root Mean Square Error (RMSE)")+
+#   labs(color="Model Type")+
+#   theme_classic()
+# 
+# rmse_missingness_med
 
-rmse_missingness_med
 
 
 # Plot RMSE against missingness boxplots -------------------------------------------
 # deprecated
-rmse_missingness_box <- ggplot(RMSE_df) +
-  geom_boxplot(aes(x = factor(propMissCat), y = RMSE, fill = modelType), alpha = 0.7) +
-  facet_wrap(~autocorr_binned) +
-  scale_fill_manual(values = c("#1B9E77","#66A61E", "#E7298A", "#E6AB02","#7570B3"),
-                    labels = c("Data Aug.","Data Del.-Complete", "Data Del.-Simple", "Expectation Max.", "Multiple Imp.")) +
-  labs(
-    x = "Proportion Missingness",
-    y = "Root Mean Squared Error (RMSE)",
-    fill = "Model Type"
-  ) +
-  theme_classic() +
-  theme(
-    strip.text = element_text(size = 12),  # Customize facet labels
-    axis.text.x = element_text(angle = 45, hjust = 1)  # Rotate x-axis text for better readability
-  )
-
-rmse_missingness_box
-
+# rmse_missingness_box <- ggplot(RMSE_df) +
+#   geom_boxplot(aes(x = factor(propMissCat), y = RMSE, fill = modelType), alpha = 0.7) +
+#   facet_wrap(~autocorr_binned) +
+#   scale_fill_manual(values = c("#1B9E77","#66A61E", "#E7298A", "#E6AB02","#7570B3"),
+#                     labels = c("Data Aug.","Data Del.-Complete", "Data Del.-Simple", "Expectation Max.", "Multiple Imp.")) +
+#   labs(
+#     x = "Proportion Missingness",
+#     y = "Root Mean Squared Error (RMSE)",
+#     fill = "Model Type"
+#   ) +
+#   theme_classic() +
+#   theme(
+#     strip.text = element_text(size = 12),  # Customize facet labels
+#     axis.text.x = element_text(angle = 45, hjust = 1)  # Rotate x-axis text for better readability
+#   )
+# 
+# rmse_missingness_box
+# 
 # Plot RMSE against missingness intervals plus lines -------------------------------------------
 # for this we may have to custom create segments to go with each method
-# deprecated
+
 group_means <- tapply(RMSE_df$RMSE, list(RMSE_df$modelType,RMSE_df$autocorr_binned,RMSE_df$propMissCat), mean, na.rm = TRUE)
 group_LQ<- tapply(RMSE_df$RMSE, list(RMSE_df$modelType,RMSE_df$autocorr_binned,RMSE_df$propMissCat), quantile, na.rm = TRUE, probs=0.25)
 group_HQ <- tapply(RMSE_df$RMSE, list(RMSE_df$modelType,RMSE_df$autocorr_binned,RMSE_df$propMissCat), quantile, na.rm = TRUE, probs=0.75)
 custom_seg=data.frame(
-  x=c(rep(as.numeric(colnames(group_LQ[,1,])),each=nrow(group_LQ[,1,])),rep(as.numeric(colnames(group_LQ[,2,])),each=nrow(group_LQ[,2,])),rep(as.numeric(colnames(group_LQ[,3,])),each=nrow(group_LQ[,3,])))+rep(c(-0.024,-0.012,0,0.012,0.024),times=12),
-  xend=c(rep(as.numeric(colnames(group_LQ[,1,])),each=nrow(group_LQ[,1,])),rep(as.numeric(colnames(group_LQ[,2,])),each=nrow(group_LQ[,2,])),rep(as.numeric(colnames(group_LQ[,3,])),each=nrow(group_LQ[,3,])))+rep(c(-0.024,-0.012,0,0.012,0.024),times=12),
+  x=c(rep(as.numeric(colnames(group_LQ[,1,])),each=nrow(group_LQ[,1,])),rep(as.numeric(colnames(group_LQ[,2,])),each=nrow(group_LQ[,2,])),rep(as.numeric(colnames(group_LQ[,3,])),each=nrow(group_LQ[,3,])))+rep(c(-0.024,-0.012,0,0.012,0.024),times=9),
+  xend=c(rep(as.numeric(colnames(group_LQ[,1,])),each=nrow(group_LQ[,1,])),rep(as.numeric(colnames(group_LQ[,2,])),each=nrow(group_LQ[,2,])),rep(as.numeric(colnames(group_LQ[,3,])),each=nrow(group_LQ[,3,])))+rep(c(-0.024,-0.012,0,0.012,0.024),times=9),
   y=c(as.vector(group_LQ[,1,]),as.vector(group_LQ[,2,]),as.vector(group_LQ[,3,])),
   yend=c(as.vector(group_HQ[,1,]),as.vector(group_HQ[,2,]),as.vector(group_HQ[,3,])),
   autocorr_binned=rep(c("low_autocorr","med_autocorr","high_autocorr"),each=nrow(group_LQ[,1,])*ncol(group_LQ[,1,])),
-  modelType=rep(rownames(group_LQ[,1,]),12),
+  modelType=rep(rownames(group_LQ[,1,]),9),
   means1=c(as.vector(group_means[,1,]),as.vector(group_means[,2,]),as.vector(group_means[,3,]))
 )
 
@@ -187,6 +186,46 @@ rmse_missingness_int <- ggplot(RMSE_df) +
   )
 
 rmse_missingness_int
+
+
+RMSE_df_med=RMSE_df[which(RMSE_df$autocorr_binned=="med_autocorr"),]
+custom_seg=custom_seg[which(custom_seg$autocorr_binned=="med_autocorr"),]
+rmse_missingness_int_med <- ggplot(RMSE_df_med) +
+  geom_smooth(aes(x = propMiss, y = RMSE, col = modelType), method = "lm", se = FALSE) + 
+  geom_segment(data=custom_seg,aes(x=x,y=y,xend=xend,yend=yend,col=modelType),size=0.6)+
+  geom_point(data=custom_seg,aes(x=x,y=means1,col=modelType),size=1)+
+  scale_x_continuous(breaks = c(0.2,0.4,0.6)) +
+  scale_color_discrete(type = c("#CC79A7","#D55E00", "#E69F00", "#BBBBBB","#009E73"),
+                       labels = c("Data Augmentation","Data Deletion-Complete",  "Data Deletion-Simple", "Expectation Maximization", "Multiple Imputations")) +
+  labs(
+    x = "Proportion Missing",
+    y = "Root Mean Square Error (RMSE)",
+    color = "Model Type"
+  ) +
+  theme_classic() +
+  theme(
+    strip.text = element_text(size = 12),  # Customize facet labels
+    axis.text.x = element_text(angle = 45, hjust = 1)  # Rotate x-axis text for better readability
+  )
+
+rmse_missingness_int_med
+
+# add the wytham tits to the plot
+wytham <- read.csv(here("data/Wytham_tits.csv"), header=TRUE)
+
+wytham_tits = ggplot() + 
+  geom_rect(aes(xmin = 2008.5, xmax = 2018.5, 
+                ymin = 100, ymax = 500), fill = "grey80") +
+  geom_line(data = wytham, aes(x = Year, y = Broods)) + 
+  geom_point(data = wytham, aes(x = Year, y = Broods),fill="gray",color="black",size=3,shape=21) + 
+  theme_classic() + 
+  labs(x = "Year", y = "Number of Broods")
+wytham_tits
+
+ggarrange(wytham_tits,rmse_missingness_int_med,
+          labels = c("A", "B"),
+          ncol=1,nrow=2,
+          heights = c(1, 1.5))
 
 
 # Make figure of CI coverage -------------------------------------------
