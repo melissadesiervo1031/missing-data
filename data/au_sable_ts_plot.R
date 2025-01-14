@@ -7,8 +7,10 @@
 
 aus <- read.csv("au_sable_river_prepped.csv", header=TRUE)
 pdf("au_sable_ts_plot.pdf", height=3, width=9)
-par(mar=c(5,5,1,1))
-plot(1:dim(aus)[1], aus[,6], type="n", xlab="Year", ylab="GPP", cex.lab=1.75, cex.axis=1.5, xaxt="n", las=1)
+par(mar=c(5,7,1,1))
+plot(1:dim(aus)[1], aus[,6], type="n", xlab="Year", ylab="", cex.lab=1.75, cex.axis=1.5, xaxt="n", las=1)
+mtext("Scaled GPP", side=2, line=5, cex=1.75)
+mtext(expression("(g O"[2]~" m"^-2~"d"^-1~")"), side=2, line=3, cex=1.25)
 axis(1, at=c(mean(c(1,366)), mean(c(367,731)), mean(c(732,1096))), labels=c(2012, 2013, 2014), cex.axis=1.5)
 rect(366.5, -6, 731.5, 6, col="grey", lty=0) ## shading the middle year grey
 points(1:366, aus[aus[,4]==2012,6], type="l")

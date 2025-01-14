@@ -253,27 +253,27 @@ allDat$forecasts <- (apply(allDat, MARGIN = 1, FUN = function(x) {
 ))
 
 # for now we are going to skip working on these
-forecast1k_all_MI <- lapply(seq_along(allDat$MI_fits), function(i) {
-  if(length(allDat$MI_fits[[i]])==2){
-    return(NA)
-  } else {
-    apply(allDat$MI_fits[[i]][[5]], MARGIN = 1, FUN = function(x) {
-      ricker_sim(11, x[1], -1 * x[2], dat_full[49, 2])
-    })
-  }
-})
+# forecast1k_all_MI <- lapply(seq_along(allDat$MI_fits), function(i) {
+#   if(length(allDat$MI_fits[[i]])==2){
+#     return(NA)
+#   } else {
+#     apply(allDat$MI_fits[[i]][[5]], MARGIN = 1, FUN = function(x) {
+#       ricker_sim(11, x[1], -1 * x[2], dat_full[49, 2])
+#     })
+#   }
+# })
 
 
-allDat$proj_conf_MI=lapply(forecast1k_all_MI,function(x){
-  if(length(x)==1){
-    return(NA)
-  } else {
-    apply(x,MARGIN=1,FUN=function(x){
-      quantile(x,probs=c(0.025,0.975))
-    })
-    
-  }
-})
+# allDat$proj_conf_MI=lapply(forecast1k_all_MI,function(x){
+#   if(length(x)==1){
+#     return(NA)
+#   } else {
+#     apply(x,MARGIN=1,FUN=function(x){
+#       quantile(x,probs=c(0.025,0.975))
+#     })
+#     
+#   }
+# })
 
 
 
