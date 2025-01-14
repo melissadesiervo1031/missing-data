@@ -5,7 +5,9 @@
 # load packages
 library(tidyverse)
 library(Metrics)
-
+library(magick)
+library("grid")
+library("ggplotify")
 
 # read in prediction data for au-sable river ------------------------------------------------------------
 # read in real, complete dataset
@@ -202,33 +204,6 @@ png(file = "./figures/RMSE_medAutoCorrAndMNAR_gaussian_auSable.png", width = 7, 
 rmse_fig2
 dev.off()
 
-# RMSE figure With Error Band -------------------------------------------------------------
-(rmse_fig2 <- RMSE %>% 
-   ggplot() +
-   facet_grid(.~missingness) +
-   geom_point(aes(x = jitter(propMiss_bin, factor = 1.5), y = RMSE, col = type), alpha = .3) +
-   geom_smooth(aes(x = propMiss_bin, y = RMSE, col = type), method = "lm", se = FALSE) +
-   theme_classic() +
-   #ylim(c(0,1.25)) + 
-   ggplot2::labs(x = "Proportion of Missing Data", 
-                 y = "Root Mean Square Error (RMSE)")+
-   scale_color_discrete(type = c("#D55E00","#CC79A7", "#E69F00", "#0072B2","#009E73"),
-                        labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Kalman Filter", "Multiple Imp."), 
-   )  +
-   guides(col = guide_legend(title = "Model Type"))
-)
-
-# Data deletion simple: #E69F00 (orange)
-#   Data deletion complete:  #D55E00  (red)
-#   Multiple imputation: #009E73 (green)
-#   Kalman filter: #0072B2 (blue)
-#   Data augmentation: #CC79A7 (pink)
-#  Expectation maximization: #BBBBBB (gray, rather than black)
-
-# save figure
-png(file = "./figures/RMSE_medAutoCorrAndMNAR_gaussian_auSable.png", width = 7, height = 5, units = "in", res = 700)
-rmse_fig2
-dev.off()
 
 # RMSE figure - boxplot style -------------------------------------------------------------
 (rmse_boxFig <- ggplot(data = RMSE) +
@@ -248,6 +223,7 @@ dev.off()
 # RMSE figure - lines with error style -------------------------------------------------------------
 # reformat data
 RMSE_errorBar <- RMSE %>% 
+  filter(missingness %in% c("MNAR", "MAR: medium autocorrelation")) %>% 
   group_by(missingness, type, propMiss_bin) %>% 
   summarize(RMSE_mean = mean(RMSE), 
             RMSE_sd = sd(RMSE)) %>% 
@@ -255,23 +231,83 @@ RMSE_errorBar <- RMSE %>%
   mutate(low_95CI = (RMSE_mean - RMSE_sd*1.96), 
          high_95CI = (RMSE_mean + RMSE_sd*1.96))
 
+
+(rmse_fig2 <- RMSE %>% 
+    ggplot() +
+    facet_grid(.~missingness) +
+    geom_point(aes(x = jitter(propMiss_bin, factor = 1.5), y = RMSE, col = type), alpha = .3) +
+    geom_smooth(aes(x = propMiss_bin, y = RMSE, col = type), method = "lm", se = FALSE) +
+    theme_classic() +
+    #ylim(c(0,1.25)) + 
+    ggplot2::labs(x = "Proportion of Missing Data", 
+                  y = "Root Mean Square Error (RMSE)")+
+    scale_color_discrete(type = c("#D55E00","#CC79A7", "#E69F00", "#0072B2","#009E73"),
+                         labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Kalman Filter", "Multiple Imp."), 
+    )  +
+    guides(col = guide_legend(title = "Model Type"))
+)
+
+
 (rmse_lineErrorBar <- ggplot(data = RMSE_errorBar) +
    facet_grid(.~missingness) +
     geom_linerange(aes(x = propMiss_bin, ymin = low_95CI, ymax = high_95CI, color = type), alpha = .7, position = position_dodge(width = .1)) +
    geom_point(aes(x = propMiss_bin, y = RMSE_mean, color = type), alpha = .7, position = position_dodge(width = .1)) +
     geom_smooth(aes(x = propMiss_bin, y = RMSE_mean, col = type), method = "lm", se = FALSE) +
    theme_classic() +
-    ylab("RMSE") +
+    ylab("Root Mean Square Error (RMSE)") +
     xlab("Proportion of Missing Data") + 
    #ylim(c(0,1.25)) + 
-   scale_color_discrete(type = c("#66A61E","#1B9E77", "#E7298A", "#E6AB02","#7570B3"),
-                       labels = c("Data Del.-Complete", "Data Aug.", "Data Del.-Simple", "Expectation Max.", "Multiple Imp.")) 
+    scale_x_continuous(breaks=c(0.2,0.4, 0.6)) +
+    scale_color_discrete(type = c("#D55E00","#CC79A7", "#E69F00", "#0072B2","#009E73"),
+    labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Kalman Filter", "Multiple Imp."), 
+)  +
+  guides(col = guide_legend(title = "Model Type"))
 )
-# s# s# save figure
-png(file = "./figures/RMSE_lineWithErrorBar_gaussian_auSable.png", width = 8, height = 4, units = "in", res = 700)
-rmse_lineErrorBar
+
+(rmse_NoLineErrorBar <- ggplot(data = RMSE_errorBar) +
+    facet_grid(.~missingness) +
+    geom_linerange(aes(x = propMiss_bin, ymin = low_95CI, ymax = high_95CI, color = type), alpha = .7, position = position_dodge(width = .1)) +
+    geom_point(aes(x = propMiss_bin, y = RMSE_mean, color = type), alpha = .7, position = position_dodge(width = .1)) +
+    #geom_smooth(aes(x = propMiss_bin, y = RMSE_mean, col = type), method = "lm", se = FALSE) +
+    theme_classic() +
+    ylab("Root Mean Square Error (RMSE)") +
+    xlab("Proportion of Missing Data") + 
+    #ylim(c(0,1.25)) + 
+    scale_x_continuous(breaks=c(0.2,0.4, 0.6)) +
+    scale_color_discrete(type = c("#D55E00","#CC79A7", "#E69F00", "#0072B2","#009E73"),
+                         labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Kalman Filter", "Multiple Imp."), 
+    )  +
+    guides(col = guide_legend(title = "Model Type"))
+)
+## get complete time series figure 
+aus <- read.csv("./data/au_sable_river_prepped.csv", header=TRUE)
+
+ausNew <- aus %>% 
+  mutate(date = as.POSIXct(date)) 
+
+(tsFigGrob <- 
+ggplot() + 
+  geom_rect(aes(xmin = as.POSIXct("2014-01-01T00:00:00Z"), xmax = as.POSIXct("2014-12-31T00:00:00Z"), 
+                ymin = -6, ymax = 3.5), fill = "grey80") +
+  geom_line(data = ausNew, aes(x = date, y = GPP)) + 
+  geom_rug(data = ausNew[is.na(ausNew$GPP),], aes(date), col = "red") +
+  theme_classic() + 
+  labs(x = "Year", y = "GPP (scaled)"))
+
+tsPlusRmse_withLine <- ggpubr::ggarrange(tsFigGrob, rmse_lineErrorBar, ncol = 1, nrow = 2, 
+                  heights = c(.5, 1), legend = "bottom", labels = c("A", "B"))
+
+tsPlusRmse_NoLine <- ggpubr::ggarrange(tsFigGrob, rmse_NoLineErrorBar, ncol = 1, nrow = 2, 
+                                         heights = c(.5, 1), legend = "bottom", labels = c("A", "B"))
+
+# save figure
+png(file = "./figures/RMSE_FullFigure_lineWithErrorBar_gaussian_auSable.png", width = 9, height = 8, units = "in", res = 700)
+tsPlusRmse_withLine
 dev.off()
 
+png(file = "./figures/RMSE_FullFigure_NoLineWithErrorBar_gaussian_auSable.png", width = 9, height = 8, units = "in", res = 700)
+tsPlusRmse_NoLine
+dev.off()
 
 # coverage figure  --------------------------------------------------------
 # calculate coverage
