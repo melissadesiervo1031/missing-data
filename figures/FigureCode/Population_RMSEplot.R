@@ -153,8 +153,8 @@ group_means <- tapply(RMSE_df$RMSE, list(RMSE_df$modelType,RMSE_df$autocorr_binn
 group_LQ<- tapply(RMSE_df$RMSE, list(RMSE_df$modelType,RMSE_df$autocorr_binned,RMSE_df$propMissCat), quantile, na.rm = TRUE, probs=0.25)
 group_HQ <- tapply(RMSE_df$RMSE, list(RMSE_df$modelType,RMSE_df$autocorr_binned,RMSE_df$propMissCat), quantile, na.rm = TRUE, probs=0.75)
 custom_seg=data.frame(
-  x=c(rep(as.numeric(colnames(group_LQ[,1,])),each=nrow(group_LQ[,1,])),rep(as.numeric(colnames(group_LQ[,2,])),each=nrow(group_LQ[,2,])),rep(as.numeric(colnames(group_LQ[,3,])),each=nrow(group_LQ[,3,])))+rep(c(-0.024,-0.012,0,0.012,0.024),times=9),
-  xend=c(rep(as.numeric(colnames(group_LQ[,1,])),each=nrow(group_LQ[,1,])),rep(as.numeric(colnames(group_LQ[,2,])),each=nrow(group_LQ[,2,])),rep(as.numeric(colnames(group_LQ[,3,])),each=nrow(group_LQ[,3,])))+rep(c(-0.024,-0.012,0,0.012,0.024),times=9),
+  x=c(rep(as.numeric(colnames(group_LQ[,1,])),each=nrow(group_LQ[,1,])),rep(as.numeric(colnames(group_LQ[,2,])),each=nrow(group_LQ[,2,])),rep(as.numeric(colnames(group_LQ[,3,])),each=nrow(group_LQ[,3,])))+rep(c(-0.024,-0.012,0.0,0.012,0.024),times=9),
+  xend=c(rep(as.numeric(colnames(group_LQ[,1,])),each=nrow(group_LQ[,1,])),rep(as.numeric(colnames(group_LQ[,2,])),each=nrow(group_LQ[,2,])),rep(as.numeric(colnames(group_LQ[,3,])),each=nrow(group_LQ[,3,])))+rep(c(-0.024,-0.012,0.0,0.012,0.024),times=9),
   y=c(as.vector(group_LQ[,1,]),as.vector(group_LQ[,2,]),as.vector(group_LQ[,3,])),
   yend=c(as.vector(group_HQ[,1,]),as.vector(group_HQ[,2,]),as.vector(group_HQ[,3,])),
   autocorr_binned=rep(c("low_autocorr","med_autocorr","high_autocorr"),each=nrow(group_LQ[,1,])*ncol(group_LQ[,1,])),
@@ -188,21 +188,29 @@ rmse_missingness_int <- ggplot(RMSE_df) +
 rmse_missingness_int
 
 
+# get only medium autocorrelation
 RMSE_df_med=RMSE_df[which(RMSE_df$autocorr_binned=="med_autocorr"),]
 custom_seg=custom_seg[which(custom_seg$autocorr_binned=="med_autocorr"),]
+
+# right factor order
+RMSE_df$modelType=factor(RMSE_df$modelType,levels=c("dropNA","dropCC","MI","EM","DA"))
+custom_seg$modelType=factor(custom_seg$modelType,levels=c("dropNA","dropCC","MI","EM","DA"))
+
 rmse_missingness_int_med <- ggplot(RMSE_df_med) +
-  geom_smooth(aes(x = propMiss, y = RMSE, col = modelType), method = "lm", se = FALSE) + 
+  #geom_smooth(aes(x = propMiss, y = RMSE, col = modelType), method = "lm", se = FALSE) + 
   geom_segment(data=custom_seg,aes(x=x,y=y,xend=xend,yend=yend,col=modelType),size=0.6)+
   geom_point(data=custom_seg,aes(x=x,y=means1,col=modelType),size=1)+
   scale_x_continuous(breaks = c(0.2,0.4,0.6)) +
-  scale_color_discrete(type = c("#CC79A7","#D55E00", "#E69F00", "#BBBBBB","#009E73"),
-                       labels = c("Data Augmentation","Data Deletion-Complete",  "Data Deletion-Simple", "Expectation Maximization", "Multiple Imputations")) +
+  scale_color_discrete(type = c("#E69F00", "#D55E00","#009E73", "#BBBBBB","#CC79A7"),
+                       labels = c("Data Deletion-Simple", "Data Deletion-Complete", "Multiple Imputations", "Expectation Maximization", "Data Augmentation")) +
   labs(
     x = "Proportion Missing",
     y = "Root Mean Square Error (RMSE)",
     color = "Model Type"
   ) +
   theme_classic() +
+  theme(legend.position="top")+
+  theme(legend.title=element_blank())+
   theme(
     strip.text = element_text(size = 12),  # Customize facet labels
     axis.text.x = element_text(angle = 45, hjust = 1)  # Rotate x-axis text for better readability
