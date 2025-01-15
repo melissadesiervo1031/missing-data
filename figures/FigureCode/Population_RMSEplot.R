@@ -150,8 +150,14 @@ RMSE_df=RMSE_df[-which(RMSE_df$propMissCat==0),]
 # for this we may have to custom create segments to go with each method
 
 group_means <- tapply(RMSE_df$RMSE, list(RMSE_df$modelType,RMSE_df$autocorr_binned,RMSE_df$propMissCat), mean, na.rm = TRUE)
-group_LQ<- tapply(RMSE_df$RMSE, list(RMSE_df$modelType,RMSE_df$autocorr_binned,RMSE_df$propMissCat), quantile, na.rm = TRUE, probs=0.25)
-group_HQ <- tapply(RMSE_df$RMSE, list(RMSE_df$modelType,RMSE_df$autocorr_binned,RMSE_df$propMissCat), quantile, na.rm = TRUE, probs=0.75)
+# start using standard deviation for error bars
+group_SD <- tapply(RMSE_df$RMSE, list(RMSE_df$modelType,RMSE_df$autocorr_binned,RMSE_df$propMissCat), sd, na.rm = TRUE)
+group_LQ<- group_means-1.96*group_SD
+group_HQ <- group_means+1.96*group_SD
+
+# stop using quantiles
+#group_LQ<- tapply(RMSE_df$RMSE, list(RMSE_df$modelType,RMSE_df$autocorr_binned,RMSE_df$propMissCat), quantile, na.rm = TRUE, probs=0.25)
+#group_HQ <- tapply(RMSE_df$RMSE, list(RMSE_df$modelType,RMSE_df$autocorr_binned,RMSE_df$propMissCat), quantile, na.rm = TRUE, probs=0.75)
 custom_seg=data.frame(
   x=c(rep(as.numeric(colnames(group_LQ[,1,])),each=nrow(group_LQ[,1,])),rep(as.numeric(colnames(group_LQ[,2,])),each=nrow(group_LQ[,2,])),rep(as.numeric(colnames(group_LQ[,3,])),each=nrow(group_LQ[,3,])))+rep(c(-0.024,-0.012,0.0,0.012,0.024),times=9),
   xend=c(rep(as.numeric(colnames(group_LQ[,1,])),each=nrow(group_LQ[,1,])),rep(as.numeric(colnames(group_LQ[,2,])),each=nrow(group_LQ[,2,])),rep(as.numeric(colnames(group_LQ[,3,])),each=nrow(group_LQ[,3,])))+rep(c(-0.024,-0.012,0.0,0.012,0.024),times=9),
@@ -211,6 +217,7 @@ rmse_missingness_int_med <- ggplot(RMSE_df_med) +
   theme_classic() +
   theme(legend.position="top")+
   theme(legend.title=element_blank())+
+  guides(color = guide_legend(nrow = 2))+
   theme(
     strip.text = element_text(size = 12),  # Customize facet labels
     axis.text.x = element_text(angle = 45, hjust = 1)  # Rotate x-axis text for better readability
@@ -230,11 +237,12 @@ wytham_tits = ggplot() +
   labs(x = "Year", y = "Number of Broods")
 wytham_tits
 
+png(file = "./figures/RMSE_pois_combined.png", width = 6, height = 7, units = "in", res = 700)
 ggarrange(wytham_tits,rmse_missingness_int_med,
           labels = c("A", "B"),
           ncol=1,nrow=2,
-          heights = c(1, 1.5))
-
+          heights = c(1, 2))
+dev.off()
 
 # Make figure of CI coverage -------------------------------------------
 # deprecated for now...
