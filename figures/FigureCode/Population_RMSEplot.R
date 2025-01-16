@@ -112,6 +112,21 @@ rmse_missingness_p
 dev.off()
 
 
+# plot just the medium autocorrelation
+RMSE_df_med=RMSE_df[which(RMSE_df$autocorr_binned=="med_autocorr"),]
+rmse_missingness_med <- ggplot(RMSE_df_med) +
+  geom_point(aes(x = propMiss, y = RMSE, col = modelType), alpha = .5) +
+  geom_smooth(aes(x = propMiss, y = RMSE, col = modelType), method = "lm", se = FALSE) + 
+  scale_color_discrete(type = c("#CC79A7","#D55E00", "#E69F00", "#BBBBBB","#009E73"),
+                       labels = c("Data Augmentation","Data Deletion-Complete",  "Data Deletion-Simple", "Expectation Maximization", "Multiple Imputations")) +
+  xlab("Proportion Missing")+
+  ylab("Root Mean Square Error (RMSE)")+
+  labs(color="Model Type")+
+  theme_classic()
+
+rmse_missingness_med
+
+
 # Plot RMSE against missingness boxplots -------------------------------------------
 # deprecated
 rmse_missingness_box <- ggplot(RMSE_df) +
