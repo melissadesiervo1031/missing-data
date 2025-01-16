@@ -17,7 +17,6 @@ ggplot() +
   labs(x = "Year", y = "GPP (scaled)")
 
 pdf("./figures/au_sable_ts_plot.pdf", height=3, width=9)
-
 par(mar=c(5,7,1,1))
 plot(1:dim(aus)[1], aus[,6], type="n", xlab="Year", ylab="", cex.lab=1.75, cex.axis=1.5, xaxt="n", las=1)
 mtext("Scaled GPP", side=2, line=5, cex=1.75)
