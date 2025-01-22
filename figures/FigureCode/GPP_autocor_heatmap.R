@@ -5,7 +5,12 @@ library(tidyverse)
 library(ggpubr)
 
 ## read in data 
-gauss_sim_figDat <- readRDS("./data/model_results/gauss_sim_ModelResults_normPrior.rds")
+
+  
+#gauss_sim_figDat <- readRDS("./data/model_results/gauss_sim_ModelResults_normPrior.rds")# read in from dropbox##
+
+gauss_sim_figDat<-figDat_temp
+
 
 # remove data for simluation 376... has one really small parameter, which is causing a lot of outliers
 gauss_sim_figDat <- gauss_sim_figDat[gauss_sim_figDat$simName != 376,]
@@ -33,7 +38,7 @@ figDat <- gauss_sim_figDat %>%
             n = length(paramDiff)) %>% 
   filter(n  > 100) %>% # drop combinations that have fewer than 100 observations
   mutate(tooBigSD = ifelse(paramDiff_SD > 1.96, yes = 1, no = NA)) %>% 
-  filter(amtMiss <=.5)
+  filter(amtMiss <=.65)
 # only consider missingness of 50% or less
 
 # update names for missing data approach

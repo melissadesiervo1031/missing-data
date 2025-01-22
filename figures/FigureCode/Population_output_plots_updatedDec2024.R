@@ -329,7 +329,7 @@ figDat_lines <- ricDat_new_long %>%
   ) %>% 
   
   #filter(n  > 50)  %>% # drop combinations that have fewer than 300 observations
-  filter(amtMiss <=.5)
+  filter(amtMiss <=.65)
   # make types in the 'correct' order
  
 
@@ -343,7 +343,8 @@ figDat_lines2<-figDat_lines%>% filter(missingness=="MAR: Med. AC")
 
 # parameter recovery bias -------------------------------------------------
 (poiss_paramRecovery_bias_MAR <- ggplot(data = figDat_lines2, aes(x = amtMiss, y = paramDiff_med)) +
-   facet_wrap(~factor(param, levels = c("r","alpha")),scales = "free_y", ncol=1, strip.position = "right") + 
+   ggh4x::facet_grid2(~factor(param, levels = c( "r", "alpha"),labels=c("r", bquote(alpha)))
+                      ~ factor(missingness, levels = c("MAR: Med. AC"), labels =c("Missing at Random")), scales = "free_y")+
    geom_hline(aes(yintercept = 0), colour = "grey") + 
    #geom_errorbar(aes(ymin=paramDiff_mean - paramDiff_SD, ymax=paramDiff_mean + paramDiff_SD, color = as.factor(type)), 
    #size=0.3, width=0, position = position_dodge(width=0.03))+
@@ -355,16 +356,17 @@ figDat_lines2<-figDat_lines%>% filter(missingness=="MAR: Med. AC")
    xlab("Proportion of missing data")+ 
    theme(legend.position="top")+
    theme(legend.title=element_blank())+
-   ylab("Median Parameter Bias")+ 
+   ylab("Median Bias")+ 
    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) +
-   xlim(c(-0.03,0.55)) + 
+   xlim(c(-0.03,0.65)) + 
    #ylim(c(0,.3)) +
-   scale_colour_brewer(palette = "Dark2",labels = c("Data Deletion-Simple", "Data Deletion-Complete","Multiple Imputations","Expectation Maximization", "Data Augmentation" ))
+   scale_color_discrete(type = c("#E69F00", "#D55E00","#009E73","#8c8c8c", "#CC79A7"),
+                        labels = c("Data Deletion-Simple", "Data Deletion-Complete","Multiple Imputations","Expectation Maximization", "Data Augmentation"))
 )
 
 # parameter recovery SE ---------------------------------------------------
 (poiss_paramRecovery_SE_MAR <- ggplot(data = figDat_lines2, aes(x = amtMiss, y = paramDiffAbsDiff_med)) +
-   facet_wrap(~factor(param, levels = c("r","alpha")),scales = "free_y", ncol=1, strip.position = "right") + 
+   facet_wrap(~factor(param, levels = c("r","alpha"),labels=c("r", expression(alpha))),scales = "free_y", ncol=1, strip.position = "right") + 
    geom_hline(aes(yintercept = 0), colour = "grey") + 
    #geom_errorbar(aes(ymin=paramDiff_mean - paramDiff_SD, ymax=paramDiff_mean + paramDiff_SD, color = as.factor(type)), 
    #size=0.3, width=0, position = position_dodge(width=0.03))+
@@ -376,11 +378,12 @@ figDat_lines2<-figDat_lines%>% filter(missingness=="MAR: Med. AC")
    xlab("Proportion of missing data")+ 
    theme(legend.position="top")+
    theme(legend.title=element_blank())+
-   ylab("Absolute SE of Param. Recovery")+ 
+   ylab("Median Absolute Error")+ 
    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) +
-   xlim(c(-0.03,0.55)) + 
+   xlim(c(-0.03,0.65)) + 
    #ylim(c(0,.3)) +
-   scale_colour_brewer(palette = "Dark2",labels = c("Data Deletion-Simple", "Data Deletion-Complete","Multiple Imputations","Expectation Maximization", "Data Augmentation" ))
+   scale_color_discrete(type = c("#E69F00", "#D55E00","#009E73","8c8c8c", "#CC79A7"),
+                        labels = c("Data Deletion-Simple", "Data Deletion-Complete","Multiple Imputations","Expectation Maximization", "Data Augmentation"))
  
 )
 # parameter recovery coverage ---------------------------------------------
@@ -400,7 +403,7 @@ figDat_cov_temp$coverage <- c(figDat_cov_temp$paramSim >= figDat_cov_temp$CI95_l
 figDat_cov <- figDat_cov_temp %>% 
   filter(param != "sigma",
          param != "intercept",
-         propMiss <=.5,) %>% 
+         propMiss <=.65,) %>% 
   mutate(autoCor = round(autoCorr, 1), 
          amtMiss = round(propMiss, 1)
   ) %>% 
@@ -413,14 +416,15 @@ figDat_cov <- figDat_cov_temp %>%
 
 
 figDat_cov <- figDat_cov %>% 
-  mutate(type=fct_relevel(type,c("dropNA", "CompleteCaseDropNA" ,"MultipleImputations","ExpectationMaximization","DataAugmentation")))
+  mutate(type=fct_relevel(type,c("dropNA", "CompleteCaseDropNA" ,"MultipleImputations","DataAugmentation"))) ## No expectation maximization for coverage###
 
 
 figDat_cov2<-figDat_cov%>% filter(missingness=="MAR: Med. AC")
 
 
+
 (poiss_paramRecovery_coverage_MAR <- ggplot(data = figDat_cov2, aes(x = amtMiss, y = coveragePerc)) +
-    facet_wrap(~factor(param, levels = c("r","alpha")),scales = "free_y", ncol=1, strip.position = "right") + 
+    facet_wrap(~factor(param, levels = c("r","alpha")), scales = "free_y", ncol=1, strip.position = "right") + 
     #geom_col(aes(x = amtMiss, y = coveragePerc, color = as.factor(type), fill = as.factor(type)), 
     # position = "dodge", alpha = .5) + 
     geom_hline(aes(yintercept = .95), colour = "grey") +
@@ -432,12 +436,13 @@ figDat_cov2<-figDat_cov%>% filter(missingness=="MAR: Med. AC")
     theme(legend.title=element_blank())+
     ylab("Coverage")+ 
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) +
-    xlim(c(-0.03,0.55)) + 
-    scale_colour_brewer(palette = "Dark2",labels = c("Data Deletion-Simple", "Data Deletion-Complete","Multiple Imputations","Expectation Maximization", "Data Augmentation" ))
+    xlim(c(-0.03,0.65)) + 
+    #scale_colour_brewer(palette = "Dark2",labels = c("Data Deletion-Simple", "Data Deletion-Complete","Multiple Imputations","Data Augmentation" ))
   
     #ylim(c(0,.3)) +
-   # scale_color_discrete(type = c("#66A61E","#1B9E77", "#E7298A","#7570B3"),
- #                        labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple",  "Multiple Imputation"))#+
+    scale_color_discrete(type = c("#E69F00", "#D55E00","#009E73", "#CC79A7"),
+                         labels = c("Data Deletion-Simple", "Data Deletion-Complete","Multiple Imputation", "Data Augmentation"))
+ #                        
 )
 
 
