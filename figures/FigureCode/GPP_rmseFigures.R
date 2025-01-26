@@ -232,11 +232,9 @@ RMSE_errorBar <- RMSE %>%
   # filter(missingness %in% c("Missing NOT at Random", "MAR: medium autocorrelation"))%>% 
   # mutate(missingness = str_replace(missingness, pattern = "MAR: medium autocorrelation", replacement = "Missing at Random")) %>%
   group_by(missingness, type, propMiss_bin) %>% 
-  summarize(RMSE_mean = mean(RMSE), 
-            RMSE_sd = sd(RMSE)) %>% 
-  rowwise() %>% 
-  mutate(low_95CI = (RMSE_mean - RMSE_sd*1.96), 
-         high_95CI = (RMSE_mean + RMSE_sd*1.96))
+  summarize(RMSE_mean = median(RMSE),
+    IQR_high = quantile(RMSE, .75), 
+    IQR_low = quantile(RMSE, .25)) 
 
 
 ## order the missingness type factor
@@ -250,22 +248,22 @@ RMSE <- RMSE %>%
 (rmse_fig2 <- RMSE %>% 
     ggplot() +
     facet_grid(.~missingness) +
-    geom_point(aes(x = jitter(propMiss_bin, factor = 1.5), y = RMSE, col = type), alpha = .3) +
-    geom_smooth(aes(x = propMiss_bin, y = RMSE, col = type), method = "lm", se = FALSE) +
+    geom_boxplot(aes(x = as.factor(propMiss_bin), y = RMSE, col = type), alpha = .3) +
+    #geom_smooth(aes(x = propMiss_bin, y = RMSE, col = type), method = "lm", se = FALSE) +
     theme_classic() +
     #ylim(c(0,1.25)) + 
     ggplot2::labs(x = "Proportion of Missing Data", 
                   y = "Root Mean Square Error (RMSE)") +
-    scale_color_discrete(
-                         type = c( "#E69F00","#D55E00","#009E73", "#0072B2", "#CC79A7"),
-                         labels = c("Data Deletion-Simple", "Data Deletion-Complete", "Multiple Imp.", "Kalman Filter", "Data Augmentation")) + 
+    scale_color_discrete(type = c("#D55E00","#CC79A7", "#E69F00", "#0072B2","#009E73"),
+                         labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Kalman Filter", "Multiple Imp."), 
+    )  +
     guides(col = guide_legend(title = "Model Type"))
 )
 
 
 (rmse_lineErrorBar <- ggplot(data = RMSE_errorBar) +
    facet_grid(.~missingness) +
-    geom_linerange(aes(x = propMiss_bin, ymin = low_95CI, ymax = high_95CI, color = type), alpha = .7, position = position_dodge(width = .1)) +
+    geom_linerange(aes(x = propMiss_bin, ymin = IQR_low, ymax = IQR_high, color = type), alpha = .7, position = position_dodge(width = .1)) +
    geom_point(aes(x = propMiss_bin, y = RMSE_mean, color = type), alpha = .7, position = position_dodge(width = .1)) +
     geom_smooth(aes(x = propMiss_bin, y = RMSE_mean, col = type), method = "lm", se = FALSE) +
    theme_classic() +
@@ -274,15 +272,15 @@ RMSE <- RMSE %>%
    #ylim(c(0,1.25)) + 
     scale_x_continuous(breaks=c(0.2,0.4, 0.6)) +
     scale_color_discrete(type = c("#D55E00","#CC79A7", "#E69F00", "#0072B2","#009E73"),
-    labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Kalman Filter", "Multiple Imp."), 
-)  +
+                         labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Kalman Filter", "Multiple Imp."), 
+    )  +
   guides(col = guide_legend(title = "Model Type"))
 )
 
 (rmse_NoLineErrorBar <- ggplot(data = RMSE_errorBar) +
     facet_grid(.~missingness) +
-    geom_linerange(aes(x = propMiss_bin, ymin = low_95CI, ymax = high_95CI, color = type), alpha = .7, position = position_dodge(width = .1)) +
-    geom_point(aes(x = propMiss_bin, y = RMSE_mean, color = type), alpha = .7, position = position_dodge(width = .1)) +
+    geom_linerange(aes(x = propMiss_bin, ymin = IQR_low, ymax = IQR_high, color = type), alpha = 1, position = position_dodge(width = .1)) +
+    geom_point(aes(x = propMiss_bin, y = RMSE_mean, color = type), alpha = 1, position = position_dodge(width = .1)) +
     #geom_smooth(aes(x = propMiss_bin, y = RMSE_mean, col = type), method = "lm", se = FALSE) +
     theme_classic() +
     ylab("Root Mean Square Error (RMSE)") +
@@ -299,6 +297,14 @@ aus <- read.csv("./data/au_sable_river_prepped.csv", header=TRUE)
 
 ausNew <- aus %>% 
   mutate(date = as.POSIXct(date)) 
+
+# how many days are in the forecast vs. training data? 
+train <- ausNew %>% 
+  filter(date < as.POSIXct("2014-01-01T00:00:00Z")) %>% 
+  filter(!is.na(GPP))
+test <- ausNew %>% 
+  filter(date >= as.POSIXct("2014-01-01T00:00:00Z")) %>% 
+  filter(!is.na(GPP))
 
 (tsFigGrob <- 
 ggplot() + 
