@@ -245,6 +245,29 @@ ggarrange(wytham_tits,rmse_missingness_int_med,
           heights = c(1, 2))
 dev.off()
 
+# Figure of RMSE variation  -----------------------------------------------
+# calculate the width of the IQR for each point shown in the previous figure
+RMSE_errorBar <- custom_seg %>% 
+  mutate(IQR_width = yend - y)
+
+(rmseWidth_fig <- ggplot(data = RMSE_errorBar) +
+    geom_linerange(aes(x = xend, ymin = 0, ymax = IQR_width, color = modelType), alpha = 1, position = position_dodge(width = .1), lwd = 2) +
+    theme_classic() +
+    ylab("Width of RMSE Inter-Quartile Range") +
+    xlab("Proportion of Missing Data") + 
+    #ylim(c(0,1.25)) + 
+    scale_x_continuous(breaks=c(0.2,0.4, 0.6)) +
+    scale_color_discrete(type = c("#E69F00", "#D55E00","#009E73", "#BBBBBB","#CC79A7"),
+                         labels = c("Data Deletion-Simple", "Data Deletion-Complete", "Multiple Imputations", "Expectation Maximization", "Data Augmentation")) +
+    guides(col = guide_legend(title = "Model Type", position = "top", direction = "vertical", nrow = 3))
+)
+
+
+png(file = "./figures/RMSE_IQR_width_poisson_auSable.png", width =5, height = 5, units = "in", res = 700)
+rmseWidth_fig
+dev.off()
+
+
 # Make figure of CI coverage -------------------------------------------
 # deprecated for now...
 # Error/confidence intervals should expand over time like for simulations with temporal autocorrelation
@@ -409,77 +432,77 @@ dev.off()
 #   )
 # 
 # coverage_opt2_int
-
-
-
-# Make figure of predictions ----------------------------------------------
-forecasts_long$propMiss_binned <- NA
-forecasts_long[forecasts_long$propMiss <0.2, "propMiss_binned"] <- "0-0.2"
-forecasts_long[c(forecasts_long$propMiss >=0.2 & forecasts_long$propMiss < 0.4), "propMiss_binned"] <- "0.2-0.4"
-forecasts_long[forecasts_long$propMiss >=0.4 & forecasts_long$propMiss < 0.6, "propMiss_binned"] <- "0.4-0.6"
-forecasts_long[forecasts_long$propMiss >=0.6 & forecasts_long$propMiss < 0.8, "propMiss_binned"] <- "0.6-0.8"
-forecasts_long[forecasts_long$propMiss >=0.8, "propMiss_binned"] <- "0.8-1"
-
-forecasts_long$propMissCat=NA
-forecasts_long$propMissCat[which(forecasts_long$propMiss==0)]=0
-forecasts_long$propMissCat[which(forecasts_long$propMiss>=0.15&forecasts_long$propMiss<=0.25)]=0.2
-forecasts_long$propMissCat[which(forecasts_long$propMiss>=0.35&forecasts_long$propMiss<=0.45)]=0.4
-forecasts_long$propMissCat[which(forecasts_long$propMiss>=0.55&forecasts_long$propMiss<=0.65)]=0.6
-
-forecasts_avg <- forecasts_long %>% 
-  #filter(Year > 2013) %>% 
-  group_by(Year, missingness, autocorr_binned, propMissCat) %>% 
-  summarize(Estimate_mean = mean(Estimate),
-            Estimate_sd = sd(Estimate)) #%>% 
-#,Est.Error_mean = mean(Est.Error)) %>% 
-#rename(propMiss = propMiss_binned)
-
-# calculate low, med, and high autocorr
-### set color palettes ------------------------------------------------------
-palCont <- rev(RColorBrewer::brewer.pal(n = 4, name = "Reds"))
-
-(forecastFig_p <- ggplot() + 
-    facet_grid(.~as.factor(missingness) ~ as.factor(autocorr_binned)) +
-    geom_line(data = realDat, aes(x = Year, y = Broods)) + 
-    geom_line(data = forecasts_avg, aes(x = Year, y = Estimate_mean, col = as.factor(propMissCat), group = propMissCat), alpha = .8) +
-    theme_classic() +
-    scale_color_viridis_d(option = "plasma", name = "prop. missing") +
-    xlim(2005,2019)
-)
-#
-# save figure
-png(file = "./figures/forecastAccuracy_poisson.png", width = 9, height = 6, units = "in", res = 700)
-forecastFig_p
-dev.off()
-
-
-# figure of mean predictions across all amounts missingness for each type  --------
-forecasts_fig <- forecasts_avg
-#forecasts_fig <- forecasts_avg %>% 
-#  filter(propMiss <=0.5)
-
-ggplot() + 
-  facet_grid(.~as.factor(autocorr_binned)~ as.factor(propMissCat)) +
-  #geom_ribbon(data = second_fig, aes(x = date, ymin = Estimate_mean - 1.96 * Est.Error_mean, ymax = Estimate_mean + 1.96 * Est.Error_mean, fill = type, group =type), alpha = .3) +
-  geom_line(data = realDat, aes(x = Year, y = Broods)) + 
-  geom_line(data = forecasts_fig, aes(x = Year, y = Estimate_mean, col = missingness, group = missingness)) +
-  theme_classic() +
-  xlim(2009,2019)
-
-# figure of mean predictions across all amounts of missingness for each type  --------
-forecasts_fig3 <- forecasts_long %>% 
-  group_by(Year, missingness, autocorr_binned) %>% 
-  summarize(Estimate_mean = mean(Estimate),
-            Estimate_sd = sd(Estimate)) 
-
-ggplot() + 
-  facet_grid(.~as.factor(missingness)~ as.factor(autocorr_binned)) +
-  geom_ribbon(data = forecasts_fig3, aes(x = Year, ymin = Estimate_mean - 1.96 * Estimate_sd, ymax = Estimate_mean + 1.96 * Estimate_sd, 
-                                         fill = missingness, group = missingness), alpha = .3) +
-  geom_line(data = realDat, aes(x = Year, y = Broods)) + 
-  geom_line(data = forecasts_fig3, aes(x = Year, y= Estimate_mean, group = missingness), alpha = .3) +
-  theme_classic() +
-  xlim(2009,2019)
+# 
+# 
+# 
+# # Make figure of predictions ----------------------------------------------
+# forecasts_long$propMiss_binned <- NA
+# forecasts_long[forecasts_long$propMiss <0.2, "propMiss_binned"] <- "0-0.2"
+# forecasts_long[c(forecasts_long$propMiss >=0.2 & forecasts_long$propMiss < 0.4), "propMiss_binned"] <- "0.2-0.4"
+# forecasts_long[forecasts_long$propMiss >=0.4 & forecasts_long$propMiss < 0.6, "propMiss_binned"] <- "0.4-0.6"
+# forecasts_long[forecasts_long$propMiss >=0.6 & forecasts_long$propMiss < 0.8, "propMiss_binned"] <- "0.6-0.8"
+# forecasts_long[forecasts_long$propMiss >=0.8, "propMiss_binned"] <- "0.8-1"
+# 
+# forecasts_long$propMissCat=NA
+# forecasts_long$propMissCat[which(forecasts_long$propMiss==0)]=0
+# forecasts_long$propMissCat[which(forecasts_long$propMiss>=0.15&forecasts_long$propMiss<=0.25)]=0.2
+# forecasts_long$propMissCat[which(forecasts_long$propMiss>=0.35&forecasts_long$propMiss<=0.45)]=0.4
+# forecasts_long$propMissCat[which(forecasts_long$propMiss>=0.55&forecasts_long$propMiss<=0.65)]=0.6
+# 
+# forecasts_avg <- forecasts_long %>% 
+#   #filter(Year > 2013) %>% 
+#   group_by(Year, missingness, autocorr_binned, propMissCat) %>% 
+#   summarize(Estimate_mean = mean(Estimate),
+#             Estimate_sd = sd(Estimate)) #%>% 
+# #,Est.Error_mean = mean(Est.Error)) %>% 
+# #rename(propMiss = propMiss_binned)
+# 
+# # calculate low, med, and high autocorr
+# ### set color palettes ------------------------------------------------------
+# palCont <- rev(RColorBrewer::brewer.pal(n = 4, name = "Reds"))
+# 
+# (forecastFig_p <- ggplot() + 
+#     facet_grid(.~as.factor(missingness) ~ as.factor(autocorr_binned)) +
+#     geom_line(data = realDat, aes(x = Year, y = Broods)) + 
+#     geom_line(data = forecasts_avg, aes(x = Year, y = Estimate_mean, col = as.factor(propMissCat), group = propMissCat), alpha = .8) +
+#     theme_classic() +
+#     scale_color_viridis_d(option = "plasma", name = "prop. missing") +
+#     xlim(2005,2019)
+# )
+# #
+# # save figure
+# png(file = "./figures/forecastAccuracy_poisson.png", width = 9, height = 6, units = "in", res = 700)
+# forecastFig_p
+# dev.off()
+# 
+# 
+# # figure of mean predictions across all amounts missingness for each type  --------
+# forecasts_fig <- forecasts_avg
+# #forecasts_fig <- forecasts_avg %>% 
+# #  filter(propMiss <=0.5)
+# 
+# ggplot() + 
+#   facet_grid(.~as.factor(autocorr_binned)~ as.factor(propMissCat)) +
+#   #geom_ribbon(data = second_fig, aes(x = date, ymin = Estimate_mean - 1.96 * Est.Error_mean, ymax = Estimate_mean + 1.96 * Est.Error_mean, fill = type, group =type), alpha = .3) +
+#   geom_line(data = realDat, aes(x = Year, y = Broods)) + 
+#   geom_line(data = forecasts_fig, aes(x = Year, y = Estimate_mean, col = missingness, group = missingness)) +
+#   theme_classic() +
+#   xlim(2009,2019)
+# 
+# # figure of mean predictions across all amounts of missingness for each type  --------
+# forecasts_fig3 <- forecasts_long %>% 
+#   group_by(Year, missingness, autocorr_binned) %>% 
+#   summarize(Estimate_mean = mean(Estimate),
+#             Estimate_sd = sd(Estimate)) 
+# 
+# ggplot() + 
+#   facet_grid(.~as.factor(missingness)~ as.factor(autocorr_binned)) +
+#   geom_ribbon(data = forecasts_fig3, aes(x = Year, ymin = Estimate_mean - 1.96 * Estimate_sd, ymax = Estimate_mean + 1.96 * Estimate_sd, 
+#                                          fill = missingness, group = missingness), alpha = .3) +
+#   geom_line(data = realDat, aes(x = Year, y = Broods)) + 
+#   geom_line(data = forecasts_fig3, aes(x = Year, y= Estimate_mean, group = missingness), alpha = .3) +
+#   theme_classic() +
+#   xlim(2009,2019)
 
 
 
