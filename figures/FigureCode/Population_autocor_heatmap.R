@@ -259,6 +259,8 @@ ricDat_new <- ricDat_new %>%
 # actual zeros in autocorrelation are listed as NAs--fix this 
 ricDat_new[is.na(ricDat_new$autoCorr),"autoCorr"] <- 0
 
+ricDat_new$rowID <- seq(1:nrow(ricDat_new))
+
 #make into long data.frame 
 paramEstLong <- ricDat_new %>% 
   #select(SimNumber, r_sim, actAutoCorr, actPropMiss, type, r_est, r_se, status, r_paramDiff) %>% 
@@ -281,7 +283,8 @@ paramSELong <- ricDat_new %>%
                values_to = "paramSE", 
                names_to = "param", 
                names_transform = function(x) str_split(string = x, pattern = "_", simplify = TRUE)[,1]) %>% 
-  select(-r_sim, -alpha_sim, -N0_sim, -r_est, -alpha_est) %>% 
+  select(-r_sim, -alpha_sim, -N0_sim, -r_est, -alpha_est
+         ) %>% 
   # remove the values for Expectation Maximization, since we don't have SE for that method
   filter(type != "ExpectationMaximization")
 
@@ -295,9 +298,9 @@ ricDat_new_long <- ricDat_new_long %>%
          "paramDiff_abs" = abs(paramEst - paramSim)/abs(paramSim))
 
 # filter for low and high autocor
-ricDat_new_long[ricDat_new_long$autoCorr <=0.3 & !is.na(ricDat_new_long$autoCorr), "missingness"] <- "MAR: Low AC"
-ricDat_new_long[ricDat_new_long$autoCorr >0.3 & ricDat_new_long$autoCorr <0.6 & !is.na(ricDat_new_long$autoCorr), "missingness"] <- "MAR: Med. AC"
-ricDat_new_long[ricDat_new_long$autoCorr  >= 0.6 & !is.na(ricDat_new_long$autoCorr), "missingness"] <- "MAR: High AC"
+ricDat_new_long[ricDat_new_long$autoCorr <=0.3 & !is.na(ricDat_new_long$autoCorr), "missingness"] <- "MCAR: Low AC"
+ricDat_new_long[ricDat_new_long$autoCorr >0.3 & ricDat_new_long$autoCorr <0.6 & !is.na(ricDat_new_long$autoCorr), "missingness"] <- "MCAR: Med. AC"
+ricDat_new_long[ricDat_new_long$autoCorr  >= 0.6 & !is.na(ricDat_new_long$autoCorr), "missingness"] <- "MCAR: High AC"
 
 
 ricDat_new_long$type <- factor(ricDat_new_long$type, levels = c("DataAugmentation", "CompleteCaseDropNA", 
@@ -334,7 +337,7 @@ figDat <- ric_sim_figDat %>%
     guides(fill = guide_colorbar("Bias")) +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    ggtitle("Parameter bias across simulations")) 
+    ggtitle("Median of parameter error across sims")) 
 
 ## make heatmap for mean of *absolute value* of parameter recovery
 (heatMap_SE_MAR <-ggplot(data = figDat, aes(x=propMiss, y=autoCorr)) + 
@@ -347,7 +350,7 @@ figDat <- ric_sim_figDat %>%
     guides(fill = guide_colorbar("Stand. Error")) +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    ggtitle("Absolute Standard Error of Parameter Recover")) 
+    ggtitle("Absolute standard error of parameter recovery")) 
 
 ## make heatmap for coverage for parameter recovery
 figDat_cov_temp <- ricDat_new_long %>% 
@@ -387,18 +390,18 @@ figDat_cov <- figDat_cov_temp %>%
     ggtitle("% of model runs where the 95% CI \n includes the simulation parameter"))
 
 ## save figures
-png(file = "./figures/heatmap_PoissonMAR_median.png", width = 7, height = 6, units = "in", res = 700)
+png(file = "./figures/heatmap_PoissonMCAR_median.png", width = 7, height = 6, units = "in", res = 700)
 heatMap_median_MAR
 dev.off()
 
-png(file = "./figures/heatmap_PoissonMAR_SE.png", width = 7, height = 6, units = "in", res = 700)
+png(file = "./figures/heatmap_PoissonMCAR_SE.png", width = 7, height = 6, units = "in", res = 700)
 heatMap_SE_MAR
 dev.off()
 
-png(file = "./figures/heatmap_PoissonMAR_coverage.png", width = 7, height = 6, units = "in", res = 700)
+png(file = "./figures/heatmap_PoissonMCAR_coverage.png", width = 7, height = 6, units = "in", res = 700)
 heatMap_cov_MAR
 dev.off()
 
-png(file = "./figures/heatmap_PoissonMAR_all.png", width = 12.5, height = 6, units = "in", res = 700)
+png(file = "./figures/heatmap_PoissonMCAR_all.png", width = 12.5, height = 6, units = "in", res = 700)
 ggarrange(heatMap_median_MAR, heatMap_SE_MAR, heatMap_cov_MAR)
 dev.off()

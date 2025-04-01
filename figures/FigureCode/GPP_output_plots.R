@@ -19,9 +19,9 @@ figDat_temp <- readRDS("./data/model_results/gauss_sim_ModelResults.rds") ## rea
 figDat_temp <- figDat_temp[!(figDat_temp$simName %in% c(376, 831, 816, 461, 808, 129, 366, 208, 385)),]
 
 # filter for low and high autocor\
-figDat_temp[figDat_temp$missingness=="MAR" & figDat_temp$autoCor <=0.3, "missingness"] <- "MAR: Low AC"
-figDat_temp[figDat_temp$missingness=="MAR" & figDat_temp$autoCor > 0.3 & figDat_temp$autoCor < 0.6, "missingness"] <- "MAR: Med. AC"
-figDat_temp[figDat_temp$missingness=="MAR" & figDat_temp$autoCor >=  0.6, "missingness"] <- "MAR: High AC"
+figDat_temp[figDat_temp$missingness=="MAR" & figDat_temp$autoCor <=0.3, "missingness"] <- "MCAR: Low AC"
+figDat_temp[figDat_temp$missingness=="MAR" & figDat_temp$autoCor > 0.3 & figDat_temp$autoCor < 0.6, "missingness"] <- "MCAR: Med. AC"
+figDat_temp[figDat_temp$missingness=="MAR" & figDat_temp$autoCor >=  0.6, "missingness"] <- "MCAR: High AC"
 
 # reorder factor levels for plotting ##
 figDat_temp <- figDat_temp %>% 
@@ -58,13 +58,13 @@ figDat_lines <- figDat_temp %>%
 
 
 
-figDat_lines2 <- figDat_lines %>% filter(missingness=="MAR: Med. AC"|missingness=="MNAR")  %>%  filter(param=="Beta covariates"| param=="Phi")
+figDat_lines2 <- figDat_lines %>% filter(missingness=="MCAR: Med. AC"|missingness=="MNAR")  %>%  filter(param=="Beta covariates"| param=="Phi")
 
 
 # parameter recovery bias -------------------------------------------------
 (gauss_paramRecovery_bias <- ggplot(data = figDat_lines2, aes(x = amtMiss, y = paramDiff_med)) +
    ggh4x::facet_grid2(~factor(param, levels = c("Phi", "Beta covariates"))
-                      ~ factor(missingness, levels = c("MAR: Med. AC", "MNAR"), labels =c("Missing at Random", "Missing NOT at Random")), scales = "free_y")+
+                      ~ factor(missingness, levels = c("MCAR: Med. AC", "MNAR"), labels =c("Missing Completely at Random", "Missing NOT at Random")), scales = "free_y")+
    geom_hline(aes(yintercept = 0), colour = "grey") + 
    #geom_errorbar(aes(ymin=paramDiff_mean - paramDiff_SD, ymax=paramDiff_mean + paramDiff_SD, color = as.factor(type)), 
    #size=0.3, width=0, position = position_dodge(width=0.03))+
@@ -76,7 +76,7 @@ figDat_lines2 <- figDat_lines %>% filter(missingness=="MAR: Med. AC"|missingness
    xlab("Proportion of missing data")+ 
    theme(legend.position="top")+
    theme(legend.title=element_blank())+
-   ylab("Median Bias")+ 
+   ylab("Median Error")+ 
    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))+
    xlim(c(-0.03,0.65)) + 
    #ylim(c(0,.3)) +
@@ -89,7 +89,7 @@ figDat_lines2 <- figDat_lines %>% filter(missingness=="MAR: Med. AC"|missingness
 # parameter recovery SE ---------------------------------------------------
 (gauss_paramRecovery_SE <- ggplot(data = figDat_lines2, aes(x = amtMiss, y = paramDiffAbsDiff_med)) +
    ggh4x::facet_grid2(~factor(param, levels = c("Phi", "Beta covariates")) 
-                      ~ factor(missingness, levels = c("MAR: Med. AC", "MNAR"), labels =c("Missing at Random", "Missing NOT at Random")), scales = "free_y")+
+                      ~ factor(missingness, levels = c("MCAR: Med. AC", "MNAR"), labels =c("Missing Completely at Random", "Missing NOT at Random")), scales = "free_y")+
    geom_hline(aes(yintercept = 0), colour = "grey") + 
    #geom_errorbar(aes(ymin=paramDiff_mean - paramDiff_SD, ymax=paramDiff_mean + paramDiff_SD, color = as.factor(type)), 
    #size=0.3, width=0, position = position_dodge(width=0.03))+
@@ -142,7 +142,7 @@ figDat_cov <- figDat_cov_temp %>%
   mutate(coveragePerc = coverageNumber/modelRunN)
 
 
-figDat_cov2 <- figDat_cov %>% filter(missingness=="MAR: Med. AC"|missingness=="MNAR")  %>%  filter(param=="Beta covariates"| param=="Phi")
+figDat_cov2 <- figDat_cov %>% filter(missingness=="MCAR: Med. AC"|missingness=="MNAR")  %>%  filter(param=="Beta covariates"| param=="Phi")
 
 
 
@@ -151,7 +151,7 @@ figDat_cov2 <- figDat_cov %>% filter(missingness=="MAR: Med. AC"|missingness=="M
     #geom_col(aes(x = amtMiss, y = coveragePerc, color = as.factor(type), fill = as.factor(type)), 
     # position = "dodge", alpha = .5) + 
     ggh4x::facet_grid2(~factor(param, levels = c("Phi", "Beta covariates")) 
-                       ~ factor(missingness, levels = c("MAR: Med. AC", "MNAR"), labels =c("Missing at Random", "Missing NOT at Random")), scales = "free_y")+
+                       ~ factor(missingness, levels = c("MCAR: Med. AC", "MNAR"), labels =c("Missing Completely at Random", "Missing NOT at Random")), scales = "free_y")+
     geom_hline(aes(yintercept = .95), colour = "grey", linetype="dotted") +
     geom_line(aes(color = as.factor(type)), position = position_dodge(width=0.03)) + 
     geom_point(aes(color = as.factor(type)), alpha = .8, position = position_dodge(width=0.03)) +
@@ -178,14 +178,14 @@ gauss_paramRecovery_SE2<-gauss_paramRecovery_SE+ theme(strip.text.x = element_bl
 
 gauss_paramRecovery_coverage2<-gauss_paramRecovery_coverage+ theme(strip.text.x = element_blank(),legend.text = element_text(size=7))
 
-(Gauss_paramRecov_MARMNARlong <- ggarrange(gauss_paramRecovery_bias2, gauss_paramRecovery_SE2, 
+(Gauss_paramRecov_MCARMNARlong <- ggarrange(gauss_paramRecovery_bias2, gauss_paramRecovery_SE2, 
                                            gauss_paramRecovery_coverage2, common.legend = TRUE, nrow = 3))
 
 #(gauss_paramRecovAll <- ggarrange(Gauss_paramRecovMAR, Gauss_paramRecovMNAR, nrow = 2))
 
 ## save results
 png(file = "./figures/parameterRecoveryGaussian_MARMNARlong.png", width = 6.5, height = 8, units = "in", res = 700)
-Gauss_paramRecov_MARMNARlong
+Gauss_paramRecov_MCARMNARlong
 dev.off()
 
 
