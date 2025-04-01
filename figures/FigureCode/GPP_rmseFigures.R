@@ -15,14 +15,14 @@ realData <- read.csv("./data/au_sable_river_prepped.csv") %>%
   mutate(date = lubridate::as_datetime(date))
 
 # MAR arima data
-MAR_arima <- read.csv("./data/model_results/gauss_real_MAR_arima_modResults/au_sable/gauss_auSable_real_MAR_arima_FORECASTpreds.csv") %>% 
+MCAR_arima <- read.csv("./data/model_results/gauss_real_MAR_arima_modResults/au_sable/gauss_auSable_real_MAR_arima_FORECASTpreds.csv") %>% 
   rename(Estimate = pred, Est.Error = se) %>% 
   mutate(Q2.5 = NA, Q97.5 = NA) %>% 
   select(-CurSim, -X, -...1, -...11, -...12, -...13) %>% 
   relocate(missingprop_autocor, Estimate, Est.Error, Q2.5, Q97.5, date, GPP, missingness, type, run_no) %>% 
   mutate(date = lubridate::as_datetime(date))
 # MAR brms data
-MAR_brms <- read.csv("./data/model_results/gauss_real_MAR_brms_modResults/auSable/gauss_auSable_real_MAR_brms_FORECASTpreds.csv") %>% 
+MCAR_brms <- read.csv("./data/model_results/gauss_real_MAR_brms_modResults/auSable/gauss_auSable_real_MAR_brms_FORECASTpreds.csv") %>% 
   mutate(date = lubridate::as_datetime(date)) %>% 
   select(-...1, -X, -...12)
 
@@ -40,7 +40,7 @@ MNAR_brms <- read.csv("./data/model_results/gauss_real_MNAR_brms_modResults/auSa
          missingness = "MNAR")
 
 # join all data together
-allDat_temp <- rbind(MAR_arima, MAR_brms, MNAR_arima, MNAR_brms)
+allDat_temp <- rbind(MCAR_arima, MCAR_brms, MNAR_arima, MNAR_brms)
 
 # remove rows w/ no missingness (missingprop_autocor = "y)
 allDat_temp <- allDat_temp %>% 
@@ -63,9 +63,9 @@ allDat <- allDat_temp %>%
          amtAutoCorr = as.numeric(str_split(missingprop_autocor, pattern = "_", simplify = TRUE)[,4]))
 allDat[allDat$missingness == "MNAR", "amtAutoCorr"] <- 0
 # assign "bins" of autocorrelation
-allDat[allDat$missingness != "MNAR" & allDat$amtAutoCorr <=0.3 & !is.na(allDat$amtAutoCorr), "missingness"] <- "MAR: low autocorrelation"
-allDat[allDat$missingness != "MNAR" & allDat$amtAutoCorr > 0.3 & allDat$amtAutoCorr < 0.6 &!is.na(allDat$amtAutoCorr), "missingness"] <- "MAR: medium autocorrelation"
-allDat[allDat$missingness != "MNAR" & allDat$amtAutoCorr  >= 0.6 & !is.na(allDat$amtAutoCorr), "missingness"] <- "MAR: high autocorrelation"
+allDat[allDat$missingness != "MNAR" & allDat$amtAutoCorr <=0.3 & !is.na(allDat$amtAutoCorr), "missingness"] <- "MCAR: low autocorrelation"
+allDat[allDat$missingness != "MNAR" & allDat$amtAutoCorr > 0.3 & allDat$amtAutoCorr < 0.6 &!is.na(allDat$amtAutoCorr), "missingness"] <- "MCAR: medium autocorrelation"
+allDat[allDat$missingness != "MNAR" & allDat$amtAutoCorr  >= 0.6 & !is.na(allDat$amtAutoCorr), "missingness"] <- "MCAR: high autocorrelation"
 allDat[allDat$missingness == "MNAR", "missingness"] <- "Missing NOT at Random"
 # bin autocorr and propMiss 
 allDat$propMiss_bin <- NA
@@ -112,8 +112,8 @@ allDat_fig <- allDat %>%
 
 
 RMSE <- RMSE %>% 
-  filter(missingness %in% c("Missing NOT at Random", "MAR: medium autocorrelation")) %>% 
-  mutate(missingness = str_replace(missingness, pattern = "MAR: medium autocorrelation", replacement = "Missing at Random"))
+  filter(missingness %in% c("Missing NOT at Random", "MCAR: medium autocorrelation")) %>% 
+  mutate(missingness = str_replace(missingness, pattern = "MCAR: medium autocorrelation", replacement = "Missing Completely at Random"))
 
 RMSE_errorBar <- RMSE %>% 
   # filter(missingness %in% c("Missing NOT at Random", "MAR: medium autocorrelation"))%>% 
@@ -205,201 +205,4 @@ RMSE_errorBar <- RMSE_errorBar %>%
 png(file = "./figures/RMSE_IQR_width_gaussian_auSable.png", width = 6, height = 5, units = "in", res = 700)
 rmseWidth_fig
 dev.off()
-
-
-# Old figure versions  ----------------------------------------------------
-
-# 
-# # coverage figure 
-# # calculate coverage
-# 
-# ## count the # of models w/ and without coverage for each bin of missingness and autocorrelation
-# figDat_covTemp <- allDat %>% 
-#   mutate(autoCor = round(amtAutoCorr_bin, 1), 
-#          amtMiss = round(propMiss_bin, 1),
-#          # calculate coverage
-#          CI95_lower = Estimate - 1.96 * Est.Error,
-#          CI95_upper = Estimate + 1.96 * Est.Error
-#          ) %>% 
-#   filter(!is.na(Est.Error))
-# 
-# 
-# figDat_covTemp$coverage <- c(figDat_covTemp$GPP >= figDat_covTemp$CI95_lower & 
-#                                figDat_covTemp$GPP <= figDat_covTemp$CI95_upper)
-# 
-# fitDat_cov <- figDat_covTemp %>% 
-#   group_by(missingprop_autocor, missingness, type, run_no, autoCor, amtMiss) %>% 
-#   summarize(coverageNumber = sum(coverage, na.rm = TRUE), # the number of models that have coverage
-#             modelRunN = length(!is.na(coverage))# the total number of models 
-#   ) %>% 
-#   mutate(coveragePerc = coverageNumber/modelRunN)
-# 
-# # make figure
-# (coverage_fig <- ggplot(data = fitDat_cov) +
-#     facet_grid(.~missingness, scales = "free") +
-#     geom_boxplot(aes(x = as.factor(amtMiss), y = coveragePerc, col = type), alpha = .5) +
-#     #geom_smooth(aes(x = jitter(propMiss_bin), y = RMSE, col = type), method = "lm", se = FALSE) +
-#     theme_classic() +
-#     #ylim(c(0,1.25)) + 
-#     scale_color_discrete(type = c("#66A61E","#1B9E77", "#E7298A", "#E6AB02","#7570B3"),
-#                          labels = c("Data Del.-Complete", "Data Aug.", "Data Del.-Simple", "Expectation Max.", "Multiple Imp.")) 
-# )
-# 
-# 
-# (rmse_boxFig <- ggplot(data = RMSE) +
-#     facet_grid(.~missingness) +
-#     geom_boxplot(aes(x = as.factor(propMiss_bin), y = RMSE, fill = type), alpha = .7) +
-#     #geom_smooth(aes(x = propMiss, y = RMSE, col = type), method = "lm", se = FALSE) +
-#     theme_classic() +
-#     #ylim(c(0,1.25)) + 
-#     scale_fill_discrete(type = c("#66A61E","#1B9E77", "#E7298A", "#E6AB02","#7570B3"),
-#                         labels = c("Data Del.-Complete", "Data Aug.", "Data Del.-Simple", "Expectation Max.", "Multiple Imp.")) 
-# )
-
-# # calculate low, med, and high autocorr
-# (auSableTS_fig <-
-#   ggplot(realData) +
-#   geom_line(aes(x = date, y = GPP)))
-# 
-# # ggplot(allDat_fig[allDat_fig$missingness == "MAR_highAutoCorr" & allDat_fig$type == "Kalman Filter",]) + 
-# #   geom_line(aes(x = date, y = Estimate_mean, col = propMiss_fac))
-# 
-# (forecastFig <- ggplot() +
-#   facet_grid(. ~ as.factor(type) ~ as.factor(missingness)) +
-#   geom_line(data = realData[lubridate::year(realData$date) == 2014,]
-#             , aes(x = date, y = GPP), col = "grey60") +
-#   geom_line(data = allDat_fig, aes(x = date, y = Estimate_mean, col = propMiss_fac, group = propMiss_fac), alpha = .8) +
-#   theme_classic() +
-#   theme(axis.text.x = element_text(angle = 45, hjust = 1))
-#   )
-# # save figure
-# png(file = "./figures/forecastAccuracy_gaussian_auSable.png", width = 9, height = 6, units = "in", res = 700)
-# forecastFig
-# dev.off()
-# 
-# # Make figure of predictions aucorr x missingness ----------------------------------------------
-# (forecastFig_2 <- ggplot() +
-#     facet_grid(. ~ as.factor(propMiss_fac) ~ as.factor(missingness)) +
-#     geom_line(data = realData[lubridate::year(realData$date) == 2014,]
-#               , aes(x = date, y = GPP), col = "grey60") +
-#     geom_line(data = allDat_fig, aes(x = date, y = Estimate_mean, col = type, group = type), alpha = .8) +
-#     theme_classic() +
-#     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-#    scale_color_discrete(type = c("#66A61E","#1B9E77", "#E7298A", "#E6AB02","#7570B3"),
-#                         labels = c("Data Del.-Complete", "Data Aug.", "Data Del.-Simple", "Expectation Max.", "Multiple Imp.")) 
-#  
-# )
-# # save figure
-# png(file = "./figures/forecastAccuracy_v2_gaussian_auSable.png", width = 9, height = 6, units = "in", res = 700)
-# forecastFig_2
-# dev.off()
-
-# # RMSE figure -------------------------------------------------------------
-# (rmse_fig <- ggplot(data = RMSE) +
-#    facet_grid(.~missingness) +
-#    geom_point(aes(x = jitter(propMiss_bin, factor = 1.5), y = RMSE, col = type), alpha = .3) +
-#    geom_smooth(aes(x = propMiss_bin, y = RMSE, col = type), method = "lm", se = FALSE) +
-#    theme_classic() +
-#    #ylim(c(0,1.25)) + 
-#    ggplot2::labs(x = "Proportion of Missing Data", 
-#                  y = "Root Mean Square Error (RMSE)")+
-#    scale_color_discrete(type = c("#D55E00","#CC79A7", "#E69F00", "#0072B2","#009E73"),
-#                         labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Kalman Filter", "Multiple Imp."), 
-#    )  +
-#    guides(col = guide_legend(title = "Model Type"))
-# )
-# 
-# # Data deletion simple: #E69F00 (orange)
-# #   Data deletion complete:  #D55E00  (red)
-# #   Multiple imputation: #009E73 (green)
-# #   Kalman filter: #0072B2 (blue)
-# #   Data augmentation: #CC79A7 (pink)
-# #  Expectation maximization: #BBBBBB (gray, rather than black)
-# 
-# # save figure
-# png(file = "./figures/RMSE_gaussian_auSable.png", width = 11, height = 5, units = "in", res = 700)
-# rmse_fig
-# dev.off()
-# 
-# # RMSE figure only med. autocorr and MNAR-------------------------------------------------------------
-# (rmse_fig2 <- RMSE %>% 
-#    filter(missingness %in% c("Missing NOT at Random", "MAR: medium autocorrelation")) %>%
-#    ungroup() %>% 
-#    ggplot() +
-#    facet_grid(.~missingness) +
-#    geom_point(aes(x = jitter(propMiss_bin, factor = 1.5), y = RMSE, col = type), alpha = .3) +
-#    geom_smooth(aes(x = propMiss_bin, y = RMSE, col = type), method = "lm", se = FALSE) +
-#    theme_classic() +
-#    #ylim(c(0,1.25)) + 
-#    ggplot2::labs(x = "Proportion of Missing Data", 
-#                  y = "Root Mean Square Error (RMSE)")+
-#    scale_color_discrete(type = c("#D55E00","#CC79A7", "#E69F00", "#0072B2","#009E73"),
-#                         labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Kalman Filter", "Multiple Imp."), 
-#    )  +
-#    guides(col = guide_legend(title = "Model Type"))
-# )
-# 
-# # Data deletion simple: #E69F00 (orange)
-# #   Data deletion complete:  #D55E00  (red)
-# #   Multiple imputation: #009E73 (green)
-# #   Kalman filter: #0072B2 (blue)
-# #   Data augmentation: #CC79A7 (pink)
-# #  Expectation maximization: #BBBBBB (gray, rather than black)
-# 
-# # save figure
-# png(file = "./figures/RMSE_medAutoCorrAndMNAR_gaussian_auSable.png", width = 7, height = 5, units = "in", res = 700)
-# rmse_fig2
-# dev.off()
-# 
-# 
-# # # RMSE figure - boxplot style -------------------------------------------------------------
-# # (rmse_boxFig <- ggplot(data = RMSE) +
-# #    facet_grid(.~missingness) +
-# #    geom_boxplot(aes(x = as.factor(propMiss_bin), y = RMSE, fill = type), alpha = .7) +
-# #    #geom_smooth(aes(x = propMiss, y = RMSE, col = type), method = "lm", se = FALSE) +
-# #    theme_classic() +
-# #    #ylim(c(0,1.25)) + 
-# #    scale_fill_discrete(type = c("#66A61E","#1B9E77", "#E7298A", "#E6AB02","#7570B3"),
-# #                         labels = c("Data Del.-Complete", "Data Aug.", "Data Del.-Simple", "Expectation Max.", "Multiple Imp.")) 
-# # )
-# # # save figure
-# # png(file = "./figures/RMSE_boxplot_gaussian_auSable.png", width = 8, height = 4, units = "in", res = 700)
-# # rmse_boxFig
-# # dev.off()
-# 
-# # RMSE figure - lines with error style -------------------------------------------------------------
-# # reformat data
-# # get rid of RMSE low and high autocorrelation
-# 
-# (rmse_fig2 <- RMSE %>% 
-#    ggplot() +
-#    facet_grid(.~missingness) +
-#    geom_boxplot(aes(x = as.factor(propMiss_bin), y = RMSE, col = type), alpha = .3) +
-#    #geom_smooth(aes(x = propMiss_bin, y = RMSE, col = type), method = "lm", se = FALSE) +
-#    theme_classic() +
-#    #ylim(c(0,1.25)) + 
-#    ggplot2::labs(x = "Proportion of Missing Data", 
-#                  y = "Root Mean Square Error (RMSE)") +
-#    scale_color_discrete(type = c("#D55E00","#CC79A7", "#E69F00", "#0072B2","#009E73"),
-#                         labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Kalman Filter", "Multiple Imp."), 
-#    )  +
-#    guides(col = guide_legend(title = "Model Type"))
-# )
-# 
-# 
-# (rmse_lineErrorBar <- ggplot(data = RMSE_errorBar) +
-#     facet_grid(.~missingness) +
-#     geom_linerange(aes(x = propMiss_bin, ymin = IQR_low, ymax = IQR_high, color = type), alpha = .7, position = position_dodge(width = .1)) +
-#     geom_point(aes(x = propMiss_bin, y = RMSE_mean, color = type), alpha = .7, position = position_dodge(width = .1)) +
-#     geom_smooth(aes(x = propMiss_bin, y = RMSE_mean, col = type), method = "lm", se = FALSE) +
-#     theme_classic() +
-#     ylab("Root Mean Square Error (RMSE)") +
-#     xlab("Proportion of Missing Data") + 
-#     #ylim(c(0,1.25)) + 
-#     scale_x_continuous(breaks=c(0.2,0.4, 0.6)) +
-#     scale_color_discrete(type = c("#D55E00","#CC79A7", "#E69F00", "#0072B2","#009E73"),
-#                          labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Kalman Filter", "Multiple Imp."), 
-#     )  +
-#     guides(col = guide_legend(title = "Model Type"))
-# )
 

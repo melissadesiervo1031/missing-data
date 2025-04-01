@@ -7,9 +7,7 @@ library(ggpubr)
 ## read in data 
 
   
-#gauss_sim_figDat <- readRDS("./data/model_results/gauss_sim_ModelResults_normPrior.rds")# read in from dropbox##
-
-gauss_sim_figDat<-figDat_temp
+gauss_sim_figDat <- readRDS("./data/model_results/gauss_sim_ModelResults_normPrior.rds")
 
 
 # remove data for simluation 376... has one really small parameter, which is causing a lot of outliers
@@ -53,7 +51,7 @@ type_names <- c(
 )
 
 ## make heatmap for median of parameter recovery
-(heatMap_median_MAR <-ggplot(data = figDat, aes(x=amtMiss, y=autoCor)) + 
+(heatMap_median_MCAR <-ggplot(data = figDat, aes(x=amtMiss, y=autoCor)) + 
     geom_tile(aes(fill=paramDiff_med), size=5) + 
     scale_fill_viridis_c(name = "value" , option = "A") +
     #scale_fill_distiller(palette = "Spectral", direction = 1, name = "value")+
@@ -64,10 +62,10 @@ type_names <- c(
     guides(fill = guide_colorbar("Bias")) +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    ggtitle("Median of parameter bias across sims.")) 
+    ggtitle("Median of parameter error across sims.")) 
 
 ## make heatmap for SE of parameter recovery
-(heatMap_SE_MAR <-ggplot(data = figDat, aes(x=amtMiss, y=autoCor)) + 
+(heatMap_SE_MCAR <-ggplot(data = figDat, aes(x=amtMiss, y=autoCor)) + 
     geom_tile(aes(fill=paramDiffAbsDiff_med), size=5) + 
     scale_fill_viridis_c(name = "value" , option = "D") +
     #scale_fill_distiller(palette = "Spectral", direction = 1, name = "value")+
@@ -113,7 +111,7 @@ figDat_covMAR <- figDat_cov %>%
 figDat_covMNAR <- figDat_cov %>% 
   filter(missingness %in% c("MNAR"))
  
-(heatMap_cov_MAR <- ggplot(data = figDat_covMAR, aes(x=amtMiss, y=autoCor)) + 
+(heatMap_cov_MCAR <- ggplot(data = figDat_covMAR, aes(x=amtMiss, y=autoCor)) + 
     geom_tile(aes(fill=coveragePerc*100), size=5) + 
     facet_grid(~factor(figDat_covMAR$param, levels = c("Phi", "Beta covariates")) ~ type, 
                labeller = as_labeller(type_names)) +
@@ -128,20 +126,20 @@ figDat_covMNAR <- figDat_cov %>%
     ggtitle("% of model runs where the 95% CI \n includes the simulation parameter"))
 
 ## save figures
-png(file = "./figures/heatmap_GaussianMAR_median.png", width = 7, height = 6, units = "in", res = 700)
-heatMap_median_MAR
+png(file = "./figures/heatmap_GaussianMCAR_median.png", width = 7, height = 6, units = "in", res = 700)
+heatMap_median_MCAR
 dev.off()
 
-png(file = "./figures/heatmap_GaussianMAR_SE.png", width = 7, height = 6, units = "in", res = 700)
-heatMap_SE_MAR
+png(file = "./figures/heatmap_GaussianMCAR_SE.png", width = 7, height = 6, units = "in", res = 700)
+heatMap_SE_MCAR
 dev.off()
 
-png(file = "./figures/heatmap_GaussianMAR_coverage.png", width = 7, height = 6, units = "in", res = 700)
-heatMap_cov_MAR
+png(file = "./figures/heatmap_GaussianMCAR_coverage.png", width = 7, height = 6, units = "in", res = 700)
+heatMap_cov_MCAR
 dev.off()
 
-png(file = "./figures/heatmap_GaussianMAR_all.png", width = 12.5, height = 6, units = "in", res = 700)
-ggarrange(heatMap_median_MAR, heatMap_SE_MAR, heatMap_cov_MAR)
+png(file = "./figures/heatmap_GaussianMCAR_all.png", width = 12.5, height = 6, units = "in", res = 700)
+ggarrange(heatMap_median_MCAR, heatMap_SE_MCAR, heatMap_cov_MCAR)
 dev.off()
 
 # Make heatmaps for Gaussian MNAR data ------------------------------------
@@ -182,7 +180,7 @@ figDat <- gauss_sim_figDat %>%
           axis.text.y = element_blank(),
           axis.ticks.y = element_blank(),
           axis.title.y = element_blank()) +
-    ggtitle("Median of parameter bias across sims.")) 
+    ggtitle("Median of parameter error across sims.")) 
 
 ## make heatmap for mean of parameter recovery
 (heatMap_SE_MNAR <-ggplot(data = figDat, aes(x=amtMiss, y=autoCor)) + 
