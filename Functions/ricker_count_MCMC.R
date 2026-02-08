@@ -336,18 +336,15 @@ fit_ricker_DA <- function(
       m_r = 0,
       sd_r = 2.5,
       m_lalpha = -3,
-      sd_lalpha = 1
+      sd_lalpha = 1,
+      m_lpsi = 0,
+      sd_lpsi = 100
     ),
     nthin = 5, 
     return_y = FALSE
 ){
   require(parallel)
-  if(fam == "neg_binom"){
-    stop(
-      "Implementation of Negative Binomial model is still in the works."
-    )
-  }
-  
+
   # Check for population extinction
   if(sum(y==0,na.rm=T)>0){
     warning("population extinction caused a divide by zero problem, returning NA")
@@ -413,9 +410,21 @@ fit_ricker_DA <- function(
       rep(1, length(y_full)),
       y_full
     )
-    lp <- -ricker_count_neg_ll(theta = c(r, alpha), y = y_full, X = Xmm, fam = family) +
+    if(family == "poisson"){
+      theta2 = c(r, alpha)
+    }
+    if(family == "neg_binom"){
+      psi <- exp(theta["lpsi"])
+      theta2 = c(r, alpha, psi = psi)
+    }
+    lp <- -ricker_count_neg_ll(theta = theta2, y = y_full, X = Xmm, fam = family) +
       dnorm(r, mean = dat$m_r, sd = dat$sd_r, log = T) + 
       dnorm(theta["lalpha"], mean = dat$m_lalpha, sd = dat$sd_lalpha, log = T)
+    
+    if(family == "neg_binom"){
+      lp <- lp +
+        dnorm(theta["lphi"], mean = dat$m_lphi, sd = dat$sd_lphi, log = T)
+    }
     return(unname(lp))
   }
   
@@ -432,17 +441,15 @@ fit_ricker_DA <- function(
           Nt = y_full[t-1]
         )
         if(family == "poisson"){
-          y_full[t] <- rpois(1, mu_t)
+          y_full[t] <- zt_poisson_rng(1, mu_t)
         }
         if(family == "neg_binom"){
-          y_full[t] <- rnbinom(1, size = exp(theta["lpsi"]), mu = mu_t)
+          y_full[t] <- zt_neg_binom_rng(1, size = exp(theta["lpsi"]), mu = mu_t)
         }
       } else{
         y_full[t] <- y[t]
       }
     }
-    # replace zeros (sort of hacky!!!)
-    y_full[y_full == 0] <- 1
     return(y_full)
   }
   
@@ -483,7 +490,7 @@ fit_ricker_DA <- function(
   
   prop_miss <- mean(is.na(y))
 
-  if(prop_miss == 0 & fam == "poisson"){
+  if(prop_miss == 0){
     force(ls(envir = environment()))
     cl <- parallel::makeCluster(chains)
     parallel::clusterEvalQ(
@@ -515,7 +522,7 @@ fit_ricker_DA <- function(
     parallel::stopCluster(cl)
   }
   
-  if(prop_miss > 0 & fam == "poisson" ){
+  if(prop_miss > 0){
     force(ls(envir = environment()))
     cl <- parallel::makeCluster(chains)
     parallel::clusterEvalQ(

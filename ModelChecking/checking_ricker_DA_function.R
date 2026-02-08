@@ -4,12 +4,20 @@
 ################################################################
 
 
+
 # Test
 set.seed(5526)
 library(tidyverse)
 
 flist <- list.files("Functions/", pattern = ".R", full.names = T)
 lapply(flist, source)
+
+
+# one-off testing
+
+y <- ricker_sim(50, 0.8, 0.01, N0 = 50, err_fam = "neg_binom", psi = 10)
+
+
 
 y <- purrr::map(
   seq(50, 500, by = 50),
