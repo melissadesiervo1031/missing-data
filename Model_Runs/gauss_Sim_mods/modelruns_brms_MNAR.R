@@ -1,7 +1,7 @@
 # Load packages ## 
 #make sure these are already in the folder on supercomputer where I need them ##
 
-.libPaths("/pfs/tc1/home/astears/R/x86_64-pc-linux-gnu-library/4.2")
+#.libPaths("/pfs/tc1/home/astears/R/x86_64-pc-linux-gnu-library/4.2")
 
 library(tidyverse)
 library(brms)
@@ -11,14 +11,13 @@ library(brms)
 
 #CurSim = like a loop ##
 
-CurSim <- commandArgs(trailingOnly = TRUE) #Look at command line arguments only after the R script
-CurSim <- as.numeric(CurSim)
-CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
+# CurSim <- commandArgs(trailingOnly = TRUE) #Look at command line arguments only after the R script
+# CurSim <- as.numeric(CurSim)
+# CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
 
 ## read in the autocor_01 list ##
 
-# gauss_sim_MinMaxMiss <- readRDS("data/missingDatasets/forBeartooth/gauss_sim_randMiss_A.rds")
-gauss_sim_MNAR <- readRDS("/project/modelscape/users/astears/gauss_sim_minMaxMiss.rds")
+gauss_sim_MinMaxMiss <- readRDS("data/missingDatasets/gauss_sim_minMaxMiss.rds")
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
@@ -27,13 +26,16 @@ OutFile <- paste0("gauss_sim_MNAR_brms_modResults_normPriorNB/", CurSim, "brmsva
 #########################################################################################
 ### MY BRMS FUNCTIONS #####
 ##########################################################################################
-### Function to fit a BRMS model on a time series ###
+
 fit_brms_model <- function(sim_list, sim_pars, 
-                           iter = 4000, include_missing = FALSE){
+                           iter = 4000, include_missing = FALSE,
+                           forecast = TRUE, forecast_days = 73,
+                           dat_full ){
+  
   simmissingdf <-lapply(X = sim_list, 
-                        FUN = function(X) cbind.data.frame(GPP = X, 
-                                                           light = sim_pars$X[,2], 
-                                                           discharge = sim_pars$X[,3]))
+                        FUN = function(X) cbind.data.frame(GPP = X[1:292], 
+                                                           light = sim_pars$X[,2][1:292], 
+                                                           discharge = sim_pars$X[,3][1:292]))
   
   
   # Make the model formula and priors
@@ -68,37 +70,73 @@ fit_brms_model <- function(sim_list, sim_pars,
   bpars <- lapply(bmod, extract_brms_pars, include_missing = include_missing)
   names(bpars) <- names(simmissingdf)
   
+  if(forecast){  
+    dat_forecast <- dat_full %>%
+      slice((nrow(dat_full)-forecast_days):nrow(dat_full)) %>%
+      select(date, GPP, light, discharge)
+    
+    predictions <- lapply(bmod, function(mod){
+      predict(mod, newdata = dat_forecast[,-2]) %>%
+        as.data.frame() %>% mutate(date = dat_forecast$date,
+                                   GPP = dat_forecast$GPP)
+    })
+    
+    names(predictions) <- names(simmissingdf)
+    return(list(brms_forecast = predictions,
+                brms_pars = bpars,
+                sim_params = sim_pars))
+  }
+  
   return(list(brms_pars = bpars,
               sim_params = sim_pars))
   
 }
 
-
-
 #####################################################
 #### MODEL RUN BRMS DROP ##############
 #########################################################
+for (i in 1:length(gauss_sim_MNAR)) {
+  CurSim <- i
 
-brms_MNAR <- fit_brms_model(sim_list = gauss_sim_MNAR[[CurSim]]$y,
-                           sim_pars = gauss_sim_MNAR[[CurSim]]$sim_params)
+  ###
+  OutFile_params <- paste(OutFile, CurSim, "brmsvals.csv", sep = "")
+  OutFile_preds <- paste(OutFile, CurSim, "brmspreds.csv", sep = "")
+  
+  # make sure sim_list and sim_params are not pointing to the whole list, which starts w character elements
+  sim_list<- gauss_sim_MNAR[[CurSim]]$y
+  nms <- stringr::str_which(names(sim_list), "^prop")
+  sim_list <- sim_list[nms]
+  
+  # the 'full' dataset is the first list in the 'sim_list" 
+  dat_full <- data.frame("date" = 1:365,
+                         "GPP" = gauss_sim_MNAR[[CurSim]]$y$y_noMiss, 
+                         "light" = gauss_sim_MNAR[[1]]$sim_params$X[,2],
+                         "discharge" = gauss_sim_MNAR[[1]]$sim_params$X[,3]
+  )
+  # slightly increase the control of size of object fitted by parallel brms 
+  options(future.globals.maxSize = 1.0 * 1e9)
+  # fit models
+  brms_MNAR <- fit_brms_model(sim_list = sim_list,
+                             sim_pars = gauss_sim_MNAR[[CurSim]]$sim_params,
+                             forecast = TRUE, forecast_days = 73, 
+                             dat_full = dat_full)
 
-
-########### formatting for figure #############
-
-
-brms_MNAR_df <- map_df(brms_MNAR$brms_pars, ~as.data.frame(.x),
-                      .id = "missingprop_autocor")
-brms_MNAR_df$missingness <- 'MNAR'
-brms_MNAR_df$type <- 'brms'
-brms_MNAR_df$run_no <- CurSim
-
-
-###################################################
-#### SAVE #########
-#################################################
-# Write the output to the folder which will contain all output files as separate csv
-#    files with a single line of data.
-write.csv(brms_MNAR_df, file = OutFile, row.names = FALSE)
+  ########### formatting for figure #############
+  brms_MNAR_df <- map_df(brms_MNAR$brms_pars, ~as.data.frame(.x),
+                         .id = "missingprop_autocor")
+  brms_MNAR_df$missingness <- 'MNAR'
+  brms_MNAR_df$type <- 'brms'
+  brms_MNAR_df$run_no <- CurSim
+  
+  
+  ###################################################
+  #### SAVE #########
+  #################################################
+  # Write the output to the folder which will contain all output files as separate csv
+  #    files with a single line of data.
+  write.csv(brms_MNAR_df, file = OutFile, row.names = FALSE)
+  
+}
 
 
 # Once the job finishes, you can use the following command from within the folder

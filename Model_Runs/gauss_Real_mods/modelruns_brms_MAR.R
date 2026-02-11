@@ -18,7 +18,7 @@ library(here)
 ## read in the data
 # these are example real datasets for comparison
 
-gauss_auSable_randMiss <- readRDS(here("data/missingDatasets/gauss_real_auSable_randMiss_trim.rds"))
+gauss_auSable_randMiss <- readRDS(here("data/missingDatasets/gauss_real_auSable_randMiss.rds"))
 #gauss_badger_randMiss <- readRDS(here("data/missingDatasets/gauss_real_badger_randMiss_trim.rds"))
 au_sable_river_full <- read_csv(here("data/au_sable_river_prepped.csv"))
 #badger_mill_creek_full <- read_csv(here("data/badger_mill_Creek_prepped.csv"))

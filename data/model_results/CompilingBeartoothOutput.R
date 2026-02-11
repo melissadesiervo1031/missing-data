@@ -11,11 +11,11 @@ temp1 <- read_rds(file = "./data/missingDatasets/gauss_sim_randMiss_A.rds")
 temp2 <- read_rds(file = "./data/missingDatasets/gauss_sim_randMiss_B.rds")
 simDat_raw <- c(temp1, temp2)
 
-
 # get true missingness and autocorrelation for each missing time series
 # reshape dataset list
 simDat_raw2 <- map(simDat_raw, function(x) {
-  temp <- data.frame("jdate" = paste0("day_",1:365), x$y) 
+  temp <- data.frame("jdate" = paste0("day_",1:365), x$y$y_noMiss)
+  temp <- data.frame(temp[1:292,], x$y[2:16])
   outDat <- list_rbind(apply(temp[2:16], MARGIN = 2, FUN = function(x) {
     temp_2 <- cbind(temp[1],x) %>% 
       select(jdate, 2) %>% 
@@ -28,7 +28,7 @@ simDat_raw2 <- map(simDat_raw, function(x) {
 )
 # assign the appropriate names 
 simDat_names <- map(simDat_raw, function(x) {
-  temp <- data.frame(as.vector(names(x$y)), "names" = 1:15) 
+  temp <- data.frame(as.vector(names(x$y))[2:16], "names" = 1:15) 
 }
 )  %>% 
   list_rbind()
@@ -57,14 +57,14 @@ simDat_raw3$names_amtMiss <- str_split(simDat_raw3$sim_miss_Names, pattern =  "_
   as.numeric()
 # calculate true amount of missingness
 simDat_raw3$true_amtMiss <- simDat_raw3 %>% 
-  select(1:365) %>% 
+  select(1:292) %>% 
   apply(MARGIN = 1, function(x) {
-    round(sum(is.na(x))/365,2)
+    round(sum(is.na(x))/292,2)
   })
 
 # calculate true amount of autocorrelation
 simDat_raw3$true_autoCorr <- simDat_raw3 %>% 
-  select(1:365) %>% 
+  select(1:292) %>% 
   apply(MARGIN = 1, function(x) {
     # change ts to 1 (not missing) and 0 (missing)
     x[which(!is.na(x))] <- 1
@@ -76,7 +76,8 @@ simDat_raw3$true_autoCorr <- simDat_raw3 %>%
 
 # gauss_sim_MAR_arima models ----------------------------------------------
 # read in first group of output files (stored outside of the Git)
-outData_A <- read.csv("./data/model_results/gauss_sim_randMiss_modelResults_A/gauss_sim_randMiss_modelResults_A.csv")
+# output from arima model runs
+outData_A <- read.csv("./data/model_results/gauss_sim_randMiss_modelResults_A/Allparams.csv")
 
 # for (i in 1:1000) {
 #   assign(x = "temp", 
@@ -92,10 +93,10 @@ outData_A <- read.csv("./data/model_results/gauss_sim_randMiss_modelResults_A/ga
 params <- readRDS("./data/missingDatasets/gauss_sim_params.rds")
 names(params) <- c("SimNumber", "phi_sim", "beta1_sim", "beta2_sim", "beta3_sim")
 
-outData_A_final <- left_join(outData_A, params, by = c("simName" = "SimNumber"))
+outData_A_final <- left_join(outData_A, params, by = c("sim_no" = "SimNumber"))
 
 ## read in the group of output files (stored outside of the Git)
-outData_B <- read.csv("./data/model_results/gauss_sim_randMiss_modelResults_B/gauss_sim_randMiss_modelResults_B.csv")
+outData_B <- read.csv("./data/model_results/gauss_sim_randMiss_modelResults_B/Allparams.csv")
 
 # for (i in 1:1000) {
 #   assign(x = "temp", 
@@ -112,14 +113,14 @@ outData_B <- read.csv("./data/model_results/gauss_sim_randMiss_modelResults_B/ga
 params <- readRDS("./data/missingDatasets/gauss_sim_params.rds")
 names(params) <- c("SimNumber", "phi_sim", "beta1_sim", "beta2_sim", "beta3_sim")
 
-outData_B_final <- left_join(outData_B, params, by = c("simName" = "SimNumber"))
+outData_B_final <- left_join(outData_B, params, by = c("sim_no" = "SimNumber"))
 
 ## combine A and B into one d.f and remove unnecessary columns
 outData_MAR_arima <- rbind(outData_A_final, outData_B_final) %>% 
-  select(-CurSim, -missingnessVersion) %>% 
+  select(-curSim) %>% 
   mutate("2.5%" = NA, "50%" = NA, "97.5%" = NA) %>% 
-  select("simName", "missingprop_autocor", "missingness", "type", "param", "value", "SE", "2.5%", "50%", "97.5%", "phi_sim", "beta1_sim", "beta2_sim", "beta3_sim") %>% 
-  mutate(param = replace(param, param == "ar1", "phi")) %>% 
+  select("sim_no", "missingprop_autocor", "missingness", "type", "parameters", "param_value", "param_se", "2.5%", "50%", "97.5%", "phi_sim", "beta1_sim", "beta2_sim", "beta3_sim") %>% 
+  mutate(parameters = replace(parameters, parameters == "ar1", "phi")) %>% 
   rename("intercept_sim" = "beta1_sim", 
          "light_sim" = "beta2_sim", 
          "discharge_sim" = "beta3_sim")
