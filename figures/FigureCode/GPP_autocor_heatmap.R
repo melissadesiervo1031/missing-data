@@ -7,7 +7,7 @@ library(ggpubr)
 ## read in data 
 
   
-gauss_sim_figDat <- readRDS("./data/model_results/gauss_sim_ModelResults_normPrior.rds")
+gauss_sim_figDat <- readRDS("./data/model_results/gauss_sim_ModelResults.rds")
 
 
 # remove data for simluation 376... has one really small parameter, which is causing a lot of outliers
@@ -34,17 +34,17 @@ figDat <- gauss_sim_figDat %>%
             paramDiff_med = median(paramDiff, na.rm = TRUE),
             paramDiff_SD = sd(paramDiff, na.rm = TRUE),
             n = length(paramDiff)) %>% 
-  filter(n  > 100) %>% # drop combinations that have fewer than 100 observations
+  #filter(n  > 100) %>% # drop combinations that have fewer than 100 observations
   mutate(tooBigSD = ifelse(paramDiff_SD > 1.96, yes = 1, no = NA)) %>% 
   filter(amtMiss <=.65)
 # only consider missingness of 50% or less
 
 # update names for missing data approach
 type_names <- c(
-  "Data Deletion CC" = "Data Deletion-Complete",
-  "Data Deletion Simple" = "Data Deletion-Simple",
-  "Kalman filter" =  "Kalman filter",
-  "Multiple Imputation" = "Multiple Imputation",
+  "dropNA_complete" = "Data Deletion-Complete",
+  "dropNA_simple" = "Data Deletion-Simple",
+  "Kalman Filter" =  "Kalman filter",
+  "Multiple Imputations" = "Multiple Imputation",
   "brms" = "Data Augmentation", 
   "Phi" = "Phi", 
   "Beta covariates" = "Beta covariates"
@@ -62,11 +62,11 @@ figDat2 <- figDat %>%
     scale_fill_gradient2(high = "darkblue",
                          mid = "orange",
                          low = "yellow" ,
-                         midpoint = -.5, limits = c(-0.82, .050),  na.value = "lightgrey") +
+                         midpoint = -.5, limits = c(-4.8, 2.1),  na.value = "lightgrey") +
     #scale_fill_distiller(palette = "Spectral", direction = 1, name = "value")+
     ggh4x::facet_grid2(factor(param, levels = c("phi", "beta")
                                )
-                       ~factor(type, levels = c("Data Deletion CC", "Data Deletion Simple", "Kalman filter", "Multiple imputations", "brms"), 
+                       ~factor(type, levels = c("dropNA_complete", "dropNA_simple", "Kalman Filter", "Multiple Imputations", "brms"), 
                         labels = c('"Data Deletion-Complete"', '"Data Deletion-Simple"', '"Kalman filter"', '"Multiple Imputation"', '"Data Augmentation"'))
                       , labeller = label_parsed) +
     xlab("Proportion of missing data")+
@@ -88,7 +88,7 @@ figDat2 <- figDat %>%
     #scale_fill_distiller(palette = "Spectral", direction = 1, name = "value")+
     ggh4x::facet_grid2(factor(param, levels = c("phi", "beta")
     )
-    ~factor(type, levels = c("Data Deletion CC", "Data Deletion Simple", "Kalman filter", "Multiple imputations", "brms"), 
+    ~factor(type, levels = c("dropNA_complete", "dropNA_simple", "Kalman Filter", "Multiple Imputations", "brms"), 
             labels = c('"Data Deletion-Complete"', '"Data Deletion-Simple"', '"Kalman filter"', '"Multiple Imputation"', '"Data Augmentation"'))
     , labeller = label_parsed) +
     xlab("Proportion of missing data")+
@@ -102,10 +102,10 @@ figDat2 <- figDat %>%
 ## make heatmap for SD of parameter recovery
 # calculate coverage 
 figDat_cov_temp <- gauss_sim_figDat  %>% 
-  mutate(CI95_lower = value - 1.96*SE,
-         CI95_upper = value + 1.96*SE) %>% 
+  mutate(CI95_lower = param_value - 1.96*param_se,
+         CI95_upper = param_value + 1.96*param_se) %>% 
   filter(param != "sigma") %>% 
-  filter(!is.na(SE))# randomly there are some model runs that don't have SE? 
+  filter(!is.na(param_se))# randomly there are some model runs that don't have SE? 
 
 # is the true parameter within the 95% CI? 
 figDat_cov_temp$coverage <- c(figDat_cov_temp$param_simVal >= figDat_cov_temp$CI95_lower & 
@@ -138,7 +138,7 @@ figDat_covMNAR <- figDat_cov %>%
     #geom_tile(data = figDat_covMAR[figDat_covMAR$coveragePerc >.96,], aes(), fill = "grey") + 
     ggh4x::facet_grid2(factor(param, levels = c("phi", "beta")
     )
-    ~factor(type, levels = c("Data Deletion CC", "Data Deletion Simple", "Kalman filter", "Multiple imputations", "brms"), 
+    ~factor(type, levels = c("dropNA_complete", "dropNA_simple", "Kalman Filter", "Multiple Imputations", "brms"), 
             labels = c('"Data Deletion-Complete"', '"Data Deletion-Simple"', '"Kalman filter"', '"Multiple Imputation"', '"Data Augmentation"'))
     , labeller = label_parsed) +
      #scale_fill_distiller(palette = "Greys", direction = 1, name = "value") +#value = SD

@@ -6,7 +6,7 @@ library(here)
 
 ## read in the data ##
 
-gauss_auSable_MinMaxMiss <- readRDS(here("data/missingDatasets/gauss_real_auSable_MinMaxMiss_trim.rds"))
+gauss_auSable_MinMaxMiss <- readRDS(here("data/missingDatasets/gauss_real_auSable_MinMaxMiss.rds"))
 au_sable_river_full <- read_csv(here("data/au_sable_river_prepped.csv"))
 
 # gauss_badger_MinMaxMiss <- readRDS(here("data/missingDatasets/gauss_real_badger_MinMaxMiss.rds"))
