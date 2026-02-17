@@ -4,6 +4,7 @@
 #/////////////////////
 # load packages -----------------------------------------------------------
 library(tidyverse)
+library(astsa)
 
 # function ----------------------------------------------------------------
 #' Function that will introduce varying types and amounts of missing data in a time series
@@ -238,27 +239,52 @@ makeMissing <- function(timeSeries, typeMissing, propMiss = NULL, autoCorr= NULL
                                      lapply(X = missingDat_list, 
                                             FUN = function(x) round(sum(is.na(x))/length(x),2)))
     } else if (type == "Poisson") {
+      
+      ## de-trend the time series (using a 3rd order polynomial)
+      timeSeries_detrend <- astsa::detrend(series = timeSeries, order = 3)
+    
+      missingDat_list <- lapply(X = propMiss_f,                               
+                                FUN = function(X) {
+                                  # identify missing values based on the detrended time series (removing the desired percentage of observations from the bottom part of the distribution of values)
+                                  timeSeries_detrend_MISS <- replace(timeSeries_detrend,    
+                                          # get the indices of the timeSeries values below the cutoff values,  
+                                          list = c(which(timeSeries_detrend < qnorm(X, 
+                                                                                    mean = mean(timeSeries_detrend, na.rm = TRUE), 
+                                                                                    sd = sd(timeSeries_detrend, na.rm = TRUE)))),
+                                          
+                                          values = NA)
+                                  # now remove the values that were removed above from the time series (before de-trending!)
+                                  timeSeries_MISS <- timeSeries
+                                  timeSeries_MISS[is.na(timeSeries_detrend_MISS)] <- NA
+                                  return(timeSeries_MISS)
+                                  # plot(timeSeries, type = "l", ylim = c(-15, 100))
+                                  # points(timeSeries_MISS, col = "red")
+                                  # lines(timeSeries_detrend)
+                                  # points(timeSeries_detrend_MISS, col = "green")
+                                }
+                                  )    
+      
       # first, estimate the lambda values for this given time series
       # function to get size and probability for the negative binomial distribution for this dataset
-      getParm2 = function(betas, my.data) {
-        b1 = betas[1]
-        b2 = betas[2]
-        return(-sum(dnbinom(my.data, mu = b1, size = b2, log = TRUE)))
-      }
-      r1 <- optim(c(0.75, 5), fn = getParm2, my.data=timeSeries, method = "Nelder-Mead"# "BFGS"
-                    , hessian = TRUE)
-      # r1 gives the mean (mu) and size of the negative binomial distribution fit to the timeseries provided
-      # lambda_X <- coef(glm(timeSeries~1, family = poisson(link = "sqrt")))[1]
-      missingDat_list <- lapply(X = propMiss_f,                               
-                                FUN = function(X)
-                                  
-                                  replace(timeSeries,    
-                                          # get the indices of the timeSeries values above the cutoff values 
-                                          list = c(which(timeSeries < #qpois(X, lambda = lambda_X, lower.tail = TRUE)
-                                                           qnbinom(p = X, size = r1$par[2], mu= r1$par[1], lower.tail = TRUE)
-                                                           )),
-                                          values = NA)
-      )
+      # getParm2 = function(betas, my.data) {
+      #   b1 = betas[1]
+      #   b2 = betas[2]
+      #   return(-sum(dnbinom(my.data, mu = b1, size = b2, log = TRUE)))
+      # }
+      # r1 <- optim(c(0.75, 5), fn = getParm2, my.data=timeSeries_detrend, method = "Nelder-Mead"# "BFGS"
+      #               , hessian = TRUE)
+      # # r1 gives the mean (mu) and size of the negative binomial distribution fit to the timeseries provided
+      # # lambda_X <- coef(glm(timeSeries~1, family = poisson(link = "sqrt")))[1]
+      # missingDat_list <- lapply(X = propMiss_f,                               
+      #                           FUN = function(X)
+      #                             
+      #                             replace(timeSeries,    
+      #                                     # get the indices of the timeSeries values above the cutoff values 
+      #                                     list = c(which(timeSeries < #qpois(X, lambda = lambda_X, lower.tail = TRUE)
+      #                                                      qnbinom(p = X, size = r1$par[2], mu= r1$par[1], lower.tail = TRUE)
+      #                                                      )),
+      #                                     values = NA)
+      # )
       
       
       names(missingDat_list) <- paste0("propMissAct_",  

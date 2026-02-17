@@ -17,11 +17,11 @@ library(brms)
 
 ## read in the autocor_01 list ##
 
-gauss_sim_MinMaxMiss <- readRDS("data/missingDatasets/gauss_sim_minMaxMiss.rds")
+gauss_sim_MNAR <- readRDS("data/missingDatasets/gauss_sim_minMaxMiss.rds")
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
-OutFile <- paste0("gauss_sim_MNAR_brms_modResults_normPriorNB/", CurSim, "brmsvals.csv")
+OutFile <- paste0("./data/model_results/gauss_sim_minMax_modelResults/")
 
 #########################################################################################
 ### MY BRMS FUNCTIONS #####
@@ -95,7 +95,10 @@ fit_brms_model <- function(sim_list, sim_pars,
 #####################################################
 #### MODEL RUN BRMS DROP ##############
 #########################################################
-for (i in 1:length(gauss_sim_MNAR)) {
+# slightly increase the control of size of object fitted by parallel brms 
+options(future.globals.maxSize = 1.0 * 1e10)
+# fit models
+for (i in 490:length(gauss_sim_MNAR)) {
   CurSim <- i
 
   ###
@@ -113,8 +116,7 @@ for (i in 1:length(gauss_sim_MNAR)) {
                          "light" = gauss_sim_MNAR[[1]]$sim_params$X[,2],
                          "discharge" = gauss_sim_MNAR[[1]]$sim_params$X[,3]
   )
-  # slightly increase the control of size of object fitted by parallel brms 
-  options(future.globals.maxSize = 1.0 * 1e9)
+
   # fit models
   brms_MNAR <- fit_brms_model(sim_list = sim_list,
                              sim_pars = gauss_sim_MNAR[[CurSim]]$sim_params,
@@ -123,18 +125,29 @@ for (i in 1:length(gauss_sim_MNAR)) {
 
   ########### formatting for figure #############
   brms_MNAR_df <- map_df(brms_MNAR$brms_pars, ~as.data.frame(.x),
-                         .id = "missingprop_autocor")
+                        .id = "missingprop_autocor")
   brms_MNAR_df$missingness <- 'MNAR'
   brms_MNAR_df$type <- 'brms'
   brms_MNAR_df$run_no <- CurSim
   
-  
+  brms_MNAR_preds <- map_df(brms_MNAR$brms_forecast, ~as.data.frame(.x),
+                           .id = "missingprop_autocor")
+  brms_MNAR_preds$missingness <- 'MNAR'
+  brms_MNAR_preds$type <- 'brms'
+  brms_MNAR_preds$run_no <- CurSim
   ###################################################
   #### SAVE #########
   #################################################
   # Write the output to the folder which will contain all output files as separate csv
   #    files with a single line of data.
-  write.csv(brms_MNAR_df, file = OutFile, row.names = FALSE)
+  OutFile_params <- paste(OutFile, CurSim, "brmsvals.csv", sep = "")
+  OutFile_preds <- paste(OutFile, CurSim, "brmspreds.csv", sep = "")
+ 
+  #################################################
+  # Write the output to the folder which will contain all output files as separate csv
+  #    files with a single line of data.
+  write_csv(brms_MAR_df, file = OutFile_params)
+  write_csv(brms_MAR_preds, file = OutFile_preds)
   
 }
 

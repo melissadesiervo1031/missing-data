@@ -231,11 +231,13 @@ inputAutocor <- c(.0, .10, .20, .30, .40, .50, .60, .70, .80, .90)
 # possible autocorrelation vector
 inputAutocor <- c(.0, .10, .20, .30, .40, .50, .60, .70, .80, .90)
 
+inputPropMiss <- c(.18, .19, .2, .21, .22, .38, .39, .4, .41, .42, .58, .59, .6, .61, .62)
+
 for (i in 1:length(inputAutocor)) {
   # calculate missing vectors with increasing levels of missingness
 
   tempOutList <- lapply(X = pois_sim, FUN = function(x)  {
-    last_int <- round(length(x$y)*.8)
+    last_int <- round(length(x$y)*.8) # identifying the last point of the time series w/ 20% removed for forecasting
     list("y" = makeMissing(timeSeries = x$y[1:last_int], typeMissing = "random", autoCorr = inputAutocor[i], 
                            propMiss = inputPropMiss),
          "sim_params" <- x$sim_params)

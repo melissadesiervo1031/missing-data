@@ -51,7 +51,7 @@ fit_arima_dropmissing <- function(sim_list, sim_pars,
   Arimaoutputdrop <- lapply(seq_along(sim_missing_list_drop ), function(j) {
     xreg1<-sim_missing_list_drop [[j]][["light"]]
     xreg2<-sim_missing_list_drop [[j]][["discharge"]]
-    modeldrop <- arima(sim_missing_list_drop [[j]][["GPP"]], order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2))
+    modeldrop <- arima(sim_missing_list_drop [[j]][["GPP"]], order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2) , transform.pars = FALSE)
     arimacoefsdrop <-c(modeldrop$coef, modeldrop$sigma2)
     names(arimacoefsdrop) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
     arimasesdrop<-sqrt(diag(vcov(modeldrop)))
@@ -125,7 +125,7 @@ fit_arima_dropmissing_CC <- function(sim_list, sim_pars,
   Arimaoutputdrop <- lapply(seq_along(sim_missing_list_drop ), function(j) {
     xreg1<-sim_missing_list_drop [[j]][["light"]]
     xreg2<-sim_missing_list_drop [[j]][["discharge"]]
-    modeldrop <- arima(sim_missing_list_drop [[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2))
+    modeldrop <- arima(sim_missing_list_drop [[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2) , transform.pars = FALSE)
     arimacoefsdrop <-c(modeldrop$coef, modeldrop$sigma2)
     names(arimacoefsdrop) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
     arimasesdrop<-sqrt(diag(vcov(modeldrop)))
@@ -186,7 +186,7 @@ fit_arima_Kalman <- function(sim_list, sim_pars, forecast = TRUE, forecast_days 
   ArimaoutputNAs <- lapply(seq_along(simmissingdf), function(j) {
     xreg1<-simmissingdf [[j]][["light"]]
     xreg2<-simmissingdf [[j]][["discharge"]]
-    modelNAs <- arima(simmissingdf[[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2))
+    modelNAs <- arima(simmissingdf[[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2), transform.pars = FALSE)
     arimacoefsNAs <- c(modelNAs$coef, modelNAs$sigma2)
     names(arimacoefsNAs) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
     arimasesNAs<-sqrt(diag(vcov(modelNAs)))
@@ -195,7 +195,7 @@ fit_arima_Kalman <- function(sim_list, sim_pars, forecast = TRUE, forecast_days 
                                "param_value" = arimacoefsNAs, 
                                "param_se" = c(arimasesNAs,NA))
     outList <- list(arima_model = modelNAs,
-                    arima_errors = arimasesdrop,
+                    arima_errors = arima_pars_j$param_se,
                     arima_pars = arima_pars_j,
                     sim_params = sim_pars)
     
@@ -265,7 +265,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
     for (j in seq_along(amelias11sim[[i]])) {
       xreg1<-amelias11sim [[i]][[j]][["light"]]
       xreg2<-amelias11sim [[i]][[j]][["discharge"]]
-      tempobj=arima(amelias11sim[[i]][[j]]$GPP, order = c(1,0,0), xreg = matrix(c(xreg1, xreg2), ncol = 2))
+      tempobj=arima(amelias11sim[[i]][[j]]$GPP, order = c(1,0,0), xreg = matrix(c(xreg1, xreg2), ncol = 2), transform.pars = FALSE)
       arimacoefs<-c(tempobj$coef, tempobj$sigma2)
       names(arimacoefs) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
       arimases<-sqrt(diag(vcov(tempobj)))
@@ -353,7 +353,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
 }
 
 
-for (i in 1001:5000) {
+for (i in 1:5000) {
   CurSim <- i
   #### set up data for this iteration
   
