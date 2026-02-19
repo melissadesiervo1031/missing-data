@@ -243,13 +243,17 @@ fit_ricker_drop <- function(y, fam = "poisson", pro_conf="none", off_patch=F){
       y_cc=y0$ytm1[patch_i][complete.cases(y0$ytm1[patch_i])]
       print(y_cc)
       n=length(y_cc)
-      
-      dat_i <- data.frame(
-        yt = y_cc[2:n],
-        ytm1 = y_cc[1:(n - 1)]
-      )
-      print(dat_i)
-      dat=rbind(dat,dat_i)
+      if(n<2){
+        # skip
+      } else {
+        dat_i <- data.frame(
+          yt = y_cc[2:n],
+          ytm1 = y_cc[1:(n - 1)]
+        )
+        print(dat_i)
+        dat=rbind(dat,dat_i)
+      }
+
     }
     
     colnames(dat)=c("yt","ytm1")
