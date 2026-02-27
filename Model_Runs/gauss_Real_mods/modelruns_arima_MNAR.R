@@ -313,7 +313,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
   
   paramlistsim <- map_df(seq(1:length(listcoefsessim)),
                          function(x){
-                           data.frame("parameters" = c("intercept", "xreg1", "xreg2", "phi", "sigma"),
+                           data.frame("parameters" = c("phi", "intercept", "xreg1", "xreg2", "sigma"),
                                       "param_value" = c(listcoefsessim[[x]]$q.mi, sigmas[x]),
                                       "param_se" = c(listcoefsessim[[x]]$se.mi,NA)) 
                          }, 
@@ -458,7 +458,7 @@ arimaKalman_MNAR_preds$run_no <- CurSim
 # Run models w/ Multiple Imputations --------------------------------------
 
 arima_mi_MNAR <-  fit_arima_MI(sim_list,
-                               gauss_auSable_MinMaxMiss[[CurSim]]$sim_params, 
+                               sim_pars = gauss_auSable_MinMaxMiss[[CurSim]]$sim_params, 
                                imputationsnum=5,
                                forecast = TRUE, forecast_days = forecast_days,
                                dat_full = au_sable_river_full)

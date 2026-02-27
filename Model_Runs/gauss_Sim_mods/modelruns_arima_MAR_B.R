@@ -47,7 +47,7 @@ fit_arima_dropmissing <- function(sim_list, sim_pars,
   Arimaoutputdrop <- lapply(seq_along(sim_missing_list_drop ), function(j) {
     xreg1<-sim_missing_list_drop [[j]][["light"]]
     xreg2<-sim_missing_list_drop [[j]][["discharge"]]
-    modeldrop <- arima(sim_missing_list_drop [[j]][["GPP"]], order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2), transform.pars = FALSE)
+    modeldrop <- arima(sim_missing_list_drop [[j]][["GPP"]], order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2))
     arimacoefsdrop <-c(modeldrop$coef, modeldrop$sigma2)
     names(arimacoefsdrop) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
     arimasesdrop<-sqrt(diag(vcov(modeldrop)))
@@ -121,7 +121,7 @@ fit_arima_dropmissing_CC <- function(sim_list, sim_pars,
   Arimaoutputdrop <- lapply(seq_along(sim_missing_list_drop ), function(j) {
     xreg1<-sim_missing_list_drop [[j]][["light"]]
     xreg2<-sim_missing_list_drop [[j]][["discharge"]]
-    modeldrop <- arima(sim_missing_list_drop [[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2), transform.pars = FALSE)
+    modeldrop <- arima(sim_missing_list_drop [[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2))
     arimacoefsdrop <-c(modeldrop$coef, modeldrop$sigma2)
     names(arimacoefsdrop) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
     arimasesdrop<-sqrt(diag(vcov(modeldrop)))
@@ -182,20 +182,35 @@ fit_arima_Kalman <- function(sim_list, sim_pars, forecast = TRUE, forecast_days 
   ArimaoutputNAs <- lapply(seq_along(simmissingdf), function(j) {
     xreg1<-simmissingdf [[j]][["light"]]
     xreg2<-simmissingdf [[j]][["discharge"]]
-    modelNAs <- arima(simmissingdf[[j]][["GPP"]],order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2), transform.pars = FALSE)
-    arimacoefsNAs <- c(modelNAs$coef, modelNAs$sigma2)
-    names(arimacoefsNAs) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
-    arimasesNAs<-sqrt(diag(vcov(modelNAs)))
-    names(arimasesNAs) <- c("ar1", "intercept", "xreg1", "xreg2")
-    arima_pars_j <- data.frame("parameters" = names(arimacoefsNAs), 
-                               "param_value" = arimacoefsNAs, 
-                               "param_se" = c(arimasesNAs,NA))
-    outList <- list(arima_model = modelNAs,
-                    arima_errors = arima_pars_j$param_se,
-                    arima_pars = arima_pars_j,
-                    sim_params = sim_pars)
+    modelNAs <- try(arima(simmissingdf[[j]][["GPP"]], order = c(1,0,0), xreg = matrix(c(xreg1,xreg2), ncol = 2)))
+    if (is.list(modelNAs)) {
+      arimacoefsNAs <- c(modelNAs$coef, modelNAs$sigma2)
+      names(arimacoefsNAs) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
+      arimasesNAs<-sqrt(diag(vcov(modelNAs)))
+      names(arimasesNAs) <- c("ar1", "intercept", "xreg1", "xreg2")
+      arima_pars_j <- data.frame("parameters" = names(arimacoefsNAs), 
+                                 "param_value" = arimacoefsNAs, 
+                                 "param_se" = c(arimasesNAs,NA))
+      outList <- list(arima_model = modelNAs,
+                      arima_errors = arima_pars_j$param_se,
+                      arima_pars = arima_pars_j,
+                      sim_params = sim_pars)
+      return(outList)
+    } else {
+      arimacoefsNAs <- c(NA, NA, NA, NA, NA)
+      names(arimacoefsNAs) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
+      arimasesNAs<- c(NA, NA, NA, NA)
+      names(arimasesNAs) <- c("ar1", "intercept", "xreg1", "xreg2")
+      arima_pars_j <- data.frame("parameters" = names(arimacoefsNAs), 
+                                 "param_value" = arimacoefsNAs, 
+                                 "param_se" = c(arimasesNAs,NA))
+      outList <- list(arima_model = "modelFitWasSingular",
+                      arima_errors = arima_pars_j$param_se,
+                      arima_pars = arima_pars_j,
+                      sim_params = sim_pars)
+      return(outList)
+    }
     
-    return(outList)
   })
   
   
@@ -216,11 +231,18 @@ fit_arima_Kalman <- function(sim_list, sim_pars, forecast = TRUE, forecast_days 
       rename(xreg1 = "light", xreg2 = "discharge")
     xreg1 <- dat_forecast$xreg1
     xreg2 <- dat_forecast$xreg2
-    predictions <- map_df(ArimaoutputNAs, function(mod){
-      data.frame(predict(mod$arima_model, n.ahead = forecast_days+1, 
-                         newxreg = dat_forecast[,c(3,4)]),
-                 "date" = dat_forecast$date,
-                 "GPP" = dat_forecast$GPP)
+    predictions <- map_df(ArimaoutputNAs[1], function(mod){
+      if (!is.list(mod$arima_model)) {
+        data.frame( "pred" = rep.int(NA, times = forecast_days+1),
+                    "se" = rep.int(NA, times = forecast_days+1),
+                    "date" = rep.int(NA, times = forecast_days+1), "GPP" = rep.int(NA, times = forecast_days+1))
+      } else {
+        data.frame(predict(mod$arima_model, n.ahead = forecast_days+1, 
+                           newxreg = dat_forecast[,c(3,4)]),
+                   "date" = dat_forecast$date,
+                   "GPP" = dat_forecast$GPP)
+      }
+      
     },.id = "missingprop_autocor") 
     
     return(list(arima_forecast = predictions,
@@ -232,6 +254,7 @@ fit_arima_Kalman <- function(sim_list, sim_pars, forecast = TRUE, forecast_days 
 ###### 
 
 ### Function that will impute missing values w/ AMELIA and then fit model using ARIMA ###
+
 
 fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, forecast_days = 73,
                          dat_full){
@@ -261,7 +284,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
     for (j in seq_along(amelias11sim[[i]])) {
       xreg1<-amelias11sim [[i]][[j]][["light"]]
       xreg2<-amelias11sim [[i]][[j]][["discharge"]]
-      tempobj=arima(amelias11sim[[i]][[j]]$GPP, order = c(1,0,0), xreg = matrix(c(xreg1, xreg2), ncol = 2), transform.pars = FALSE)
+      tempobj=arima(amelias11sim[[i]][[j]]$GPP, order = c(1,0,0), xreg = matrix(c(xreg1, xreg2), ncol = 2))
       arimacoefs<-c(tempobj$coef, tempobj$sigma2)
       names(arimacoefs) <- c("ar1", "intercept", "xreg1", "xreg2", "sigma")
       arimases<-sqrt(diag(vcov(tempobj)))
@@ -295,7 +318,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
   
   paramlistsim <- map_df(seq(1:length(listcoefsessim)),
                          function(x){
-                           data.frame("parameters" = c("intercept", "xreg1", "xreg2", "phi", "sigma"),
+                           data.frame("parameters" = c("phi", "intercept", "xreg1", "xreg2",  "sigma"),
                                       "param_value" = c(listcoefsessim[[x]]$q.mi, sigmas[x]),
                                       "param_se" = c(listcoefsessim[[x]]$se.mi,NA)) 
                          }, 
@@ -502,3 +525,7 @@ for (i in 1:5000) {
   write.csv(preds_MAR_all, file = paste0(OutFile, CurSim,"_predValues.csv"), row.names = FALSE)
   
 }
+
+#to aggregate predictions into one doc.
+#     awk '(NR == 1) || (FNR > 1)' *_params.csv > AllParams_arima.csv
+#     awk '(NR == 1) || (FNR > 1)' *_predValues.csv > AllPreds_arima.csv
