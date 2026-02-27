@@ -249,24 +249,16 @@ fit_arima_Kalman <- function(sim_list, sim_pars, forecast = TRUE, forecast_days 
 
 # multiple imputations + Arima function -----------------------------------
 
-fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, forecast_days = 365,
+
+fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, forecast_days = 73,
                          dat_full){
   
-  days<-seq(1:292)
-  
   simmissingdf <- lapply(X = sim_list, 
-                         FUN = function(X) cbind.data.frame(days= days,
+                         FUN = function(X) cbind.data.frame(days = 1:292,
                                                             GPP = X[1:292], #the first element of the list, which includes the full length of the time series w/ no msisingness, needs to be curtailed to match the lenght of the other missing datasets 
                                                             light = sim_pars$X[,2][1:292], 
-                                                            discharge = sim_pars$X[,3][1:292]))
+                                                            discharge = sim_pars$X[,3][1:292])) # Q is discharge
   
-  ## commented out b/c data have already been held out for foreasting in the process of generating the missing datasets
-  # ## holdout data for forecasting
-  # if(forecast){
-  #   simmissingdf <- lapply(simmissingdf, function(df) {
-  #     df[1:(nrow(dat_full)-forecast_days), ]  # Remove to save these for forecasting
-  #   })
-  # }
   
   amelia1sim <-lapply(X = simmissingdf  , FUN = function(X)   amelia(X, ts="days", m=imputationsnum, lags="GPP")) ## lags by 1 day ##
   
@@ -303,6 +295,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
   }
   
   ### Averages the models together back to 1 model per missing data prop ##
+  
   listcoefsessim<-mapply(function(X,Y) {
     list(mi.meld(data.frame(X), data.frame(Y), byrow=FALSE))
   }, X=lapply(modelparamlistsim, function(x) lapply(x, function (x) x[1:4])), 
@@ -319,7 +312,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
   
   paramlistsim <- map_df(seq(1:length(listcoefsessim)),
                          function(x){
-                           data.frame("parameters" = c("intercept", "xreg1", "xreg2", "phi", "sigma"),
+                           data.frame("parameters" = c("phi", "intercept", "xreg1", "xreg2",  "sigma"),
                                       "param_value" = c(listcoefsessim[[x]]$q.mi, sigmas[x]),
                                       "param_se" = c(listcoefsessim[[x]]$se.mi,NA)) 
                          }, 
@@ -371,8 +364,6 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
               selistsim
   ))
 }
-
-
 
 
 for (i in 1:length(gauss_sim_MNAR)) {
@@ -533,7 +524,8 @@ for (i in 1:length(gauss_sim_MNAR)) {
 
 # Once the job finishes, you can use the following command from within the folder
 #    containing all single line csv files to compile them into a single csv file:
-#     awk '(NR == 1) || (FNR > 1)' *vals.csv > AllResults.csv
+#    awk '(NR == 1) || (FNR > 1)' *_params.csv > AllParams_arima.csv
+#    awk '(NR == 1) || (FNR > 1)' *_predValues.csv > AllPreds_arima.csv
 # The * is a wildcard character so the input to this will match any file within
 #    your current folder that ends with vals.csv regardless of the rest of the filename.
 #    These will then all be combined into a single file (AllResults.csv). The order

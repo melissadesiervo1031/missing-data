@@ -94,6 +94,8 @@ fit_brms_model <- function(sim_list, sim_pars,
   bprior <- c(prior(normal(0,1), class = 'ar'),
               prior(normal(0,5), class = 'b'))
   
+  oopts <- options(future.globals.maxSize = 1.0 * 1e11)  ## 1.0 GB
+  on.exit(options(oopts))
   # fit model to list of datasets
   bmod <- brms::brm_multiple(bform, data = simmissingdf, 
                              prior = bprior, iter = iter, 
@@ -161,8 +163,7 @@ fit_brms_model <- function(sim_list, sim_pars,
 # brms_MAR_df$type <- 'brms'
 # brms_MAR_df$run_no <- CurSim
 # 
-
-for (i in 164:length(gauss_sim_randMiss_autoCorr_01)){#seq_along(gauss_sim_randMiss_autoCorr_01)) {
+for (i in 3139:length(gauss_sim_randMiss_autoCorr_01)){#seq_along(gauss_sim_randMiss_autoCorr_01)) {
   CurSim <- i
   OutFile_params <- paste(OutFile, CurSim, "brmsvals.csv", sep = "")
   OutFile_preds <- paste(OutFile, CurSim, "brmspreds.csv", sep = "")
@@ -214,7 +215,8 @@ write_csv(brms_MAR_df, file = OutFile)
 
 # Once the job finishes, you can use the following command from within the folder
 #    containing all single line csv files to compile them into a single csv file:
-#     awk '(NR == 1) || (FNR > 1)' *vals.csv > AllResults.csv
+#     awk '(NR == 1) || (FNR > 1)' *brmsvals.csv > AllParams_brms.csv
+#     awk '(NR == 1) || (FNR > 1)' *brmspreds.csv > AllPreds_brms.csv
 # The * is a wildcard character so the input to this will match any file within
 #    your current folder that ends with vals.csv regardless of the rest of the filename.
 #    These will then all be combined into a single file (AllResults.csv). The order

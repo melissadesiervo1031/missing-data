@@ -77,7 +77,7 @@ simDat_raw3$true_autoCorr <- simDat_raw3 %>%
 # gauss_sim_MAR_arima models ----------------------------------------------
 # read in first group of output files (stored outside of the Git)
 # output from arima model runs
-outData_A <- read.csv("./data/model_results/gauss_sim_randMiss_modelResults_A/Allparams.csv")
+outData_A <- read.csv("./data/model_results/gauss_sim_randMiss_modelResults_A/AllParams_arima.csv")
 
 # for (i in 1:1000) {
 #   assign(x = "temp", 
@@ -96,7 +96,7 @@ names(params) <- c("SimNumber", "phi_sim", "beta1_sim", "beta2_sim", "beta3_sim"
 outData_A_final <- left_join(outData_A, params, by = c("sim_no" = "SimNumber"))
 
 ## read in the group of output files (stored outside of the Git)
-outData_B <- read.csv("./data/model_results/gauss_sim_randMiss_modelResults_B/Allparams.csv")
+outData_B <- read.csv("./data/model_results/gauss_sim_randMiss_modelResults_B/AllParams_arima.csv")
 
 # for (i in 1:1000) {
 #   assign(x = "temp", 
@@ -128,10 +128,13 @@ outData_MAR_arima <- rbind(outData_A_final, outData_B_final) %>%
          "simName" = "sim_no")
 
 
+# ggplot(testDat) + 
+#   geom_boxplot(aes(x = parameters, y = param_value, col = type))
+
 # gauss_sim_MNAR_arima models ---------------------------------------------------
 
 # read in the group of output files (stored outside of the Git)
-outData_MNAR_arima <- read.csv("./data/model_results/gauss_sim_minMax_modelResults/AllParams.csv")
+  outData_MNAR_arima <- read.csv("./data/model_results/gauss_sim_minMax_modelResults/AllParams_arima.csv")
 
 # for (i in 1:length(fileNames_MNAR)) {
 #   assign(x = "temp", 
@@ -149,13 +152,13 @@ outData_MNAR_arima <- read.csv("./data/model_results/gauss_sim_minMax_modelResul
 params <- readRDS("./data/missingDatasets/gauss_sim_params.rds")
 names(params) <- c("SimNumber", "phi_sim", "beta1_sim", "beta2_sim", "beta3_sim")
 
-outData_MNAR_final <- left_join(outData_MNAR, params, by = c("sim_no" = "SimNumber"))
+outData_MNAR_final <- left_join(outData_MNAR_arima, params, by = c("sim_no" = "SimNumber"))
 
 # change curSim to "simNumber" (the same thing, in this case)
 outData_MNAR_arima <- outData_MNAR_final %>% 
-  rename("simName" = "curSim") %>%
+  mutate(simName = curSim) %>%
   mutate("2.5%" = NA, "50%" = NA, "97.5%" = NA) %>% 
-  select("simName", "missingprop_autocor", "missingness", "type", "parameters", "param_value", "param_se", "2.5%", "50%", "97.5%", "phi_sim", "beta1_sim", "beta2_sim", "beta3_sim") %>%  
+  select("simName", "curSim", "missingprop_autocor", "missingness", "type", "parameters", "param_value", "param_se", "2.5%", "50%", "97.5%", "phi_sim", "beta1_sim", "beta2_sim", "beta3_sim") %>%  
   mutate(parameters = replace(parameters, parameters == "ar1", "phi")) %>% 
   rename("intercept_sim" = "beta1_sim", 
          "light_sim" = "beta2_sim", 
@@ -164,11 +167,14 @@ outData_MNAR_arima <- outData_MNAR_final %>%
 #  gauss_sim_MAR_brms models ----------------------------------------------
 
 brms_MAR_A<- read_csv("./data/model_results/gauss_sim_randMiss_modelResults_A/AllParams_brms.csv", 
-                      show_col_types = FALSE) #379999 X  10#
+                      show_col_types = FALSE) %>% 
+  filter(parameter != "Intercept") #379999 X  10#
 brms_MAR_B<- read_csv("./data/model_results/gauss_sim_randMiss_modelResults_B/AllParams_brms.csv", 
-                      show_col_types = FALSE) # 379999 X 10#
+                      show_col_types = FALSE) %>% 
+  filter(parameter != "Intercept")  # 379999 X 10#
 # combine together
-outData_MAR_brms <- rbind(brms_MAR_A, brms_MAR_B) %>% 
+outData_MAR_brms <- rbind(brms_MAR_A, brms_MAR_B
+                          ) %>% 
  # brms_MAR_A %>% 
   rename("param" = "parameter", "value" = "mean", "SE" = "sd") %>% 
   select("missingprop_autocor", "missingness", "type", "param", "value", "SE", "2.5%", "50%", "97.5%", "run_no") %>% 
@@ -180,7 +186,8 @@ simDF <- data.frame("run_no" = 1:5000,
                     "simName" = rep.int(1:1000, times = 5))
 outData_MAR_brms <- outData_MAR_brms %>% 
   left_join(simDF) %>% 
-  select("simName", "missingprop_autocor", "missingness", "type", "param", "value", "SE", "2.5%", "50%", "97.5%") %>% 
+  mutate(curSim = NA) %>% 
+  select("simName", "curSim", "missingprop_autocor", "missingness", "type", "param", "value", "SE", "2.5%", "50%", "97.5%") %>% 
   left_join(params, by = c("simName" = "SimNumber")) %>% 
   mutate(param = replace(param, param == "b_Intercept", "intercept")) %>% 
   mutate(param = replace(param, param == "b_light", "light")) %>% 
@@ -237,7 +244,8 @@ outData_MAR_brms <- outData_MAR_brms %>%
 #          "discharge_sim" = "beta3_sim")
 
 # gauss_sim_MNAR_brms models ----------------------------------------------
-brms_MNAR <- read_csv("./data/model_results/gauss_sim_minMax_modelResults/AllParams_brms.csv", show_col_types = FALSE) # 80999 X 10 # 
+brms_MNAR <- read_csv("./data/model_results/gauss_sim_minMax_modelResults/AllParams_brms.csv", show_col_types = FALSE) %>% 
+  filter(parameter != "Intercept") # 80999 X 10 # 
 
 # combine together
 outData_MNAR_brms <- brms_MNAR %>% 
@@ -251,7 +259,8 @@ simDF <- data.frame("run_no" = 1:5000,
                     "simName" = rep.int(1:1000, times = 5))
 outData_MNAR_brms <- outData_MNAR_brms %>% 
   left_join(simDF) %>% 
-  select("simName", "missingprop_autocor", "missingness", "type", "param", "value", "SE", "2.5%", "50%", "97.5%") %>% 
+  mutate(curSim = NA) %>% 
+  select("simName", "curSim", "missingprop_autocor", "missingness", "type", "param", "value", "SE", "2.5%", "50%", "97.5%") %>% 
   left_join(params, by = c("simName" = "SimNumber")) %>% 
   mutate(missingness = "MNAR") %>% # change "MAR" to "MNAR" (was a mistake)
   mutate(param = replace(param, param == "b_Intercept", "intercept")) %>% 
@@ -304,6 +313,20 @@ simDat <- gauss_sim_figDat %>%
                names_transform = function(x) str_split(string = x, pattern = "_", simplify = TRUE)[,1]) %>% 
   unique()
 
+
+# # get sim parameters from the raw data to compare
+# simDat_raw_params <- lapply(simDat_raw, FUN = function(x) {
+#   return(data.frame("phi" = x[["sim_params"]]$phi,
+#              "beta1" = x[["sim_params"]]$beta[1],
+#              "beta2" = x[["sim_params"]]$beta[2],
+#              "beta3" = x[["sim_params"]]$beta[3]
+#   ))
+# })
+# simDat_raw_params <- simDat_raw_params %>% 
+#   purrr::list_rbind() %>% 
+#   unique()
+# simDat_raw_params$simName <- c(1:nrow(simDat_raw_params))
+
 # remove columns for simulation data
 gauss_sim_figDat <- gauss_sim_figDat %>% 
   select(-phi_sim, -intercept_sim, -light_sim, -discharge_sim)
@@ -321,6 +344,94 @@ gauss_sim_figDat <- gauss_sim_figDat %>%
 saveRDS(gauss_sim_figDat, file = "./data/model_results/gauss_sim_ModelResults.rds")
 
 # # save model outputs for Gaussian simulation models w/ brms that use Normal priors w/ no Bounds----------------------------
+
+# tidy gaussian real data -------------------------------------------------
+
+# read in data
+# get MCAR data
+gauss_real_arima <- read.csv("./data/model_results/gauss_real_MAR_arima_modResults/au_sable/gauss_auSable_real_MAR_arima_FORECASTvals.csv") %>%
+  select(missingprop_autocor:run_no)
+gauss_real_brms <- read.csv("./data/model_results/gauss_real_MAR_brms_modResults/auSable/gauss_auSable_real_MAR_brms_FORECASTvals.csv") %>%
+  select(missingprop_autocor:sd, missingness:run_no) %>%
+  rename(parameters = parameter,
+         param_value = mean,
+         param_se = sd) %>% 
+  filter(parameters != "Intercept") %>% 
+  unique()
+
+gauss_real_figDat <- gauss_real_arima %>%
+  rbind(gauss_real_brms) %>%
+  mutate(amtMiss = as.numeric(str_extract(missingprop_autocor, pattern = "[0-9/.0-9]+")),
+         autoCor = as.numeric(str_extract(missingprop_autocor, pattern = "[0-9/.0-9]+$")),
+         parameters = replace(parameters, parameters == "xreg1", "light"),
+         parameters = replace(parameters, parameters == "b_light","light"),
+         parameters = replace(parameters, parameters == "b_Intercept","intercept"),
+         parameters = replace(parameters, parameters == "b_Q","Q"),
+         parameters = replace(parameters, parameters == "xreg2","Q"),
+         parameters = replace(parameters, parameters == "ar1","phi")
+  )
+
+# get MNAR data
+gauss_real_arima_MNAR <- read.csv("./data/model_results/gauss_real_MNAR_arima_modResults/au_sable/gauss_auSable_real_MNAR_arima_FORECASTvals.csv") %>%
+  select(missingprop_autocor:run_no)
+gauss_real_brms_MNAR <- read.csv("./data/model_results/gauss_real_MNAR_brms_modResults/auSable/brmsvals.csv") %>%
+  select(missingprop_autocor:sd, missingness:run_no) %>%
+  rename(parameters = parameter,
+         param_value = mean,
+         param_se = sd)%>% 
+  filter(parameters != "Intercept") %>% 
+  unique()
+
+gauss_real_figDat_MNAR <- gauss_real_arima_MNAR %>%
+  rbind(gauss_real_brms_MNAR) %>%
+  mutate(autoCor = NA,
+         amtMiss = as.numeric(str_extract(missingprop_autocor, pattern = "[0-9/.0-9]+$"))
+  ) %>%
+  mutate(amtMiss = replace(amtMiss, is.na(amtMiss), 0.44)) %>%
+  mutate(
+    parameters = replace(parameters, parameters == "xreg1", "light"),
+    parameters = replace(parameters, parameters == "b_light","light"),
+    parameters = replace(parameters, parameters == "b_Intercept","intercept"),
+    parameters = replace(parameters, parameters == "Intercept","intercept"),
+    parameters = replace(parameters, parameters == "b_discharge","Q"),
+    parameters = replace(parameters, parameters == "xreg2","Q"),
+    parameters = replace(parameters, parameters == "ar1","phi")
+  )
+## add the MNAR data to the MAR data
+gauss_real_figDat <- gauss_real_figDat %>%
+  rbind(gauss_real_figDat_MNAR)
+## get the data from models fit to the 'complete' dataset (has a few NAs), which will be the parameters that those fit to the missing datasets will be compared to
+gauss_real_RefParams_arima <- read.csv("./data/model_results/gauss_real_MAR_arima_modResults/au_sable/CompleteDataset_arimavals.csv") %>%
+  select(missingprop_autocor:run_no)
+gauss_real_RefParams_brms <- read.csv("./data/model_results/gauss_real_MAR_brms_modResults/auSable/CompleteDataset_brmsvals.csv") %>%
+  select(missingprop_autocor:sd, missingness:run_no) %>%
+  rename(parameters = parameter,
+         param_value = mean,
+         param_se = sd) %>%
+  filter(parameters != "Intercept")
+
+gauss_real_RefParams <- gauss_real_RefParams_arima %>%
+  rbind(gauss_real_RefParams_brms) %>%
+  mutate(
+    parameters = replace(parameters, parameters == "xreg1", "light"),
+    parameters = replace(parameters, parameters == "b_light","light"),
+    parameters = replace(parameters, parameters == "b_Intercept","intercept"),
+    parameters = replace(parameters, parameters == "b_Q","Q"),
+    parameters = replace(parameters, parameters == "xreg2","Q"),
+    parameters = replace(parameters, parameters == "ar1","phi")
+  ) %>%
+  rename(param_simVal = param_value)
+
+## add the parameters from the models fit to the 'complete' dataset as reference
+gauss_real_figDat <- gauss_real_figDat %>%
+  left_join(gauss_real_RefParams %>% select(parameters, param_simVal, type)) %>%
+  # calculate difference between model-derived parameters w/ missingness and no missingness
+  dplyr::mutate(paramDiff = ((param_value - param_simVal)/abs(param_simVal)),
+                paramDiff_absDiff = abs((param_value - param_simVal)/abs(param_simVal)))
+# save for later
+saveRDS(gauss_real_figDat, "./data/model_results/gauss_real_ModelResults.rds")
+
+
 # 
 # ## combine all of the model results for gaussian simulated data
 # outData_gauss_sim_normPrior <- rbind(outData_MAR_arima, 

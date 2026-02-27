@@ -11,20 +11,20 @@ library("ggplotify")
 
 # read in prediction data for au-sable river ------------------------------------------------------------
 # read in real, complete dataset
-realData <- read.csv("./data/au_sable_river_prepped.csv") %>% 
-  mutate(date = lubridate::as_datetime(date))
+realData <- readRDS("./data/gauss_ar1_0miss_datasets.rds") #%>% 
+ #mutate(date = lubridate::as_datetime(date))
 
 # MAR arima data
-MCAR_arima <- read.csv("./data/model_results/gauss_real_MAR_arima_modResults/au_sable/gauss_auSable_real_MAR_arima_FORECASTpreds.csv") %>% 
-  rename(Estimate = pred, Est.Error = se) %>% 
+MCAR_arima <- read.csv("./data/model_results/gauss_sim_randMiss_modelResults_A/AllPreds_arima.csv") %>% 
+  rename(Estimate = pred, Est.Error = se,
+         run_no = sim_no) %>% 
   mutate(Q2.5 = NA, Q97.5 = NA) %>% 
-  select(-CurSim, -X, -...1, -...11, -...12, -...13) %>% 
   relocate(missingprop_autocor, Estimate, Est.Error, Q2.5, Q97.5, date, GPP, missingness, type, run_no) %>% 
   mutate(date = lubridate::as_datetime(date))
 # MAR brms data
 MCAR_brms <- read.csv("./data/model_results/gauss_real_MAR_brms_modResults/auSable/gauss_auSable_real_MAR_brms_FORECASTpreds.csv") %>% 
   mutate(date = lubridate::as_datetime(date)) %>% 
-  select(-...1, -X, -...12)
+  select(-X, -...1)
 
 # MNAR arima data
 MNAR_arima <- read.csv("./data/model_results/gauss_real_MNAR_arima_modResults/au_sable/gauss_auSable_real_MNAR_arima_FORECASTpreds.csv") %>% 

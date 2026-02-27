@@ -98,7 +98,7 @@ fit_brms_model <- function(sim_list, sim_pars,
 # slightly increase the control of size of object fitted by parallel brms 
 options(future.globals.maxSize = 1.0 * 1e10)
 # fit models
-for (i in 490:length(gauss_sim_MNAR)) {
+for (i in 976:length(gauss_sim_MNAR)) {
   CurSim <- i
 
   ###
@@ -146,11 +146,64 @@ for (i in 490:length(gauss_sim_MNAR)) {
   #################################################
   # Write the output to the folder which will contain all output files as separate csv
   #    files with a single line of data.
-  write_csv(brms_MAR_df, file = OutFile_params)
-  write_csv(brms_MAR_preds, file = OutFile_preds)
+  write_csv(brms_MNAR_df, file = OutFile_params)
+  write_csv(brms_MNAR_preds, file = OutFile_preds)
   
 }
 
+# fit the model w/ no missingness
+for (i in 491:length(gauss_sim_MNAR)) {
+  CurSim <- i
+  
+  ###
+  OutFile_params <- paste(OutFile, CurSim, "brmsvals.csv", sep = "")
+  OutFile_preds <- paste(OutFile, CurSim, "brmspreds.csv", sep = "")
+  
+  # make sure sim_list and sim_params are not pointing to the whole list, which starts w character elements
+  sim_list<- gauss_sim_MNAR[[CurSim]]$y
+ # nms <- stringr::str_which(names(sim_list), "^prop")
+  sim_list <- sim_list["y_noMiss"]
+  
+  # the 'full' dataset is the first list in the 'sim_list" 
+  dat_full <- data.frame("date" = 1:365,
+                         "GPP" = gauss_sim_MNAR[[CurSim]]$y$y_noMiss, 
+                         "light" = gauss_sim_MNAR[[1]]$sim_params$X[,2],
+                         "discharge" = gauss_sim_MNAR[[1]]$sim_params$X[,3]
+  )
+  
+  # fit models
+  brms_MNAR <- fit_brms_model(sim_list = sim_list,
+                              sim_pars = gauss_sim_MNAR[[CurSim]]$sim_params,
+                              forecast = TRUE, forecast_days = 73, 
+                              dat_full = dat_full)
+  
+  ########### formatting for figure #############
+  brms_MNAR_df <- map_df(brms_MNAR$brms_pars, ~as.data.frame(.x),
+                         .id = "missingprop_autocor")
+  brms_MNAR_df$missingness <- 'MNAR'
+  brms_MNAR_df$type <- 'brms'
+  brms_MNAR_df$run_no <- CurSim
+  
+  brms_MNAR_preds <- map_df(brms_MNAR$brms_forecast, ~as.data.frame(.x),
+                            .id = "missingprop_autocor")
+  brms_MNAR_preds$missingness <- 'MNAR'
+  brms_MNAR_preds$type <- 'brms'
+  brms_MNAR_preds$run_no <- CurSim
+  ###################################################
+  #### SAVE #########
+  #################################################
+  # Write the output to the folder which will contain all output files as separate csv
+  #    files with a single line of data.
+  OutFile_params <- paste(OutFile, CurSim, "brmsvals_noMiss.csv", sep = "")
+  OutFile_preds <- paste(OutFile, CurSim, "brmspreds_noMiss.csv", sep = "")
+  
+  #################################################
+  # Write the output to the folder which will contain all output files as separate csv
+  #    files with a single line of data.
+  write_csv(brms_MNAR_df, file = OutFile_params)
+  write_csv(brms_MNAR_preds, file = OutFile_preds)
+  
+}
 
 # Once the job finishes, you can use the following command from within the folder
 #    containing all single line csv files to compile them into a single csv file:
