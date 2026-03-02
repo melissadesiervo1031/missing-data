@@ -246,12 +246,21 @@ ricker_EM_multi <- function(y_list, init_theta, fam = "poisson", tol = 1e-5, max
   
   # Remove leading NAs and store cleaned series
   y_list <- lapply(y_list, function(y){
+    if(all(is.na(y))) return(NULL)
     if(is.na(y[1])){
       obs <- which(!is.na(y))
       y <- y[min(obs):length(y)]
     }
     return(y)
   })
+  
+  # Remove completely missing series
+  n_before <- length(y_list)
+  y_list <- Filter(Negate(is.null), y_list)
+  n_after <- length(y_list)
+  
+  if(n_after == 0) stop("All series are completely missing, cannot fit model.")
+  if(n_after < n_before) warning(sprintf("%d completely missing series removed before fitting.", n_before - n_after))
   
   # Initialize parameter history
   Theta <- matrix(init_theta, nrow = 1)
@@ -344,6 +353,23 @@ ricker_EM_multi <- function(y_list, init_theta, fam = "poisson", tol = 1e-5, max
 #' @param ... Additional args passed to ricker_EM_multi (e.g. init_theta, max_iter)
 #' 
 fit_ricker_EM_multi <- function(y_list, fam = "poisson", ...){
+  
+  y_list <- lapply(y_list, function(y){
+    if(all(is.na(y))) return(NULL)
+    if(is.na(y[1])){
+      obs <- which(!is.na(y))
+      y <- y[min(obs):length(y)]
+    }
+    return(y)
+  })
+  
+  # Remove completely missing series
+  n_before <- length(y_list)
+  y_list <- Filter(Negate(is.null), y_list)
+  n_after <- length(y_list)
+  
+  if(n_after == 0) stop("All series are completely missing, cannot fit model.")
+  if(n_after < n_before) warning(sprintf("%d completely missing series removed before fitting.", n_before - n_after))
   
   # Input checks across all series
   for(i in seq_along(y_list)){

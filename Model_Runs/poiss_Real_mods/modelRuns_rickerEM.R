@@ -2,6 +2,7 @@
 library(here)
 library(tidyverse)
 source(here("Functions/ricker_MI_function.R"))
+source(here("Functions/ricker_count_EM.R"))
 source(here("Functions/ricker_drop_function.R"))
 
 forecast_rmse=function(ralpha,trueTS){
@@ -181,46 +182,43 @@ saveRDS(previous_result,here("data/model_results/pois_real_randMiss_drop_cc_MI_E
 
 missing_i=numeric(0)
 missing_result=numeric(0)
-drop_fits=list()
-cc_fits=list()
+#drop_fits=list()
+#cc_fits=list()
 #MI_fits=list()
-noMiss_fits=list()
-rmse_drop=numeric(0)
-rmse_cc=numeric(0)
+#noMiss_fits=list()
+EM_fits=list()
+#rmse_drop=numeric(0)
+#rmse_cc=numeric(0)
 #rmse_MI=numeric(0)
-rmse_noMiss=numeric(0)
+#rmse_noMiss=numeric(0)
+rmse_EM=numeric(0)
 LOO_rep=numeric(0)
 
 offset_ref=data_MNAR$y$patch # this is the patches reference
 patches=levels(offset_ref) # this is a vector of the different patches
 for(k in 4:length(data_MNAR$y)){ # iterate over datasets in data_MNAR
   
-  all_patch_dat=matrix(nrow=0,ncol=3)
+  all_patch_dat=list()
   for(i in 1:length(patches)){ # within each random set separate the 10 patches for alignment
     
     patch_i=which(data_MNAR$y$patch==patches[i])
     
     print(data_MNAR$y[[k]][patch_i])
     print(length(data_MNAR$y[[k]][patch_i]))
-    # offset data
-    yt=c(data_MNAR$y[[k]][patch_i],NA)
-    ytm1=c(NA,data_MNAR$y[[k]][patch_i])
-    patchv=rep(patches[i],length(ytm1))
-    # combine offset data
-    patch_dat=cbind(ytm1,yt,patchv)
-    all_patch_dat=rbind(all_patch_dat,patch_dat)
+    # add data to list for all patches
+    yt=data_MNAR$y[[k]][patch_i]
+    all_patch_dat[[i]]=as.numeric(yt)
+    
   }
-  # offset data for all patches
-  all_patch_dat=as.data.frame(all_patch_dat)
   
   for(l in 1:length(patches)){ # iterate over patches for LOO length(patches)
     # create LOO data sets by excluding patches[l]
-    LOO_patch_dat=all_patch_dat[-which(all_patch_dat$patchv==patches[l]),]
-    LOO_patch_dat$ytm1=as.numeric(LOO_patch_dat$ytm1)
-    LOO_patch_dat$yt=as.numeric(LOO_patch_dat$yt)
+    LOO_patch_dat=all_patch_dat[(1:length(patches))[-l]]
+    
     # fit actual model
-    fits_cc=fit_ricker_cc(LOO_patch_dat,off_patch = T,fam="neg_binom")
-    fits_drop=fit_ricker_drop(LOO_patch_dat,off_patch = T,fam="neg_binom")
+    #fits_cc=fit_ricker_cc(LOO_patch_dat,off_patch = T,fam="neg_binom")
+    #fits_drop=fit_ricker_drop(LOO_patch_dat,off_patch = T,fam="neg_binom")
+    fits_EM=fit_ricker_EM_multi(LOO_patch_dat,fam="neg_binom")
     
     patches2=unique(LOO_patch_dat$patchv)
     # imputed=ricker_MI(LOO_patch_dat[LOO_patch_dat$patchv==patches2[1],],off_patch = T)
@@ -236,39 +234,39 @@ for(k in 4:length(data_MNAR$y)){ # iterate over datasets in data_MNAR
     # do predictions
     true_values=data_MNAR$y$number[which(data_MNAR$y$patch==patches[l])]
     # start them all at the first value: 20
-    fore_cc=forecast_rmse(ralpha=fits_cc$estim,true_values)
-    fore_drop=forecast_rmse(ralpha=fits_drop$estim,true_values)
+    #fore_cc=forecast_rmse(ralpha=fits_cc$estim,true_values)
+    #fore_drop=forecast_rmse(ralpha=fits_drop$estim,true_values)
     #fore_MI=forecast_rmse(ralpha=fits_MI$estim,true_values)
-    
+    fore_EM=forecast_rmse(ralpha=fits_EM$estim,true_values)
     
     
     # or fit with full data
-    true_values2=data_MNAR$y$number[-which(data_MNAR$y$patch==patches[l])]
+    #true_values2=data_MNAR$y$number[-which(data_MNAR$y$patch==patches[l])]
     # compile into sliced dataframe
-    dat_true <- data.frame(
-      yt = true_values2[2:length(true_values2)],
-      ytm1 = true_values2[1:(length(true_values2) - 1)]
-    )
+    # dat_true <- data.frame(
+    #   yt = true_values2[2:length(true_values2)],
+    #   ytm1 = true_values2[1:(length(true_values2) - 1)]
+    # )
     # remove overlap between patches
-    dat_true=dat_true[-seq(21,188,by=21),]
-    fit <- MASS::glm.nb(
-      yt ~ ytm1 + offset(log(ytm1)), 
-      data = dat_true
-    )
-    estims <- coef(fit)
-    names(estims) <- c("r", "alpha")
-    cis <- confint(fit)
-    rownames(cis) <- names(estims)
-    ses <- sqrt(diag(vcov(fit)))
-    names(ses) <- names(estims)
-    fit_full=list(
-      estim = estims * c(1, -1),
-      se = ses,
-      lower = as.double(diag(cis) * c(1, -1)),
-      upper = as.double(
-        c(cis[1,2], cis[2,1]) * c(1, -1)
-      ))
-    fore_noMiss=forecast_rmse(ralpha=fit_full$estim,true_values)
+    # dat_true=dat_true[-seq(21,188,by=21),]
+    # fit <- MASS::glm.nb(
+    #   yt ~ ytm1 + offset(log(ytm1)), 
+    #   data = dat_true
+    # )
+    # estims <- coef(fit)
+    # names(estims) <- c("r", "alpha")
+    # cis <- confint(fit)
+    # rownames(cis) <- names(estims)
+    # ses <- sqrt(diag(vcov(fit)))
+    # names(ses) <- names(estims)
+    # fit_full=list(
+    #   estim = estims * c(1, -1),
+    #   se = ses,
+    #   lower = as.double(diag(cis) * c(1, -1)),
+    #   upper = as.double(
+    #     c(cis[1,2], cis[2,1]) * c(1, -1)
+    #   ))
+    # fore_noMiss=forecast_rmse(ralpha=fit_full$estim,true_values)
     # record results as well as actual missingness and autocorrelation
     
     #index=4
@@ -281,14 +279,16 @@ for(k in 4:length(data_MNAR$y)){ # iterate over datasets in data_MNAR
     missing_i=c(missing_i,matches[[1]][3])
     
     
-    drop_fits=c(drop_fits,list(fits_drop))
-    cc_fits=c(cc_fits,list(fits_cc))
+    #drop_fits=c(drop_fits,list(fits_drop))
+    #cc_fits=c(cc_fits,list(fits_cc))
     #MI_fits=c(MI_fits,list(fits_MI))
-    noMiss_fits=c(noMiss_fits,list(fit_full))
-    rmse_drop=c(rmse_drop,fore_drop)
-    rmse_cc=c(rmse_cc,fore_cc)
+    EM_fits=c(EM_fits,list(fits_EM))
+    #noMiss_fits=c(noMiss_fits,list(fit_full))
+    #rmse_drop=c(rmse_drop,fore_drop)
+    #rmse_cc=c(rmse_cc,fore_cc)
     #rmse_MI=c(rmse_MI,fore_MI)
-    rmse_noMiss=c(rmse_noMiss,fore_noMiss)
+    rmse_EM=c(rmse_EM,fore_EM)
+    #rmse_noMiss=c(rmse_noMiss,fore_noMiss)
     LOO_rep=c(LOO_rep,l)
   }
   
@@ -300,15 +300,21 @@ for(k in 4:length(data_MNAR$y)){ # iterate over datasets in data_MNAR
 result=tibble(missing_result=missing_result,
               missing_i=missing_i,
               LOO_rep=LOO_rep,
-              drop_fits=drop_fits,
-              cc_fits=cc_fits,
+              #drop_fits=drop_fits,
+              #cc_fits=cc_fits,
               #MI_fits=MI_fits,
-              noMiss_fits=noMiss_fits,
-              rmse_drop=rmse_drop,
-              rmse_cc=rmse_cc,
+              EM_fits=EM_fits,
+              #noMiss_fits=noMiss_fits,
+              #rmse_drop=rmse_drop,
+              #rmse_cc=rmse_cc,
               #rmse_MI=rmse_MI,
-              rmse_noMiss=rmse_noMiss
+              #rmse_noMiss=rmse_noMiss
+              rmse_EM=rmse_EM
 )
 View(result)
 saveRDS(result,here("data/model_results/pois_real_minMaxMiss_EM.rds"))
 
+previous_result=readRDS(here("data/model_results/pois_real_minMaxMiss_drop_cc_MI.rds"))
+previous_result$EM_fits=result$EM_fits
+previous_result$rmse_EM=result$rmse_EM
+saveRDS(previous_result,here("data/model_results/pois_real_minMaxMiss_drop_cc_MI_EM.rds"))
