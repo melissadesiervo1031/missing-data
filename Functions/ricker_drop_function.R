@@ -14,7 +14,12 @@
 #' y <- readRDS("data/missingDatasets/pois_sim_randMiss_A.rds")[[1]]$y[[1]]
 #' fit_ricker_cc(y)
 #' 
-fit_ricker_cc <- function(y, fam = "poisson", pro_conf="none"){
+fit_ricker_cc <- function(y, fam = "poisson", pro_conf="none", off_patch=F){
+  
+  if(off_patch){ # we have taken in already offset patch data
+    y0=y
+    y=as.numeric(y0[,1])
+  }
   
   # Check for population extinction
   if(sum(y==0,na.rm=T)>1){
@@ -46,11 +51,17 @@ fit_ricker_cc <- function(y, fam = "poisson", pro_conf="none"){
   n <- length(y)
   
   
-  # compile into sliced dataframe
-  dat <- data.frame(
-    yt = y[2:n],
-    ytm1 = y[1:(n - 1)]
-  )
+
+  
+  if(off_patch){ # we have taken in already offset patch data
+    dat=y0
+  } else {
+    # compile into sliced dataframe
+    dat <- data.frame(
+      yt = y[2:n],
+      ytm1 = y[1:(n - 1)]
+    )
+  }
   
   # drop incomplete cases
   dat_cc <- dat[complete.cases(dat), ]
@@ -174,7 +185,12 @@ fit_ricker_cc <- function(y, fam = "poisson", pro_conf="none"){
 #' y <- readRDS("data/missingDatasets/pois_sim_randMiss_A.rds")[[1]]$y[[1]]
 #' fit_ricker_cc(y)
 #' 
-fit_ricker_drop <- function(y, fam = "poisson", pro_conf="none"){
+fit_ricker_drop <- function(y, fam = "poisson", pro_conf="none", off_patch=F){
+  
+  if(off_patch){ # we have taken in already offset patch data
+    y0=y
+    y=as.numeric(y0[,1])
+  }
   
   # Check for population extinction
   if(sum(y==0,na.rm=T)>1){
@@ -215,13 +231,40 @@ fit_ricker_drop <- function(y, fam = "poisson", pro_conf="none"){
     ))
   }
   
-  n <- length(y)
   
-  # compile into sliced dataframe
-  dat <- data.frame(
-    yt = y[2:n],
-    ytm1 = y[1:(n - 1)]
-  )
+  
+  if(off_patch){ # we have taken in already offset patch data
+    
+    patches=unique(y0$patchv)
+    dat=data.frame(matrix(data=NA,nrow=0,ncol=2))
+    for(i in 1:length(patches)){
+      patch_i=which(y0$patchv==patches[i])
+      print(patch_i)
+      y_cc=y0$ytm1[patch_i][complete.cases(y0$ytm1[patch_i])]
+      print(y_cc)
+      n=length(y_cc)
+      if(n<2){
+        # skip
+      } else {
+        dat_i <- data.frame(
+          yt = y_cc[2:n],
+          ytm1 = y_cc[1:(n - 1)]
+        )
+        print(dat_i)
+        dat=rbind(dat,dat_i)
+      }
+
+    }
+    
+    colnames(dat)=c("yt","ytm1")
+  } else {
+    n <- length(y)
+    # compile into sliced dataframe
+    dat <- data.frame(
+      yt = y[2:n],
+      ytm1 = y[1:(n - 1)]
+    )
+  }
   
   # fit with poisson
   if(fam == "poisson"){
