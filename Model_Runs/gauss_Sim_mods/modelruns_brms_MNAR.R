@@ -207,7 +207,8 @@ for (i in 491:length(gauss_sim_MNAR)) {
 
 # Once the job finishes, you can use the following command from within the folder
 #    containing all single line csv files to compile them into a single csv file:
-#     awk '(NR == 1) || (FNR > 1)' *vals.csv > AllResults.csv
+#     awk '(NR == 1) || (FNR > 1)' *brmsvals.csv > AllParams_brms.csv
+#     awk '(NR == 1) || (FNR > 1)' *brmspreds.csv > AllPreds_brms.csv
 # The * is a wildcard character so the input to this will match any file within
 #    your current folder that ends with vals.csv regardless of the rest of the filename.
 #    These will then all be combined into a single file (AllResults.csv). The order

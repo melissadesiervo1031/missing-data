@@ -6,73 +6,73 @@
 library(tidyverse)
 
 
-# Read in Gaussian simulation data ----------------------------------------
-temp1 <- read_rds(file = "./data/missingDatasets/gauss_sim_randMiss_A.rds")
-temp2 <- read_rds(file = "./data/missingDatasets/gauss_sim_randMiss_B.rds")
-simDat_raw <- c(temp1, temp2)
-
-# get true missingness and autocorrelation for each missing time series
-# reshape dataset list
-simDat_raw2 <- map(simDat_raw, function(x) {
-  temp <- data.frame("jdate" = paste0("day_",1:365), x$y$y_noMiss)
-  temp <- data.frame(temp[1:292,], x$y[2:16])
-  outDat <- list_rbind(apply(temp[2:16], MARGIN = 2, FUN = function(x) {
-    temp_2 <- cbind(temp[1],x) %>% 
-      select(jdate, 2) %>% 
-      pivot_wider( names_from = jdate, values_from = 2)
-  }
-  ))
-  rownames(outDat) <- names(temp)[2:16]
-  return(outDat)
-}
-)
-# assign the appropriate names 
-simDat_names <- map(simDat_raw, function(x) {
-  temp <- data.frame(as.vector(names(x$y))[2:16], "names" = 1:15) 
-}
-)  %>% 
-  list_rbind()
-
-simDat_raw3 <- simDat_raw2 %>% 
-  list_rbind()
-# add back in names w/ amount missing and amount autocor
-simDat_raw3$sim_miss_Names <- simDat_names$as.vector.names.x.y..
-# add back in simulation name
-simDat_raw3$sim_Name_long <- unlist(apply(data.frame(names(simDat_raw)), 1, 
-                                          function(x) rep.int(x, times = 15) , simplify = FALSE) )
-# extract simulation name
-simDat_raw3$sim_Names <- str_sub(simDat_raw3$sim_Name_long, 
-                                 start = 7, 
-                                 end = sapply(
-                                   str_locate_all(simDat_raw3$sim_Name_long, pattern = "_"), 
-                                   function(x) x[2,2]
-                                 )-1
-)
-
-# extract name autocorrelation
-simDat_raw3$names_autoCorr <-  str_split(simDat_raw3$sim_miss_Names, pattern =  "_", simplify = TRUE)[,4] %>% 
-  as.numeric()
-# extract name amount missingness
-simDat_raw3$names_amtMiss <- str_split(simDat_raw3$sim_miss_Names, pattern =  "_", simplify = TRUE)[,2] %>% 
-  as.numeric()
-# calculate true amount of missingness
-simDat_raw3$true_amtMiss <- simDat_raw3 %>% 
-  select(1:292) %>% 
-  apply(MARGIN = 1, function(x) {
-    round(sum(is.na(x))/292,2)
-  })
-
-# calculate true amount of autocorrelation
-simDat_raw3$true_autoCorr <- simDat_raw3 %>% 
-  select(1:292) %>% 
-  apply(MARGIN = 1, function(x) {
-    # change ts to 1 (not missing) and 0 (missing)
-    x[which(!is.na(x))] <- 1
-    x[which(is.na(x))] <- 0
-    round(acf(x = unlist(x), plot = FALSE, lag.max = 5, na.action = na.pass)$acf[,,1][2],2)
-  })
-
-## values are correct! phew
+# Make sure % missingness values are correct ----------------------------------------
+# temp1 <- read_rds(file = "./data/missingDatasets/gauss_sim_randMiss_A.rds")
+# temp2 <- read_rds(file = "./data/missingDatasets/gauss_sim_randMiss_B.rds")
+# simDat_raw <- c(temp1, temp2)
+# 
+# # get true missingness and autocorrelation for each missing time series
+# # reshape dataset list
+# simDat_raw2 <- map(simDat_raw, function(x) {
+#   temp <- data.frame("jdate" = paste0("day_",1:365), x$y$y_noMiss)
+#   temp <- data.frame(temp[1:292,], x$y[2:16])
+#   outDat <- list_rbind(apply(temp[2:16], MARGIN = 2, FUN = function(x) {
+#     temp_2 <- cbind(temp[1],x) %>% 
+#       select(jdate, 2) %>% 
+#       pivot_wider( names_from = jdate, values_from = 2)
+#   }
+#   ))
+#   rownames(outDat) <- names(temp)[2:16]
+#   return(outDat)
+# }
+# )
+# # assign the appropriate names 
+# simDat_names <- map(simDat_raw, function(x) {
+#   temp <- data.frame(as.vector(names(x$y))[2:16], "names" = 1:15) 
+# }
+# )  %>% 
+#   list_rbind()
+# 
+# simDat_raw3 <- simDat_raw2 %>% 
+#   list_rbind()
+# # add back in names w/ amount missing and amount autocor
+# simDat_raw3$sim_miss_Names <- simDat_names$as.vector.names.x.y..
+# # add back in simulation name
+# simDat_raw3$sim_Name_long <- unlist(apply(data.frame(names(simDat_raw)), 1, 
+#                                           function(x) rep.int(x, times = 15) , simplify = FALSE) )
+# # extract simulation name
+# simDat_raw3$sim_Names <- str_sub(simDat_raw3$sim_Name_long, 
+#                                  start = 7, 
+#                                  end = sapply(
+#                                    str_locate_all(simDat_raw3$sim_Name_long, pattern = "_"), 
+#                                    function(x) x[2,2]
+#                                  )-1
+# )
+# 
+# # extract name autocorrelation
+# simDat_raw3$names_autoCorr <-  str_split(simDat_raw3$sim_miss_Names, pattern =  "_", simplify = TRUE)[,4] %>% 
+#   as.numeric()
+# # extract name amount missingness
+# simDat_raw3$names_amtMiss <- str_split(simDat_raw3$sim_miss_Names, pattern =  "_", simplify = TRUE)[,2] %>% 
+#   as.numeric()
+# # calculate true amount of missingness
+# simDat_raw3$true_amtMiss <- simDat_raw3 %>% 
+#   select(1:292) %>% 
+#   apply(MARGIN = 1, function(x) {
+#     round(sum(is.na(x))/292,2)
+#   })
+# 
+# # calculate true amount of autocorrelation
+# simDat_raw3$true_autoCorr <- simDat_raw3 %>% 
+#   select(1:292) %>% 
+#   apply(MARGIN = 1, function(x) {
+#     # change ts to 1 (not missing) and 0 (missing)
+#     x[which(!is.na(x))] <- 1
+#     x[which(is.na(x))] <- 0
+#     round(acf(x = unlist(x), plot = FALSE, lag.max = 5, na.action = na.pass)$acf[,,1][2],2)
+#   })
+# 
+# ## values are correct! phew
 
 # gauss_sim_MAR_arima models ----------------------------------------------
 # read in first group of output files (stored outside of the Git)

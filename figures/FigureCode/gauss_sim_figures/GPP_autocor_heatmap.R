@@ -111,7 +111,7 @@ figDat <- figDat_temp %>%
             SE_mean = mean(param_se, na.rm = TRUE) # the mean of the parameter standard error (not standardized, but maybe should be?)
   ) %>% 
   mutate(tooBigSD = ifelse(paramDiff_SD > 1.96, yes = 1, no = NA)) %>% 
-  filter(n_paramDiff  > 25)  %>% # drop combinations that have fewer than 300 observations
+  #filter(n_paramDiff  > 25)  %>% # drop combinations that have fewer than 300 observations
   filter(amtMiss <=.65, 
          param != "Intercept")
 
@@ -182,7 +182,7 @@ figDat2 <- figDat %>%
     ylab("Autocorrelation in missingness") +
     guides(fill = guide_colorbar("Median Error")) +
     theme_classic() +
-    #ylim(0,1) +
+    ylim(-0.1,1) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     ggtitle("Median error of parameter recovery")) 
 
@@ -205,7 +205,7 @@ figDat2 <- figDat %>%
     ylab("Autocorrelation in missingness") +
     guides(fill = guide_colorbar("Median \nAbsolute Error")) +
     theme_classic() +
-    #ylim(0,1) +
+    ylim(-0.1,1) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     ggtitle("Median absolute error of parameter recovery")) 
 
@@ -269,7 +269,7 @@ figDat_covMNAR <- figDat_cov %>%
     ylab("Autocorrelation in missingness") +
     guides(fill = guide_colorbar("% Coverage")) +
     theme_classic() +
-   # ylim(0,1) +
+   ylim(-0.1,1) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     ggtitle("% of model runs where the 95% CI includes the simulation parameter"))
 
