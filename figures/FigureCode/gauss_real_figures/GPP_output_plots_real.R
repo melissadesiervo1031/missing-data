@@ -70,8 +70,6 @@ figDat_lines <- figDat_temp %>%
 
 figDat_lines2 <- figDat_lines %>% filter(missingness=="MCAR: Med. AC"|missingness=="MNAR")  %>%  filter(parameters=="Beta covariates"| parameters=="Phi")
 
-figDat_lines2 %>% 
-  table()
 #figDat_temp %>%
  # filter(missingness %in% c("MCAR: Med. AC", "MNAR")) %>% 
   #filter(parameters %in% c("Intercept", "intercept")) %>%

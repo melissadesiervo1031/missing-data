@@ -10,41 +10,58 @@ library("grid")
 library("ggplotify")
 
 # read in prediction data for au-sable river ------------------------------------------------------------
-# read in real, complete dataset
-realData <- readRDS("./data/gauss_ar1_0miss_datasets.rds") #%>% 
+
  #mutate(date = lubridate::as_datetime(date))
 
 # MAR arima data
 MCAR_arima <- read.csv("./data/model_results/gauss_sim_randMiss_modelResults_A/AllPreds_arima.csv") %>% 
-  rename(Estimate = pred, Est.Error = se,
-         run_no = sim_no) %>% 
-  mutate(Q2.5 = NA, Q97.5 = NA) %>% 
-  relocate(missingprop_autocor, Estimate, Est.Error, Q2.5, Q97.5, date, GPP, missingness, type, run_no) %>% 
-  mutate(date = lubridate::as_datetime(date))
-# MAR brms data
-MCAR_brms <- read.csv("./data/model_results/gauss_real_MAR_brms_modResults/auSable/gauss_auSable_real_MAR_brms_FORECASTpreds.csv") %>% 
-  mutate(date = lubridate::as_datetime(date)) %>% 
-  select(-X, -...1)
-
-# MNAR arima data
-MNAR_arima <- read.csv("./data/model_results/gauss_real_MNAR_arima_modResults/au_sable/gauss_auSable_real_MNAR_arima_FORECASTpreds.csv") %>% 
+  rbind(read.csv("./data/model_results/gauss_sim_randMiss_modelResults_B/AllPreds_arima.csv"))
+MCAR_arima <- MCAR_arima %>% 
   rename(Estimate = pred, Est.Error = se) %>% 
   mutate(Q2.5 = NA, Q97.5 = NA) %>% 
-  select(-CurSim, -X) %>% 
+  relocate(missingprop_autocor, Estimate, Est.Error, Q2.5, Q97.5, date, GPP, missingness, type, sim_no) %>% 
+  mutate(date = lubridate::as_datetime(date))
+
+# MAR brms data
+MCAR_brms <- read.csv("./data/model_results/gauss_sim_randMiss_modelResults_A/AllPreds_brms.csv") #%>% 
+  #read.csv("./data/model_results/gauss_sim_randMiss_modelResults_B/AllPreds_brms.csv") 
+MCAR_brms <- MCAR_brms %>% 
+  mutate(date = lubridate::as_datetime(date), 
+         curSim = NA) 
+
+# MNAR arima data
+MNAR_arima <- read.csv("./data/model_results/gauss_sim_minMax_modelResults/AllPreds_arima.csv") 
+MNAR_arima <- MNAR_arima %>% 
+  rename(Estimate = pred, Est.Error = se) %>% 
+  mutate(Q2.5 = NA, Q97.5 = NA) %>% 
   relocate(missingprop_autocor, Estimate, Est.Error, Q2.5, Q97.5, date, GPP, missingness, type, run_no) %>% 
   mutate(date = lubridate::as_datetime(date),
          missingness = "MNAR")
+
 # MNAR brms data
-MNAR_brms <- read.csv("./data/model_results/gauss_real_MNAR_brms_modResults/auSable/brmspreds.csv")%>% 
+MNAR_brms <- read.csv("./data/model_results/gauss_sim_minMax_modelResults/AllPreds_brms.csv")%>% 
   mutate(date = lubridate::as_datetime(date),
-         missingness = "MNAR")
+         missingness = "MNAR", 
+         curSim = NA)
+
+# get real, complete dataset
+realData <- MCAR_arima %>% 
+  filter(missingprop_autocor == "y_noMiss") %>% 
+  mutate(Estimate = NA, 
+         Est.Error = NA, 
+         missingness = NA, 
+         type = "realData", 
+         curSim = NA) %>% 
+  unique() %>% 
+  rename("GPP_actual" = "GPP")
+
 
 # join all data together
 allDat_temp <- rbind(MCAR_arima, MCAR_brms, MNAR_arima, MNAR_brms)
 
 # remove rows w/ no missingness (missingprop_autocor = "y)
-allDat_temp <- allDat_temp %>% 
-  filter(missingprop_autocor != "y") %>% 
+allDat_temp <- allDat_temp %>%
+  filter(missingprop_autocor != "y_noMiss") %>%
   filter(!is.na(Estimate)) # remove NAs in Estimate column (12/31)
 
 # reformat data -----------------------------------------------------------
@@ -82,19 +99,28 @@ allDat[allDat$amtAutoCorr >= 0.375 & allDat$amtAutoCorr < 0.625 & !is.na(allDat$
 allDat[allDat$amtAutoCorr >= 0.625 &  !is.na(allDat$amtAutoCorr), "amtAutoCorr_bin"] <- 0.75
 
 ## fix issue w/ some runs not having real GPP values... can get from other runs (every date should have the same "real" values)
-allDat$GPP <- round(allDat$GPP, 9)
-realGPP <- unique(allDat[,c("date", "GPP")])
+# allDat$GPP <- round(allDat$GPP, 9)
+# realGPP <- unique(allDat[,c("date", "GPP", "sim_no")])
+# 
+# # add back real GPP values to the main data.frame 
+# test <- allDat %>% 
+#   select(-GPP) %>% 
+#   left_join(realGPP, by = c("date", "sim_no"))
+# 
+# 
+rm(MCAR_arima, MCAR_brms, MNAR_arima, MNAR_brms)
+gc()
 
-# add back real GPP values to the main data.frame 
 
-test <- allDat %>% 
-  select(-GPP) %>% 
-  left_join(realGPP, by = "date")
+## join the real data to the model predictions
+View(realData)
+allDat <- allDat %>% 
+ # slice(1:1000) %>%  
+  left_join(realData %>% select(date, GPP_actual, sim_no)) 
 
-
-# calculate RMSE  ---------------------------------------------------------
+# # calculate RMSE  ---------------------------------------------------------
 RMSE <- allDat %>% 
-  group_by(missingprop_autocor, missingness, type, propMiss_bin, amtAutoCorr_bin) %>% 
+  group_by(missingprop_autocor, missingness, type, propMiss_bin, amtAutoCorr_bin, sim_no) %>% 
   summarise(RMSE = sqrt(mean((Estimate - GPP)^2, na.rm = TRUE))) 
 
 # add to all data df
@@ -148,61 +174,61 @@ RMSE <- RMSE %>%
     )  +
     guides(col = guide_legend(title = "Model Type", position = "top", direction = "vertical", nrow = 2))
 )
-## get complete time series figure 
-aus <- read.csv("./data/au_sable_river_prepped.csv", header=TRUE)
+# ## get complete time series figure 
+# aus <- read.csv("./data/au_sable_river_prepped.csv", header=TRUE)
+# 
+# ausNew <- aus %>% 
+#   mutate(date = as.POSIXct(date)) 
+# 
+# # how many days are in the forecast vs. training data? 
+# train <- ausNew %>% 
+#   filter(date < as.POSIXct("2014-01-01T00:00:00Z")) %>% 
+#   filter(!is.na(GPP))
+# test <- ausNew %>% 
+#   filter(date >= as.POSIXct("2014-01-01T00:00:00Z")) %>% 
+#   filter(!is.na(GPP))
+# 
+# (tsFigGrob <- 
+# ggplot() + 
+#   geom_rect(aes(xmin = as.POSIXct("2014-01-01T00:00:00Z"), xmax = as.POSIXct("2014-12-31T00:00:00Z"), 
+#                 ymin = -6, ymax = 3.5), fill = "grey80") +
+#   geom_line(data = ausNew, aes(x = date, y = GPP)) + 
+#   geom_rug(data = ausNew[is.na(ausNew$GPP),], aes(date), col = "red") +
+#   theme_classic() + 
+#   labs(x = "Year", y = "GPP (scaled)"))
+# 
+# tsPlusRmse_NoLine <- ggpubr::ggarrange(tsFigGrob, rmse_NoLineErrorBar, ncol = 1, nrow = 2,
+#                                          heights = c(.5, 1), legend = "bottom", labels = c("A", "B"))
 
-ausNew <- aus %>% 
-  mutate(date = as.POSIXct(date)) 
-
-# how many days are in the forecast vs. training data? 
-train <- ausNew %>% 
-  filter(date < as.POSIXct("2014-01-01T00:00:00Z")) %>% 
-  filter(!is.na(GPP))
-test <- ausNew %>% 
-  filter(date >= as.POSIXct("2014-01-01T00:00:00Z")) %>% 
-  filter(!is.na(GPP))
-
-(tsFigGrob <- 
-ggplot() + 
-  geom_rect(aes(xmin = as.POSIXct("2014-01-01T00:00:00Z"), xmax = as.POSIXct("2014-12-31T00:00:00Z"), 
-                ymin = -6, ymax = 3.5), fill = "grey80") +
-  geom_line(data = ausNew, aes(x = date, y = GPP)) + 
-  geom_rug(data = ausNew[is.na(ausNew$GPP),], aes(date), col = "red") +
-  theme_classic() + 
-  labs(x = "Year", y = "GPP (scaled)"))
-
-tsPlusRmse_NoLine <- ggpubr::ggarrange(tsFigGrob, rmse_NoLineErrorBar, ncol = 1, nrow = 2, 
-                                         heights = c(.5, 1), legend = "bottom", labels = c("A", "B"))
 
 
-
-png(file = "./figures/RMSE_FullFigure_NoLineWithErrorBar_gaussian_auSable.png", width = 6.5, height = 8, units = "in", res = 700)
-tsPlusRmse_NoLine
+png(file = "./figures/RMSE_FullFigure_NoLineWithErrorBar_gaussian_SIM.png", width = 6.5, height = 6, units = "in", res = 700)
+rmse_NoLineErrorBar
 dev.off()
-
-
-
-# Figure of RMSE variation  -----------------------------------------------
-# calculate the width of the IQR for each point shown in the previous figure
-RMSE_errorBar <- RMSE_errorBar %>% 
-  mutate(IQR_width = IQR_high - IQR_low)
-
-(rmseWidth_fig <- ggplot(data = RMSE_errorBar) +
-    facet_grid(.~missingness) +
-    geom_linerange(aes(x = propMiss_bin, ymin = 0, ymax = IQR_width, color = type), alpha = 1, position = position_dodge(width = .1), lwd = 2) +
-    theme_classic() +
-    ylab("Width of RMSE Inter-Quartile Range") +
-    xlab("Proportion of Missing Data") + 
-    #ylim(c(0,1.25)) + 
-    scale_x_continuous(breaks=c(0.2,0.4, 0.6)) +
-    scale_color_discrete(type = c("#D55E00","#CC79A7", "#E69F00", "#0072B2","#009E73"),
-                         labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Kalman Filter", "Multiple Imputation"), 
-    )  +
-    guides(col = guide_legend(title = "Model Type", position = "top", direction = "vertical", nrow = 2))
-)
-
-
-png(file = "./figures/RMSE_IQR_width_gaussian_auSable.png", width = 6, height = 5, units = "in", res = 700)
-rmseWidth_fig
-dev.off()
+# 
+# 
+# 
+# # Figure of RMSE variation  -----------------------------------------------
+# # calculate the width of the IQR for each point shown in the previous figure
+# RMSE_errorBar <- RMSE_errorBar %>% 
+#   mutate(IQR_width = IQR_high - IQR_low)
+# 
+# (rmseWidth_fig <- ggplot(data = RMSE_errorBar) +
+#     facet_grid(.~missingness) +
+#     geom_linerange(aes(x = propMiss_bin, ymin = 0, ymax = IQR_width, color = type), alpha = 1, position = position_dodge(width = .1), lwd = 2) +
+#     theme_classic() +
+#     ylab("Width of RMSE Inter-Quartile Range") +
+#     xlab("Proportion of Missing Data") + 
+#     #ylim(c(0,1.25)) + 
+#     scale_x_continuous(breaks=c(0.2,0.4, 0.6)) +
+#     scale_color_discrete(type = c("#D55E00","#CC79A7", "#E69F00", "#0072B2","#009E73"),
+#                          labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Kalman Filter", "Multiple Imputation"), 
+#     )  +
+#     guides(col = guide_legend(title = "Model Type", position = "top", direction = "vertical", nrow = 2))
+# )
+# 
+# 
+# png(file = "./figures/RMSE_IQR_width_gaussian_auSable.png", width = 6, height = 5, units = "in", res = 700)
+# rmseWidth_fig
+# dev.off()
 
