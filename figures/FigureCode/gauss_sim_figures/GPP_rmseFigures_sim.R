@@ -27,14 +27,15 @@ MCAR_brms <- read.csv("./data/model_results/gauss_sim_randMiss_modelResults_A/Al
   #read.csv("./data/model_results/gauss_sim_randMiss_modelResults_B/AllPreds_brms.csv") 
 MCAR_brms <- MCAR_brms %>% 
   mutate(date = lubridate::as_datetime(date), 
-         curSim = NA) 
+         curSim = NA) %>% 
+  rename("sim_no" = "run_no")
 
 # MNAR arima data
 MNAR_arima <- read.csv("./data/model_results/gauss_sim_minMax_modelResults/AllPreds_arima.csv") 
 MNAR_arima <- MNAR_arima %>% 
   rename(Estimate = pred, Est.Error = se) %>% 
   mutate(Q2.5 = NA, Q97.5 = NA) %>% 
-  relocate(missingprop_autocor, Estimate, Est.Error, Q2.5, Q97.5, date, GPP, missingness, type, run_no) %>% 
+  relocate(missingprop_autocor, Estimate, Est.Error, Q2.5, Q97.5, date, GPP, missingness, type, sim_no) %>% 
   mutate(date = lubridate::as_datetime(date),
          missingness = "MNAR")
 
@@ -42,7 +43,8 @@ MNAR_arima <- MNAR_arima %>%
 MNAR_brms <- read.csv("./data/model_results/gauss_sim_minMax_modelResults/AllPreds_brms.csv")%>% 
   mutate(date = lubridate::as_datetime(date),
          missingness = "MNAR", 
-         curSim = NA)
+         curSim = NA) %>% 
+  rename("sim_no" = "run_no")
 
 # get real, complete dataset
 realData <- MCAR_arima %>% 
@@ -169,8 +171,11 @@ RMSE <- RMSE %>%
     xlab("Proportion of Missing Data") + 
     #ylim(c(0,1.25)) + 
     scale_x_continuous(breaks=c(0.2,0.4, 0.6)) +
-    scale_color_discrete(type = c("#D55E00","#CC79A7", "#E69F00", "#0072B2","#009E73"),
-                         labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Kalman Filter", "Multiple Imputation"), 
+    # scale_color_discrete(type = c("#D55E00","#CC79A7", "#E69F00", "#0072B2","#009E73"),
+    #                      labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Kalman Filter", "Multiple Imputation"), 
+    # )  +
+    scale_color_discrete(type = c( "#E69F00","#D55E00","#009E73", "#0072B2","#CC79A7"),
+                         labels = c("Data Deletion-Simple","Data Deletion-Complete",  "Multiple Imputation",  "Kalman Filter","Data Augmentation"), 
     )  +
     guides(col = guide_legend(title = "Model Type", position = "top", direction = "vertical", nrow = 2))
 )

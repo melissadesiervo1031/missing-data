@@ -8,18 +8,62 @@ library(Metrics)
 library(RColorBrewer)
 library(ggpubr)
 library(here)
+library(janitor)
 
 
 # read in prediction data ------------------------------------------------------------
-#allDat <- readRDS("./data/model_results/RickerForecast_resultTableAll.rds")
-allDat <- readRDS("./data/model_results/RickerForecast_resultTableAll_10.rds")
-#allDat <- readRDS("./data/model_results/RickerForecast_resultTableAll_20.rds")
-allDat[is.nan(allDat$actAutoCorr_trim), "actAutoCorr_trim"] <- 0
-# read in real data
-realDat <- read.csv("./data/Wytham_tits.csv")
-realDat$timeStep <- seq(1:59)
-train_length=49
+# MCAR
+ricker_MCAR <- readRDS("./data/model_results/pois_real_randMiss_drop_cc_MI_EM.rds")
+ricker_MCAR$missingnessType <- "MCAR"
+# MNAR
+ricker_MNAR <- readRDS("./data/model_results/pois_real_minMaxMiss_drop_cc_MI_EM.rds")
+ricker_MNAR$missingnessType <- "MNAR" 
+ricker_MNAR$autocor = NA
+ricker_MNAR$autocor_act = NA
+ricker_MNAR <- ricker_MNAR %>% 
+  select(names(ricker_MCAR))
+  
 
+allDat <- rbind(ricker_MCAR, ricker_MNAR) #allDat <- readRDS("./data/model_results/RickerForecast_resultTableAll.rds")
+
+# read in real data
+bursaria <- read.csv("./data/Bursaria.csv")
+# tidy 
+bursaria <- bursaria %>% 
+  janitor::clean_names() %>%
+  mutate(
+    date = lubridate::mdy(date),
+    patch = factor(patch)
+  )
+
+# grouping by patch, then adding a number of days column
+bursaria_patchlist <- purrr::map(
+  unique(bursaria$patch),
+  ~ {
+    filter(bursaria, patch == .x) %>%
+      arrange(date) %>%
+      mutate(
+        days = as.numeric(date - date[1], units = "days")
+      )
+  }
+)
+
+# now offset each so that we have a response that is time t and explanatory variable that is
+# time t - 1
+bursaria_patchlist_diff <- purrr::map(
+  bursaria_patchlist,
+  ~ {
+    df2 <- tibble(
+      count_tm1 = .x$number[-nrow(.x)]
+    )
+    cbind(.x[-1, ], df2)
+  }
+)
+
+# recombine into one dataframe
+bursaria_diff <- Reduce(rbind, bursaria_patchlist_diff)
+# realDat$timeStep <- seq(1:59)
+# train_length=49
 
 # remove runs where the truncated "missing data" ended in an NA (because we
 # can't accurately intiate the model predicting the last ten years in that
