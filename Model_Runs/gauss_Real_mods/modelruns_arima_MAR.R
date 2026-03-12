@@ -13,7 +13,7 @@ library(here)
 
 ## read in the autocor_01 list ##
 
-gauss_auSable_randMiss <- readRDS(here("data/missingDatasets/gauss_real_auSable_randMiss_trim.rds"))
+gauss_auSable_randMiss <- readRDS(here("data/missingDatasets/gauss_real_auSable_randMiss.rds"))
 #gauss_badger_randMiss <- readRDS(here("data/missingDatasets/gauss_real_badger_randMiss.rds"))
 au_sable_river_full <- read_csv(here("data/au_sable_river_prepped.csv"))
 #badger_mill_creek_full <- read_csv(here("data/badger_mill_Creek_prepped.csv"))
@@ -307,7 +307,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
   
   paramlistsim <- map_df(seq(1:length(listcoefsessim)),
                          function(x){
-                           data.frame("parameters" = c("intercept", "xreg1", "xreg2", "phi", "sigma"),
+                           data.frame("parameters" = c("ar1", "intercept", "xreg1", "xreg2", "sigma"),
                                       "param_value" = c(listcoefsessim[[x]]$q.mi, sigmas[x]),
                                       "param_se" = c(listcoefsessim[[x]]$se.mi,NA)) 
                          }, 
@@ -508,140 +508,265 @@ for (i in  seq_along(gauss_auSable_randMiss)) {
   write.csv(Output4, file = OutFile_preds, row.names = FALSE)
 }
 
+## fit a model using each approach with the complete dataset (are still a few missing values) 
+CurSim <- 1
+OutFile_params <- paste(dirname,  "CompleteDataset_arimavals.csv", sep = "")
+OutFile_preds <- paste(dirname, "CompleteDataset_arimapreds.csv", sep = "")
 
+# make sure sim_list and sim_params are not pointing to the whole list, which starts w character elements
+sim_list<- gauss_auSable_randMiss[[CurSim]]$y
+#nms <- stringr::str_which(names(sim_list), "^prop")
+sim_list <- sim_list[5]
+
+# Run models with drop missing + arima ------------------------------------
+
+arima_drop_MAR <- fit_arima_dropmissing(sim_list=sim_list,
+                                        sim_pars=gauss_auSable_randMiss[[CurSim]]$sim_params, 
+                                        forecast = TRUE, 
+                                        forecast_days = forecast_days, 
+                                        dat_full = au_sable_river_full)
+
+## formatting for figure
+# save arima model parameters
+arimadrop_MAR_df <- arima_drop_MAR$arima_pars
+arimadrop_MAR_df$missingness <- 'MAR'
+arimadrop_MAR_df$type <- 'dropNA_simple'
+arimadrop_MAR_df$run_no <- CurSim
+
+# save arima forecasts
+arimadrop_MAR_preds <- arima_drop_MAR$arima_forecast
+arimadrop_MAR_preds$missingness <- 'MAR'
+arimadrop_MAR_preds$type <- 'dropNA_simple'
+arimadrop_MAR_preds$run_no <- CurSim
+
+
+
+# Run models with drop missing complete case + arima ------------------------------------
+
+arima_dropCC_MAR <- fit_arima_dropmissing_CC(sim_list=sim_list,
+                                             sim_pars=gauss_auSable_randMiss[[CurSim]]$sim_params, 
+                                             forecast = TRUE, 
+                                             forecast_days = forecast_days, 
+                                             dat_full = au_sable_river_full)
+
+## formatting for figure
+# save arima model parameters
+arimadropCC_MAR_df <- arima_dropCC_MAR$arima_pars
+arimadropCC_MAR_df$missingness <- 'MAR'
+arimadropCC_MAR_df$type <- 'dropNA_complete'
+arimadropCC_MAR_df$run_no <- CurSim
+
+# save arima forecasts
+arimadropCC_MAR_preds <- arima_dropCC_MAR$arima_forecast
+arimadropCC_MAR_preds$missingness <- 'MAR'
+arimadropCC_MAR_preds$type <- 'dropNA_complete'
+arimadropCC_MAR_preds$run_no <- CurSim
+
+# Run models w/ Kalman filter + arima fxn ---------------------------------
+
+arima_kalman_MAR<- fit_arima_Kalman(sim_list=sim_list,
+                                    sim_pars=gauss_auSable_randMiss[[CurSim]]$sim_params, 
+                                    forecast = TRUE, 
+                                    forecast_days = forecast_days,
+                                    dat_full = au_sable_river_full)
+## formatting for figure
+# save arima model parameters
+arimaKalman_MAR_df <- arima_kalman_MAR$arima_pars
+arimaKalman_MAR_df$missingness <- 'MAR'
+arimaKalman_MAR_df$type <- 'Kalman Filter'
+arimaKalman_MAR_df$run_no <- CurSim
+
+# save arima forecasts
+arimaKalman_MAR_preds <- arima_kalman_MAR$arima_forecast
+arimaKalman_MAR_preds$missingness <- 'MAR'
+arimaKalman_MAR_preds$type <- 'Kalman Filter'
+arimaKalman_MAR_preds$run_no <- CurSim
+
+# Run models w/ Multiple Imputations --------------------------------------
+
+arima_mi_MAR <-  fit_arima_MI(sim_list=sim_list,
+                              sim_pars=gauss_auSable_randMiss[[CurSim]]$sim_params, 
+                              imputationsnum=5,
+                              forecast = TRUE, 
+                              forecast_days = forecast_days,
+                              dat_full = au_sable_river_full)
+## formatting for figure
+# save arima model parameters
+arimaMI_MAR_df <- arima_mi_MAR$arima_pars
+arimaMI_MAR_df$missingness <- 'MAR'
+arimaMI_MAR_df$type <- 'Multiple Imputations'
+arimaMI_MAR_df$run_no <- CurSim
+
+# save arima forecasts
+arimaMI_MAR_preds <- arima_mi_MAR$arima_forecast
+arimaMI_MAR_preds$missingness <- 'MAR'
+arimaMI_MAR_preds$type <- 'Multiple Imputations'
+arimaMI_MAR_preds$run_no <- CurSim
+
+# Combine output data and save --------------------------------------------
+
+paramarimaall_df<-rbind(arimadrop_MAR_df, arimadropCC_MAR_df, arimaKalman_MAR_df, arimaMI_MAR_df)
+
+Output <- matrix(data=NA, nrow=nrow(paramarimaall_df), ncol=ncol(paramarimaall_df))
+
+# Save the results of the current script's simulation to the appropriate column of output
+Output<- paramarimaall_df
+
+# add all the output data together
+Output2<-cbind(CurSim,Output)
+
+# Write the output to the folder which will contain all output files as separate csv
+#    files with a single line of data.
+write.csv(Output2, file = OutFile_params, row.names = FALSE)
+
+## save prediction data
+
+paramarimaall_preds<-rbind(arimadrop_MAR_preds, arimadropCC_MAR_preds, arimaKalman_MAR_preds, arimaMI_MAR_preds)
+
+Output3 <- matrix(data=NA, nrow=nrow(paramarimaall_preds), ncol=ncol(paramarimaall_preds))
+
+# Save the results of the current script's simulation to the appropriate column of output
+Output3<- paramarimaall_preds
+
+# add all the output data together
+Output4<-cbind(CurSim,Output3)
+
+# Write the output to the folder which will contain all output files as separate csv
+#    files with a single line of data.
+write.csv(Output4, file = OutFile_preds, row.names = FALSE)
 ### Run with Badger Mill Creek data  ---------------------------------------------
-
-dirname <- "./data/model_results/gauss_real_MAR_arima_modResults/badger_mill/"
-
-for (i in 1:10) {
-  CurSim <- i
-  OutFile_params <- paste(dirname, CurSim, "arimavals.csv", sep = "")
-  OutFile_preds <- paste(dirname, CurSim, "arimapreds.csv", sep = "")
-  
-  # make sure sim_list and sim_params are not pointing to the whole list, which starts w character elements
-  sim_list<- gauss_badger_randMiss[[CurSim]]$y
-  nms <- stringr::str_which(names(sim_list), "^prop")
-  sim_list <- sim_list[nms]
-  
-  # Run models with drop missing + arima ------------------------------------
-  
-  arima_drop_MAR <- fit_arima_dropmissing(sim_list=sim_list,
-                                          sim_pars=gauss_badger_randMiss[[CurSim]]$sim_params, 
-                                          forecast = TRUE, 
-                                          forecast_days = forecast_days, 
-                                          dat_full = badger_mill_creek_full)
-  
-  ## formatting for figure
-  # save arima model parameters
-  arimadrop_MAR_df <- arima_drop_MAR$arima_pars
-  arimadrop_MAR_df$missingness <- 'MAR'
-  arimadrop_MAR_df$type <- 'dropNA_simple'
-  arimadrop_MAR_df$run_no <- CurSim
-  
-  # save arima forecasts
-  arimadrop_MAR_preds <- arima_drop_MAR$arima_forecast
-  arimadrop_MAR_preds$missingness <- 'MAR'
-  arimadrop_MAR_preds$type <- 'dropNA_simple'
-  arimadrop_MAR_preds$run_no <- CurSim
-  
-  
-  
-  # Run models with drop missing complete case + arima ------------------------------------
-  
-  arima_dropCC_MAR <- fit_arima_dropmissing_CC(sim_list=sim_list,
-                                               sim_pars=gauss_badger_randMiss[[CurSim]]$sim_params, 
-                                               forecast = TRUE,
-                                               forecast_days = forecast_days, 
-                                               dat_full = badger_mill_creek_full)
-  
-  ## formatting for figure
-  # save arima model parameters
-  arimadropCC_MAR_df <- arima_dropCC_MAR$arima_pars
-  arimadropCC_MAR_df$missingness <- 'MAR'
-  arimadropCC_MAR_df$type <- 'dropNA_complete'
-  arimadropCC_MAR_df$run_no <- CurSim
-  
-  # save arima forecasts
-  arimadropCC_MAR_preds <- arima_dropCC_MAR$arima_forecast
-  arimadropCC_MAR_preds$missingness <- 'MAR'
-  arimadropCC_MAR_preds$type <- 'dropNA_complete'
-  arimadropCC_MAR_preds$run_no <- CurSim
-  
-  # Run models w/ Kalman filter + arima fxn ---------------------------------
-  
-  arima_kalman_MAR<- fit_arima_Kalman(sim_list=sim_list,
-                                      sim_pars=gauss_badger_randMiss[[CurSim]]$sim_params, 
-                                      forecast = TRUE, 
-                                      forecast_days = forecast_days, 
-                                      dat_full = badger_mill_creek_full)
-  ## formatting for figure
-  # save arima model parameters
-  arimaKalman_MAR_df <- arima_kalman_MAR$arima_pars
-  arimaKalman_MAR_df$missingness <- 'MAR'
-  arimaKalman_MAR_df$type <- 'Kalman Filter'
-  arimaKalman_MAR_df$run_no <- CurSim
-  
-  # save arima forecasts
-  arimaKalman_MAR_preds <- arima_kalman_MAR$arima_forecast
-  arimaKalman_MAR_preds$missingness <- 'MAR'
-  arimaKalman_MAR_preds$type <- 'Kalman Filter'
-  arimaKalman_MAR_preds$run_no <- CurSim
-  
-  # Run models w/ Multiple Imputations --------------------------------------
-  
-  arima_mi_MAR <-  fit_arima_MI(sim_list=sim_list,
-                                sim_pars=gauss_badger_randMiss[[CurSim]]$sim_params, 
-                                imputationsnum=5,
-                                forecast = TRUE, 
-                                forecast_days = forecast_days,
-                                dat_full = badger_mill_creek_full)
-  ## formatting for figure
-  # save arima model parameters
-  arimaMI_MAR_df <- arima_mi_MAR$arima_pars
-  arimaMI_MAR_df$missingness <- 'MAR'
-  arimaMI_MAR_df$type <- 'Multiple Imputations'
-  arimaMI_MAR_df$run_no <- CurSim
-  
-  # save arima forecasts
-  arimaMI_MAR_preds <- arima_mi_MAR$arima_forecast
-  arimaMI_MAR_preds$missingness <- 'MAR'
-  arimaMI_MAR_preds$type <- 'Multiple Imputations'
-  arimaMI_MAR_preds$run_no <- CurSim
-  
-  # Combine output data and save --------------------------------------------
-  
-  paramarimaall_df<-rbind(arimadrop_MAR_df, arimadropCC_MAR_df, arimaKalman_MAR_df, arimaMI_MAR_df)
-  
-  Output <- matrix(data=NA, nrow=nrow(paramarimaall_df), ncol=ncol(paramarimaall_df))
-  
-  # Save the results of the current script's simulation to the appropriate column of output
-  Output<- paramarimaall_df
-  
-  # add all the output data together
-  Output2<-cbind(CurSim,Output)
-  
-  # Write the output to the folder which will contain all output files as separate csv
-  #    files with a single line of data.
-  write.csv(Output2, file = OutFile_params, row.names = FALSE)
-  
-  ## save prediction data
-  
-  paramarimaall_preds<-rbind(arimadrop_MAR_preds, arimadropCC_MAR_preds, arimaKalman_MAR_preds, arimaMI_MAR_preds)
-  
-  Output3 <- matrix(data=NA, nrow=nrow(paramarimaall_preds), ncol=ncol(paramarimaall_preds))
-  
-  # Save the results of the current script's simulation to the appropriate column of output
-  Output3<- paramarimaall_preds
-  
-  # add all the output data together
-  Output4<-cbind(CurSim,Output3)
-  
-  # Write the output to the folder which will contain all output files as separate csv
-  #    files with a single line of data.
-  write.csv(Output4, file = OutFile_preds, row.names = FALSE)
-  
-  
-}
+# 
+# dirname <- "./data/model_results/gauss_real_MAR_arima_modResults/badger_mill/"
+# 
+# for (i in 1:10) {
+#   CurSim <- i
+#   OutFile_params <- paste(dirname, CurSim, "arimavals.csv", sep = "")
+#   OutFile_preds <- paste(dirname, CurSim, "arimapreds.csv", sep = "")
+#   
+#   # make sure sim_list and sim_params are not pointing to the whole list, which starts w character elements
+#   sim_list<- gauss_badger_randMiss[[CurSim]]$y
+#   nms <- stringr::str_which(names(sim_list), "^prop")
+#   sim_list <- sim_list[nms]
+#   
+#   # Run models with drop missing + arima ------------------------------------
+#   
+#   arima_drop_MAR <- fit_arima_dropmissing(sim_list=sim_list,
+#                                           sim_pars=gauss_badger_randMiss[[CurSim]]$sim_params, 
+#                                           forecast = TRUE, 
+#                                           forecast_days = forecast_days, 
+#                                           dat_full = badger_mill_creek_full)
+#   
+#   ## formatting for figure
+#   # save arima model parameters
+#   arimadrop_MAR_df <- arima_drop_MAR$arima_pars
+#   arimadrop_MAR_df$missingness <- 'MAR'
+#   arimadrop_MAR_df$type <- 'dropNA_simple'
+#   arimadrop_MAR_df$run_no <- CurSim
+#   
+#   # save arima forecasts
+#   arimadrop_MAR_preds <- arima_drop_MAR$arima_forecast
+#   arimadrop_MAR_preds$missingness <- 'MAR'
+#   arimadrop_MAR_preds$type <- 'dropNA_simple'
+#   arimadrop_MAR_preds$run_no <- CurSim
+#   
+#   
+#   
+#   # Run models with drop missing complete case + arima ------------------------------------
+#   
+#   arima_dropCC_MAR <- fit_arima_dropmissing_CC(sim_list=sim_list,
+#                                                sim_pars=gauss_badger_randMiss[[CurSim]]$sim_params, 
+#                                                forecast = TRUE,
+#                                                forecast_days = forecast_days, 
+#                                                dat_full = badger_mill_creek_full)
+#   
+#   ## formatting for figure
+#   # save arima model parameters
+#   arimadropCC_MAR_df <- arima_dropCC_MAR$arima_pars
+#   arimadropCC_MAR_df$missingness <- 'MAR'
+#   arimadropCC_MAR_df$type <- 'dropNA_complete'
+#   arimadropCC_MAR_df$run_no <- CurSim
+#   
+#   # save arima forecasts
+#   arimadropCC_MAR_preds <- arima_dropCC_MAR$arima_forecast
+#   arimadropCC_MAR_preds$missingness <- 'MAR'
+#   arimadropCC_MAR_preds$type <- 'dropNA_complete'
+#   arimadropCC_MAR_preds$run_no <- CurSim
+#   
+#   # Run models w/ Kalman filter + arima fxn ---------------------------------
+#   
+#   arima_kalman_MAR<- fit_arima_Kalman(sim_list=sim_list,
+#                                       sim_pars=gauss_badger_randMiss[[CurSim]]$sim_params, 
+#                                       forecast = TRUE, 
+#                                       forecast_days = forecast_days, 
+#                                       dat_full = badger_mill_creek_full)
+#   ## formatting for figure
+#   # save arima model parameters
+#   arimaKalman_MAR_df <- arima_kalman_MAR$arima_pars
+#   arimaKalman_MAR_df$missingness <- 'MAR'
+#   arimaKalman_MAR_df$type <- 'Kalman Filter'
+#   arimaKalman_MAR_df$run_no <- CurSim
+#   
+#   # save arima forecasts
+#   arimaKalman_MAR_preds <- arima_kalman_MAR$arima_forecast
+#   arimaKalman_MAR_preds$missingness <- 'MAR'
+#   arimaKalman_MAR_preds$type <- 'Kalman Filter'
+#   arimaKalman_MAR_preds$run_no <- CurSim
+#   
+#   # Run models w/ Multiple Imputations --------------------------------------
+#   
+#   arima_mi_MAR <-  fit_arima_MI(sim_list=sim_list,
+#                                 sim_pars=gauss_badger_randMiss[[CurSim]]$sim_params, 
+#                                 imputationsnum=5,
+#                                 forecast = TRUE, 
+#                                 forecast_days = forecast_days,
+#                                 dat_full = badger_mill_creek_full)
+#   ## formatting for figure
+#   # save arima model parameters
+#   arimaMI_MAR_df <- arima_mi_MAR$arima_pars
+#   arimaMI_MAR_df$missingness <- 'MAR'
+#   arimaMI_MAR_df$type <- 'Multiple Imputations'
+#   arimaMI_MAR_df$run_no <- CurSim
+#   
+#   # save arima forecasts
+#   arimaMI_MAR_preds <- arima_mi_MAR$arima_forecast
+#   arimaMI_MAR_preds$missingness <- 'MAR'
+#   arimaMI_MAR_preds$type <- 'Multiple Imputations'
+#   arimaMI_MAR_preds$run_no <- CurSim
+#   
+#   # Combine output data and save --------------------------------------------
+#   
+#   paramarimaall_df<-rbind(arimadrop_MAR_df, arimadropCC_MAR_df, arimaKalman_MAR_df, arimaMI_MAR_df)
+#   
+#   Output <- matrix(data=NA, nrow=nrow(paramarimaall_df), ncol=ncol(paramarimaall_df))
+#   
+#   # Save the results of the current script's simulation to the appropriate column of output
+#   Output<- paramarimaall_df
+#   
+#   # add all the output data together
+#   Output2<-cbind(CurSim,Output)
+#   
+#   # Write the output to the folder which will contain all output files as separate csv
+#   #    files with a single line of data.
+#   write.csv(Output2, file = OutFile_params, row.names = FALSE)
+#   
+#   ## save prediction data
+#   
+#   paramarimaall_preds<-rbind(arimadrop_MAR_preds, arimadropCC_MAR_preds, arimaKalman_MAR_preds, arimaMI_MAR_preds)
+#   
+#   Output3 <- matrix(data=NA, nrow=nrow(paramarimaall_preds), ncol=ncol(paramarimaall_preds))
+#   
+#   # Save the results of the current script's simulation to the appropriate column of output
+#   Output3<- paramarimaall_preds
+#   
+#   # add all the output data together
+#   Output4<-cbind(CurSim,Output3)
+#   
+#   # Write the output to the folder which will contain all output files as separate csv
+#   #    files with a single line of data.
+#   write.csv(Output4, file = OutFile_preds, row.names = FALSE)
+#   
+#   
+# }
 ############# check outputs -------------------
 
 ### compile for Au Sable river ----------------
@@ -649,6 +774,7 @@ for (i in 1:10) {
 # compile script output and save 
 dirname <- "./data/model_results/gauss_real_MAR_arima_modResults/au_sable/"
 predNames <- list.files(dirname, pattern = "preds.csv")
+predNames <- predNames[str_detect(predNames, pattern = "[0-9]+arimapreds.csv")]
 predsAll <- map_df(predNames, function(x) {
   read_csv(paste0(dirname, x))
 })
@@ -656,12 +782,16 @@ predsAll <- map_df(predNames, function(x) {
 write.csv(predsAll, file = paste(dirname, "gauss_auSable_real_MAR_arima_FORECASTpreds.csv", sep = ""))
 
 valNames <- list.files(dirname, pattern = "vals.csv")
+valNames <- valNames[str_detect(valNames, pattern = "[0-9]+arimavals.csv")]
 valsAll <- map_df(valNames, function(x) {
   read_csv(paste0(dirname, x))
 })
 #write.csv(valsAll, file = "./data/model_results/gauss_real_MAR_arima_FORECASTvals.csv")
 write.csv(valsAll, file = paste(dirname, "gauss_auSable_real_MAR_arima_FORECASTvals.csv", sep = ""))
+#valsAll <- read.csv("./data/model_results/gauss_real_MAR_arima_modResults/au_sable/gauss_auSable_real_MAR_arima_FORECASTvals.csv")
 
+# ggplot(valsAll) + 
+#   geom_boxplot(aes(x = parameters, y = param_value, col = type))
 ### compile for Badger Mill Creek ---------------
 # 
 # # compile script output and save 

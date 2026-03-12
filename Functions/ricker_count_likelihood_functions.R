@@ -96,3 +96,20 @@ zt_neg_binom_rng <- function(n, mu, size, max_iter = 1000){
   return(y)
 }
 
+
+#' Negative log-likelihood for multiple independent Ricker time series
+#' 
+#' @param theta Parameter vector
+#' @param y_list List of population count vectors (NAs already filled in)
+#' @param X_list List of model matrices corresponding to each series
+#' @param fam Error family
+#' 
+ricker_count_neg_ll_multi <- function(theta, y_list, X_list, fam = "poisson"){
+  total_nll <- 0
+  for(i in seq_along(y_list)){
+    total_nll <- total_nll + ricker_count_neg_ll(theta, y_list[[i]], X_list[[i]], fam)
+  }
+  return(total_nll)
+}
+
+

@@ -117,6 +117,7 @@ gauss_auSable <- gauss_auSable[1:731,]
 ## make missing data types for increasing levels of autocorrelation
 # possible autocorrelation vector
 inputAutocor <- c(.25, .50, .75)
+
 reps <- 50
 tolerance <- 0.05
 listNames <- vector()
@@ -191,7 +192,9 @@ gauss_auSable_randMiss_trim <- gauss_auSable_randMiss_trim_list
 ## missing in min and max of data
 ## for the MNAR data, we need to do slightly different propMissing values, since the same proportion will cutoff the same exact values 
 
-inputPropMiss <- c(.18, .19, .2, .21, .22, .38, .39, .4, .41, .42, .58, .59, .6, .61, .62)
+inputPropMiss <- c(.15, .16, .17, .18, .19, .2, .21, .22, .23, .24, .25,
+                   .35, .36, .37, .38, .39, .4, .41, .42, .43, .44, .45,
+                   .55, .56, .57, .58, .59, .6, .61, .62, .63, .64, .65)
 gauss_auSable_minMaxMiss_trim_TEMP <- as.data.frame(makeMissing(timeSeries = gauss_auSable$GPP, 
                                                                 typeMissing = "minMax", 
                                                                 propMiss = inputPropMiss, type =  "Gaussian"))
@@ -231,11 +234,13 @@ inputAutocor <- c(.0, .10, .20, .30, .40, .50, .60, .70, .80, .90)
 # possible autocorrelation vector
 inputAutocor <- c(.0, .10, .20, .30, .40, .50, .60, .70, .80, .90)
 
+inputPropMiss <- c(.18, .19, .2, .21, .22, .38, .39, .4, .41, .42, .58, .59, .6, .61, .62)
+
 for (i in 1:length(inputAutocor)) {
   # calculate missing vectors with increasing levels of missingness
 
   tempOutList <- lapply(X = pois_sim, FUN = function(x)  {
-    last_int <- round(length(x$y)*.8)
+    last_int <- round(length(x$y)*.8) # identifying the last point of the time series w/ 20% removed for forecasting
     list("y" = makeMissing(timeSeries = x$y[1:last_int], typeMissing = "random", autoCorr = inputAutocor[i], 
                            propMiss = inputPropMiss),
          "sim_params" <- x$sim_params)
@@ -459,20 +464,23 @@ pois_real_randMiss_full <- pois_real_randMiss_list
 # MNAR missingness 
 ## missing in min and max of data
   # calculate missing vectors with increasing levels of missingness
-  
-    propMiss=c(.18, .19, .2, .21, .22, .38, .39, .4, .41, .42, .58, .59, .6, .61, .62)
+
+# have a longer vector of proportion of missingness so that we have more resulting model fits (don't have multiple replicates for autocorrelation like we do in the MCAR data)
+    propMiss <- c(.15, .16, .17, .18, .19, .2, .21, .22, .23, .24, .25,
+                                .35, .36, .37, .38, .39, .4, .41, .42, .43, .44, .45,
+                                .55, .56, .57, .58, .59, .6, .61, .62, .63, .64, .65)
     # for each replicate, remove propMiss percent of the observations
         tempOutList <- cbind(bursaria_diff[,c("patch", "date", "number", "days")],
                     as.data.frame(makeMissing(timeSeries = bursaria_diff[,"number"], 
                                               propMiss = propMiss,
                                               typeMissing = "minMax", type = "Poisson")))
-      names(tempOutList)[5:19] <- c("propMiss_0.18", "propMiss_0.19", "propMiss_0.2", "propMiss_0.21", "propMiss_0.22", "propMiss_0.38", 
-                            "propMiss_0.39", "propMiss_0.4", "propMiss_0.41", "propMiss_0.42", "propMiss_0.58", 
-                            "propMiss_0.59", "propMiss_0.6", "propMiss_0.61", "propMiss_0.62")
+      names(tempOutList)[5:37] <- c("propMiss_0.15","propMiss_0.16","propMiss_0.17","propMiss_0.18", "propMiss_0.19", "propMiss_0.2", "propMiss_0.21", "propMiss_0.22","propMiss_0.23", "propMiss_0.24","propMiss_0.25",
+                                    "propMiss_0.35", "propMiss_0.36", "propMiss_0.37", "propMiss_0.38",  "propMiss_0.39", "propMiss_0.4", "propMiss_0.41", "propMiss_0.42", "propMiss_0.43", "propMiss_0.44","propMiss_0.45", 
+                                    "propMiss_0.55","propMiss_0.56","propMiss_0.587","propMiss_0.58", "propMiss_0.59", "propMiss_0.6", "propMiss_0.61", "propMiss_0.62", "propMiss_0.63", "propMiss_0.64", "propMiss_0.625")
 
     # calculate the amount of missingness and autocorrelation across all patches
       
-    names(tempOutList)[5:19] <- paste0("propMissAct_",apply(tempOutList[,5:19], MARGIN = 2, FUN = function(x) {
+    names(tempOutList)[5:37] <- paste0("propMissAct_",apply(tempOutList[,5:37], MARGIN = 2, FUN = function(x) {
       round(sum(is.na(x))/length(x),2)
       }), 
       "_i", seq(1:15))

@@ -10,7 +10,7 @@ library(brms)
 CurSim <- 1 # since the Slurm array is 0 indexed
 
 ## read in the data ##
-gauss_auSable_MNAR <- readRDS(here("data/missingDatasets/gauss_real_auSable_MinMaxMiss_trim.rds"))
+gauss_auSable_MNAR <- readRDS(here("data/missingDatasets/gauss_real_auSable_MinMaxMiss.rds"))
 #gauss_badger_MNAR <- readRDS(here("data/missingDatasets/gauss_real_badger_MinMaxMiss.rds"))
 au_sable_river_full <- read_csv(here("data/au_sable_river_prepped.csv"))
 #badger_mill_creek_full <- read_csv(here("data/badger_mill_Creek_prepped.csv"))
