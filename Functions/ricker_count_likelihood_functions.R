@@ -36,6 +36,9 @@ ricker_count_neg_ll <- function(theta, y, X = NULL, fam = "poisson"){
   
   n <- length(y)
   p <- length(theta)
+  if("lalpha" %in% names(theta)){
+    theta["lalpha"] <- -exp(theta["lalpha"])
+  }
   # compute means
   eta <- vector(mode = "double", length = n)
   eta[1] <- log(y[1])
