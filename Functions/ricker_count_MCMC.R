@@ -33,7 +33,8 @@ posterior_mode <- function(x){
 #' 
 MH_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
   
-  fit_init <- fit_ricker_cc(dat$y)
+  ## ---- Initializing starting values ----
+  fit_init <- fit_ricker_cc(dat$y, off_patch = TRUE)
   # convert alpha to log-alpha
   # but take care that alpha was estimated as positive
   if(fit_init$estim[2] < 0){
@@ -47,23 +48,16 @@ MH_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
   }
   names(theta_init)[2] <- "lalpha"
   # define negative log-likelihood
-  nll <- function(x, y){
-    
-    n <- length(y)
-    p <- length(x)
-    # compute means
-    eta <- vector(mode = "double", length = n)
-    eta[1] <- log(y[1])
-    for(t in 2:n){
-      eta[t] <- log(y[t - 1]) + x[1] - y[t - 1] * exp(x[2])
+  nll <- function(x, y, off_patch){
+    if(off_patch){
+      y_t <- y[,"yt"]
+      X <- cbind(1, y["ytm1"])
+      ricker_count_neg_ll(theta = x, y = y_t, X = X, fam = )
     }
-    
-    # return the negative log-likelihood
-    return(-sum(
-      dpois(x = y[2:n], lambda = exp(eta[2:n]), log = T)
-    ))
+    ricker_count_neg_ll()
   }
   
+  ## ---- Defining the proposal distribution ----
   # derive hessian around optimal values
   hess <- optim(theta_init, nll, y = dat$y, hessian = T)$hessian
   
@@ -331,7 +325,7 @@ fit_ricker_DA <- function(
     y, fam = "poisson", 
     chains = 4, 
     samples = 1000, 
-    burnin = 5000,
+    burnin = 2000,
     priors_list = list(
       m_r = 0,
       sd_r = 2.5,
@@ -341,7 +335,8 @@ fit_ricker_DA <- function(
       sd_lpsi = 100
     ),
     nthin = 5, 
-    return_y = FALSE
+    return_y = FALSE,
+    off_patch = FALSE
 ){
   require(parallel)
 
@@ -355,7 +350,7 @@ fit_ricker_DA <- function(
   }
   
   # Check for NaN
-  if(any(is.nan(y),na.rm=T)){
+  if(any(is.nan(unlist(y)),na.rm=T)){
     warning("NaN found, recode missing data as NA, returning NA")
     return(list(
       NA,
@@ -364,7 +359,7 @@ fit_ricker_DA <- function(
   }
   
   # Check for Inf
-  if(any(is.infinite(y),na.rm=T)){
+  if(any(is.infinite(unlist(y)),na.rm=T)){
     warning("infinite population detected, recheck data returning NA")
     return(list(
       NA,
@@ -372,20 +367,27 @@ fit_ricker_DA <- function(
     ))
   }
   
-  # remove starting NAs
-  if(is.na(y[1])){
-    warning("Removing starting NAs...")
-    start <- min(which(!is.na(y)))
-    y <- y[start:length(y)]
+  if(isFALSE(off_patch)){
+    # remove starting NAs
+    if(is.na(y[1])){
+      warning("Removing starting NAs...")
+      start <- min(which(!is.na(y)))
+      y <- y[start:length(y)]
+    } 
   }
   
   # check for too few non-missing sets y(t) and y(t-1) for initial estimates from fit_ricker_cc 
   # compile into sliced dataframe
-  n <- length(y)
-  dat <- data.frame(
-    yt = y[2:n],
-    ytm1 = y[1:(n - 1)]
-  )
+  if(off_patch){
+    n <- nrow(y) + 1
+    dat <- y[, c("yt", "ytm1")]
+  } else {
+    n <- length(y)
+    dat <- data.frame(
+      yt = y[2:n],
+      ytm1 = y[1:(n - 1)]
+    )
+  }
   
   # drop incomplete cases
   dat_cc <- dat[complete.cases(dat), ]
@@ -400,9 +402,9 @@ fit_ricker_DA <- function(
   
   
   # create internal function to compute the log-probability
-  compute_lp <- function(theta, dat, y_full = NULL, family = fam){
+  compute_lp <- function(theta, datlist, y_full = NULL, family = fam){
     if(is.null(y_full)){
-      y_full <- dat$y
+      y_full <- datlist$y[, "yt"]
     }
     r <- theta["r"]
     alpha <- -exp(theta["lalpha"])
@@ -418,7 +420,7 @@ fit_ricker_DA <- function(
       theta2 = c(r, alpha, psi = psi)
     }
     lp <- -ricker_count_neg_ll(theta = theta2, y = y_full, X = Xmm, fam = family) +
-      dnorm(r, mean = dat$m_r, sd = dat$sd_r, log = T) + 
+      dnorm(theta["r"], mean = dat$m_r, sd = dat$sd_r, log = T) + 
       dnorm(theta["lalpha"], mean = dat$m_lalpha, sd = dat$sd_lalpha, log = T)
     
     if(family == "neg_binom"){
@@ -429,66 +431,39 @@ fit_ricker_DA <- function(
   }
   
   # function to "fill in" the missing data based on current values of params
-  fill_rng <- function(theta, dat, family = fam){
-    y <- dat$y
-    n <- length(y)
-    y_full <- vector("double", length = n)
-    y_full[1] <- y[1]
-    for(t in 2:n){
-      if(is.na(y[t])){
+  fill_rng <- function(theta, datlist, family = fam){
+    y <- datlist$y
+    for(t in 1:nrow(y)){
+      if(is.na(y[t, "yt"])){
         mu_t <- ricker_step(
           theta = c(theta["r"], -exp(theta["lalpha"])), 
-          Nt = y_full[t-1]
+          Nt = y[t, "ytm1"]
         )
         if(family == "poisson"){
-          y_full[t] <- zt_poisson_rng(1, mu_t)
+          y[t, "yt"] <- zt_poisson_rng(1, mu_t)
         }
         if(family == "neg_binom"){
-          y_full[t] <- zt_neg_binom_rng(1, size = exp(theta["lpsi"]), mu = mu_t)
+          y[t, "yt"] <- zt_neg_binom_rng(1, size = exp(theta["lpsi"]), mu = mu_t)
         }
-      } else{
-        y_full[t] <- y[t]
       }
     }
-    return(y_full)
+    return(y)
   }
   
   # proposal distribution is now determined based
-  # on empirical bayes approach
-  # # define proposal distribution
-  # q_rng <- function(theta, sd){
-  #   p <- length(theta)
-  #   theta_prop <- rnorm(p, mean = theta, sd = sd)
-  #   names(theta_prop) <- names(theta)
-  #   return(theta_prop)
-  # }
-  # 
-  # # define proposal density
-  # q_lpdf <- function(prop, theta_s, sd = stepsize){
-  #   sum(dnorm(prop, mean = theta_s, sd = sd, log = T))
-  # }
-  
-  # generate some useful variables
-  n <- length(y)
-  p <- 2
   
   # compile data
-  dat <- c(
+  datlist <- c(
     list(
-      y = y
+      y = dat,
+      fam = fam
     ),
     priors_list
   )
   
   # Starting point now determined based on empirical Bayes approach
-  # # initialize
-  # theta_init <- c(
-  #   runif(1, max = 1),
-  #   runif(1, min = -4, max = -1)
-  # )
-  # names(theta_init) <- c("r", "lalpha")
   
-  prop_miss <- mean(is.na(y))
+  prop_miss <- mean(is.na(dat[, "yt"]))
 
   if(prop_miss == 0){
     force(ls(envir = environment()))
@@ -588,8 +563,12 @@ fit_ricker_DA <- function(
       x$theta
     })
   )
-  theta_samps[,2] <- exp(theta_samps[,2])
-  colnames(theta_samps) <- c("r", "alpha")
+  theta_samps[,"lalpha"] <- exp(theta_samps[,"lalpha"])
+  colnames(theta_samps)[1:2] <- c("r", "alpha")
+  if(fam == "neg_binom"){
+    theta_samps["lpsi"] <- exp(theta_samps["lpsi"])
+    colnames(theta_samps)[3] <- "psi"
+  }
   
   # if we want to return posterior estims for missing obs
   if(isTRUE(return_y) & prop_miss > 0){
