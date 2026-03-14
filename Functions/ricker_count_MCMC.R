@@ -57,7 +57,6 @@ MH_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
   
   ## ---- Defining the proposal distribution ----
   # # define negative log-likelihood in order to get Hessian
-  # this method does not seem to work for neg_binom
   # nll <- function(x, y, fam, psi = NULL){
   #   y_t <- c(y[1, "ytm1"], as.double(y[,"yt"]))
   #   X <- cbind(1, y_t)
@@ -70,21 +69,33 @@ MH_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
   #   ricker_count_neg_ll(theta = theta, y = y_t, X = X, fam = fam)
   # }
   # 
+  # optim(theta_init[1:(p - 1)], nll, y = dat$y, fam = fam, psi = exp(theta_init[p]), hessian = T, method = "BFGS")
+  # 
   # # derive hessian around optimal values
   # hess <- rootSolve::hessian(nll, theta_init[1:2], y = dat$y, fam = "neg_binom", psi = exp(theta_init["lpsi"]))
-  # 
+
   # get covariance matrix for proposal distribution based on 
   # hessian
-  Sigma <- diag(fit_init$se^2)
+  Sigma <- diag(fit_init$se)
+  # use delta method for se of log(alpha)
+  alpha_index <- which(names(fit_init$estim) == "alpha")
+  # these are just values I found work well for these types of data
+  Sigma[alpha_index, alpha_index] <- fit_init$se[alpha_index] * 10
   if(dat$fam == "neg_binom"){
-    Sigma[nrow(Sigma), ncol(Sigma)] <- 0.05
+    Sigma[nrow(Sigma), ncol(Sigma)] <- 0.5
   }
   
   # define proposal distribution
   q_rng <- function(theta, Sigma){
-    theta_prop <- mvtnorm::rmvnorm(1, theta, Sigma)[1, ]
-    names(theta_prop) <- names(theta)
-    return(theta_prop)
+    if(length(theta) == 1){
+      prop <- rnorm(1, theta, Sigma)
+      names(prop) <- names(theta)
+      return(prop)
+    } else {
+      theta_prop <- mvtnorm::rmvnorm(1, theta, Sigma)[1, ]
+      names(theta_prop) <- names(theta)
+      return(theta_prop)
+    }
   }
   
   # define proposal density
@@ -95,38 +106,121 @@ MH_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
   
   ## ---- Main loop ----
   S <- (burnin + iter) * nthin
-  theta_samps <- matrix(nrow = S, ncol = length(theta_init))
+  p <- length(theta_init)
+  theta_samps <- matrix(nrow = S, ncol = p)
   colnames(theta_samps) <- names(theta_init)
   theta_samps[1, ] <- theta_init
   lp_samps <- vector(length = S, mode = "double")
   lp_samps[1] <- lp(theta_init, dat)
   accept <- vector(mode = "double", S)
   
-  for(s in 2:S){
-    
-    # define components of the MH algorithm
-    theta_s <- theta_samps[s - 1, ]
-    theta_prop <- q_rng(theta_s, Sigma)
-    lp_prop <- lp(theta_prop, dat)
-    lp_curr <- lp_samps[s - 1]
-    
-    # compute the ratio
-    mh_ratio <- exp((lp_prop + q_lpdf(theta_s, theta_prop, Sigma)) - (lp_curr + q_lpdf(theta_prop, theta_s, Sigma)))
-    
-    if(is.nan(mh_ratio)){
-      mh_ratio <- 0
+  # if adaptive step sizes are turned on
+  adjust_at <- c(1, floor(burnin / adapt) * c(1:adapt))
+  adjust_counter <- 2
+  
+  ### ---- block updates for poisson ----
+  if(fam == "poisson"){
+    for(s in 2:S){
+      
+      # define components of the MH algorithm
+      theta_s <- theta_samps[s - 1, ]
+      theta_prop <- q_rng(theta_s, Sigma)
+      lp_prop <- lp(theta_prop, dat)
+      lp_curr <- lp_samps[s - 1]
+      
+      # compute the ratio
+      mh_ratio <- exp((lp_prop + q_lpdf(theta_s, theta_prop, Sigma)) - (lp_curr + q_lpdf(theta_prop, theta_s, Sigma)))
+      
+      if(is.nan(mh_ratio)){
+        mh_ratio <- 0
+      }
+      # accept or reject the update
+      A <- min(1, mh_ratio)
+      accept[s] <- rbinom(1, 1, prob = A)
+      if(accept[s] == 1){
+        theta_samps[s, ] <- theta_prop
+        lp_samps[s] <- lp_prop
+      } else{
+        theta_samps[s, ] <- theta_s
+        lp_samps[s] <- lp_curr
+      }
+      
+    } 
+  }
+  
+  ### ---- Alternating updates for negative binomial ----
+  if(fam == "neg_binom"){
+    accept <- cbind(accept, accept)
+    for(s in 2:S){
+      
+      # define components of the MH algorithm
+      theta_s <- theta_samps[s - 1, ]
+      theta_prop_b <- c(q_rng(theta_s[-p], Sigma[-p, -p]), theta_s[p])
+      lp_prop_b <- lp(theta_prop_b, dat)
+      lp_curr_b <- lp_samps[s - 1]
+      
+      # compute the ratio
+      mh_ratio_1 <- exp((lp_prop_b + q_lpdf(theta_s, theta_prop_b, Sigma)) - (lp_curr_b + q_lpdf(theta_prop_b, theta_s, Sigma)))
+      
+      if(is.nan(mh_ratio_1)){
+        mh_ratio_1 <- 0
+      }
+      # accept or reject the update
+      A_1 <- min(1, mh_ratio_1)
+      
+      accept[s, 1] <- rbinom(1, 1, prob = A_1)
+      if(accept[s, 1] == 1){
+        theta_s <- theta_prop_b
+        lp_curr_b <- lp_prop_b
+      }
+      
+      # second round of proposal
+      theta_prop_psi <- c(theta_s[1:(p - 1)], q_rng(theta_s[p], Sigma[p, p]))
+      lp_prop_psi <- lp(theta_prop_psi, dat)
+      
+      # compute the ratio
+      mh_ratio_2 <- exp((lp_prop_psi + q_lpdf(theta_s, theta_prop_psi, Sigma)) - (lp_curr_b + q_lpdf(theta_prop_psi, theta_s, Sigma)))
+      
+      if(is.nan(mh_ratio_2)){
+        mh_ratio_2 <- 0
+      }
+      # accept or reject the update
+      A_2 <- min(1, mh_ratio_2)
+      
+      accept[s, 2] <- rbinom(1, 1, prob = A_2)
+      if(accept[s, 2] == 1){
+        theta_samps[s, ] <- theta_prop_psi
+        lp_samps[s] <- lp_prop_psi
+      } else{
+        theta_samps[s, ] <- theta_s
+        lp_samps[s] <- lp_curr_b
+      }
+      
+      # if adaptive step size
+      if(adapt > 0 & s == adjust_at[adjust_counter]){
+        pa_1 <- mean(accept[adjust_at[adjust_counter - 1]:s, 1])
+        pa_2 <- mean(accept[adjust_at[adjust_counter - 1]:s, 2])
+        if(pa_1 < 0.2){
+          sig_new_1 <- diag(Sigma)[1:2] * 0.75 
+          diag(Sigma)[1:(p - 1)] <- sig_new_1
+        } else if(pa_1 > 0.6){
+          sig_new_1 <- diag(Sigma)[1:2] * 1.5
+          diag(Sigma)[1:(p - 1)] <- sig_new_1
+        }
+        
+        # adjustments to stepsize for dispersion
+        if(pa_2 < 0.2){
+          sig_new21 <- diag(Sigma)[p] * 0.75 
+          diag(Sigma)[p] <- sig_new_2
+        } else if(pa_2 > 0.6){
+          sig_new_2 <- diag(Sigma)[p] * 1.5
+          diag(Sigma)[p] <- sig_new_2
+        }
+        # increment counter
+        adjust_counter <- adjust_counter + 1
+      }
+      
     }
-    # accept or reject the update
-    A <- min(1, mh_ratio)
-    accept[s] <- rbinom(1, 1, prob = A)
-    if(accept[s] == 1){
-      theta_samps[s, ] <- theta_prop
-      lp_samps[s] <- lp_prop
-    } else{
-      theta_samps[s, ] <- theta_s
-      lp_samps[s] <- lp_curr
-    }
-    
   }
   
   # thin out, then return the post-burnin samples
