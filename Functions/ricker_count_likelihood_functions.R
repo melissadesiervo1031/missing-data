@@ -36,9 +36,6 @@ ricker_count_neg_ll <- function(theta, y, X = NULL, fam = "poisson"){
   
   n <- length(y)
   p <- length(theta)
-  if("lalpha" %in% names(theta)){
-    theta["lalpha"] <- -exp(theta["lalpha"])
-  }
   # compute means
   eta <- vector(mode = "double", length = n)
   eta[1] <- log(y[1])
@@ -54,14 +51,14 @@ ricker_count_neg_ll <- function(theta, y, X = NULL, fam = "poisson"){
     ))
   }
   if(fam == "neg_binom"){
-    b <- theta[names(theta) != "psi"]
+    b <- theta[1:(p-1)]
     for(t in 2:n){
       eta[t] <- log(y[t - 1]) + X[t - 1, ] %*% b
     }
     
     # return the negative log-likelihood
     return(-sum(
-      dnbinom(x = y[2:n], mu = exp(eta[2:n]), size = theta["psi"], log = T)
+      dnbinom(x = y[2:n], mu = exp(eta[2:n]), size = theta[p], log = T)
     ))
   }
   

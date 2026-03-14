@@ -34,36 +34,51 @@ posterior_mode <- function(x){
 MH_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
   
   ## ---- Initializing starting values ----
-  fit_init <- fit_ricker_cc(dat$y, off_patch = TRUE)
+  fit_init <- fit_ricker_cc(dat$y, fam = dat$fam, off_patch = TRUE)
+  theta_init <- fit_init$estim
   # convert alpha to log-alpha
   # but take care that alpha was estimated as positive
-  if(fit_init$estim[2] < 0){
-    if(fit_init$upper[2] < 0){
-      theta_init <- c(fit_init$estim[1], log(0.001))
+  if(theta_init["alpha"] < 0){
+    if(fit_init$upper[which(names(fit_init$estim) == "alpha")] < 0){
+      theta_init["alpha"] <- log(0.001)
     } else{
-      theta_init <- c(fit_init$estim[1], log(fit_init$upper[2]))
+      theta_init["alpha"] <- log(fit_init$upper[which(names(fit_init$estim) == "alpha")])
     }
   } else{
-    theta_init <- c(fit_init$estim[1], log(fit_init$estim[2]))
+    theta_init["alpha"] <- log(fit_init$estim["alpha"])
   }
-  names(theta_init)[2] <- "lalpha"
-  # define negative log-likelihood
-  nll <- function(x, y, off_patch){
-    if(off_patch){
-      y_t <- y[,"yt"]
-      X <- cbind(1, y["ytm1"])
-      ricker_count_neg_ll(theta = x, y = y_t, X = X, fam = )
-    }
-    ricker_count_neg_ll()
+  if(is.infinite(theta_init["psi"])){
+    theta_init["psi"] <- log(100)
+  } else {
+    theta_init["psi"] <- log(theta_init["psi"])
   }
+  names(theta_init)[which(names(theta_init) == "alpha")] <- "lalpha"
+  names(theta_init)[which(names(theta_init) == "psi")] <- "lpsi"
   
   ## ---- Defining the proposal distribution ----
-  # derive hessian around optimal values
-  hess <- optim(theta_init, nll, y = dat$y, hessian = T)$hessian
-  
+  # # define negative log-likelihood in order to get Hessian
+  # this method does not seem to work for neg_binom
+  # nll <- function(x, y, fam, psi = NULL){
+  #   y_t <- c(y[1, "ytm1"], as.double(y[,"yt"]))
+  #   X <- cbind(1, y_t)
+  #   x["lalpha"] <- exp(x["lalpha"])
+  #   if(fam == "neg_binom"){
+  #     theta <- c(x, psi)
+  #   } else {
+  #     theta <- x
+  #   }
+  #   ricker_count_neg_ll(theta = theta, y = y_t, X = X, fam = fam)
+  # }
+  # 
+  # # derive hessian around optimal values
+  # hess <- rootSolve::hessian(nll, theta_init[1:2], y = dat$y, fam = "neg_binom", psi = exp(theta_init["lpsi"]))
+  # 
   # get covariance matrix for proposal distribution based on 
   # hessian
-  Sigma <- solve(hess)
+  Sigma <- diag(fit_init$se^2)
+  if(dat$fam == "neg_binom"){
+    Sigma[nrow(Sigma), ncol(Sigma)] <- 0.05
+  }
   
   # define proposal distribution
   q_rng <- function(theta, Sigma){
@@ -78,6 +93,7 @@ MH_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
   }
   
   
+  ## ---- Main loop ----
   S <- (burnin + iter) * nthin
   theta_samps <- matrix(nrow = S, ncol = length(theta_init))
   colnames(theta_samps) <- names(theta_init)
@@ -389,10 +405,10 @@ fit_ricker_DA <- function(
     )
   }
   
-  # drop incomplete cases
-  dat_cc <- dat[complete.cases(dat), ]
+  # check that there are enough complete cases
+  ncc <- nrow(dat[complete.cases(dat), ])
   
-  if(nrow(dat_cc) < 5){
+  if(ncc < 5){
     warning("There are not enough non-missing sets y(t) and y(t-1)")
     return(list(
       NA,
@@ -404,7 +420,7 @@ fit_ricker_DA <- function(
   # create internal function to compute the log-probability
   compute_lp <- function(theta, datlist, y_full = NULL, family = fam){
     if(is.null(y_full)){
-      y_full <- datlist$y[, "yt"]
+      y_full <- c(datlist$y[1, "ytm1"], as.double(datlist$y[, "yt"]))
     }
     r <- theta["r"]
     alpha <- -exp(theta["lalpha"])
@@ -419,15 +435,15 @@ fit_ricker_DA <- function(
       psi <- exp(theta["lpsi"])
       theta2 = c(r, alpha, psi = psi)
     }
-    lp <- -ricker_count_neg_ll(theta = theta2, y = y_full, X = Xmm, fam = family) +
+    lprob <- -ricker_count_neg_ll(theta = theta2, y = y_full, X = Xmm, fam = family) +
       dnorm(theta["r"], mean = dat$m_r, sd = dat$sd_r, log = T) + 
       dnorm(theta["lalpha"], mean = dat$m_lalpha, sd = dat$sd_lalpha, log = T)
     
     if(family == "neg_binom"){
-      lp <- lp +
-        dnorm(theta["lphi"], mean = dat$m_lphi, sd = dat$sd_lphi, log = T)
+      lprob <- lprob +
+        dnorm(theta["lpsi"], mean = dat$m_lpsi, sd = dat$sd_lpsi, log = T)
     }
-    return(unname(lp))
+    return(unname(lprob))
   }
   
   # function to "fill in" the missing data based on current values of params
