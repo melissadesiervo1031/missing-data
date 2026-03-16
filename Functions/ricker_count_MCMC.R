@@ -238,6 +238,77 @@ MH_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
 
 
 
+step_out <- function(k, x_curr, h, width, lp, dat, max_iter = 100){
+  
+  # random interval placement
+  int <- double(length = 2)
+  int[1] <- x_curr[k] - runif(1, max = width)
+  int[2] <- int[1] + width
+  
+  # do the lower bound
+  x_low <- x_curr
+  x_low[k] <- int[1]
+  h_low <- lp(x_low, dat)
+  i <- 0
+  n_expand <- 0
+  while (i < max_iter & h_low > h) {
+    x_low[k] <- x_low[k] - width
+    h_low <- lp(x_low, dat)
+    i <- i + 1
+  }
+  int[1] <- x_low[k]
+  n_expand <- n_expand + i
+  
+  # now expand upper bound
+  x_high <- x_curr
+  x_high[k] <- int[2]
+  h_high <- lp(x_high, dat)
+  i <- 0
+  while(i < max_iter & h_high > h) {
+    x_high[k] <- x_high[k] + width
+    h_high <- lp(x_high, dat)
+    i <- i + 1
+  }
+  int[2] <- x_high[k]
+  n_expand <- n_expand + i
+  
+  return(list(int = int, n_expand = n_expand))
+  
+}
+
+
+
+
+slice_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
+  
+  ## ---- Initializing starting values ----
+  fit_init <- fit_ricker_cc(dat$y, fam = dat$fam, off_patch = TRUE)
+  theta_init <- fit_init$estim
+  # convert alpha to log-alpha
+  # but take care that alpha was estimated as positive
+  if(theta_init["alpha"] < 0){
+    if(fit_init$upper[which(names(fit_init$estim) == "alpha")] < 0){
+      theta_init["alpha"] <- log(0.001)
+    } else{
+      theta_init["alpha"] <- log(fit_init$upper[which(names(fit_init$estim) == "alpha")])
+    }
+  } else{
+    theta_init["alpha"] <- log(fit_init$estim["alpha"])
+  }
+  if(is.infinite(theta_init["psi"])){
+    theta_init["psi"] <- log(100)
+  } else {
+    theta_init["psi"] <- log(theta_init["psi"])
+  }
+  names(theta_init)[which(names(theta_init) == "alpha")] <- "lalpha"
+  names(theta_init)[which(names(theta_init) == "psi")] <- "lpsi"
+  
+  
+  
+}
+
+
+
 
 
 #' Block Metropolis-Hastings within Gibbs sampling of the posterior for Data Augmentation
