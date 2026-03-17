@@ -238,39 +238,39 @@ MH_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
 
 
 
-step_out <- function(k, x_curr, h, width, lp, dat, max_iter = 100){
+step_out <- function(k, theta_curr, pars_afs, h, lp, dat, max_steps_out = 100){
   
   # random interval placement
+  width <- pars_afs$width
   int <- double(length = 2)
-  int[1] <- x_curr[k] - runif(1, max = width)
-  int[2] <- int[1] + width
+  x_low <- runif(1, min = -width, max = 0)
+  x_high <- x_low + width
+  Gam_k <- pars_afs$Gamma[, k]
   
   # do the lower bound
-  x_low <- x_curr
-  x_low[k] <- int[1]
-  h_low <- lp(x_low, dat)
+  h_low <- exp(lp(x_low * Gam_k + theta_curr, dat))
   i <- 0
   n_expand <- 0
-  while (i < max_iter & h_low > h) {
-    x_low[k] <- x_low[k] - width
-    h_low <- lp(x_low, dat)
+  while (i < max_steps_out & h_low > h) {
+    x_low <- x_low - width
+    h_low <- exp(lp(x_low * Gam_k + theta_curr, dat))
     i <- i + 1
   }
-  int[1] <- x_low[k]
+  int[1] <- x_low
   n_expand <- n_expand + i
   
   # now expand upper bound
-  x_high <- x_curr
-  x_high[k] <- int[2]
-  h_high <- lp(x_high, dat)
+  h_high <- exp(lp(x_high * Gam_k + theta_curr, dat))
   i <- 0
-  while(i < max_iter & h_high > h) {
-    x_high[k] <- x_high[k] + width
-    h_high <- lp(x_high, dat)
+  while(i < max_steps_out & h_high > h) {
+    x_high <- x_high + width
+    h_high <- exp(lp(x_high * Gam_k + theta_curr, dat))
     i <- i + 1
   }
-  int[2] <- x_high[k]
+  int[2] <- x_high
   n_expand <- n_expand + i
+  
+  if(n_expand == 0){ n_expand <- 1 }
   
   return(list(int = int, n_expand = n_expand))
   
@@ -278,35 +278,141 @@ step_out <- function(k, x_curr, h, width, lp, dat, max_iter = 100){
 
 
 
-
-slice_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
+slice_proposals <- function(k, A_curr, theta_curr, pars_afs, h, lp, dat, adapt_A = F, time_out = 500){
   
-  ## ---- Initializing starting values ----
-  fit_init <- fit_ricker_cc(dat$y, fam = dat$fam, off_patch = TRUE)
-  theta_init <- fit_init$estim
-  # convert alpha to log-alpha
-  # but take care that alpha was estimated as positive
-  if(theta_init["alpha"] < 0){
-    if(fit_init$upper[which(names(fit_init$estim) == "alpha")] < 0){
-      theta_init["alpha"] <- log(0.001)
-    } else{
-      theta_init["alpha"] <- log(fit_init$upper[which(names(fit_init$estim) == "alpha")])
+  h_prop <- -999
+  prop_counter <- 0
+  contraction_counter <- 0
+  while(h_prop < h & prop_counter < time_out){
+    q_prop <- runif(1, min = A_curr[1], max = A_curr[2])
+    h_prop <- exp(lp(q_prop * pars_afs$Gamma[, k] + theta_curr, dat))
+    if(adapt_A & h_prop < h){
+      if((A_curr[1] - q_prop)^2 < (A_curr[2] - q_prop)^2){
+        A_curr[1] <- q_prop
+      } else {
+        A_curr[2] <- q_prop
+      }
+      contraction_counter <- contraction_counter + 1
     }
-  } else{
-    theta_init["alpha"] <- log(fit_init$estim["alpha"])
+    prop_counter <- prop_counter + 1
   }
-  if(is.infinite(theta_init["psi"])){
-    theta_init["psi"] <- log(100)
-  } else {
-    theta_init["psi"] <- log(theta_init["psi"])
+  if(prop_counter >= time_out){
+    mess <- paste(
+      "Never found a suitable proposal in", time_out, "proposals.",
+      "Consider increasing steps with, control = list(time_out = )",
+      "or setting adapt = TRUE"
+    )
+    stop(mess)
   }
-  names(theta_init)[which(names(theta_init) == "alpha")] <- "lalpha"
-  names(theta_init)[which(names(theta_init) == "psi")] <- "lpsi"
+  theta_prop <- q_prop * pars_afs$Gamma[, k] + theta_curr
   
-  
+  return(
+    list(theta = theta_prop, contraction_count = contraction_counter)
+  )
   
 }
 
+
+
+auto_tune_afs <- function(dat, lp, burnin = 3000, adapt_cov = 3, tune_w_after = 100, psi_target = 0.1){
+  
+    # ---- Initializing starting values ----
+    fit_init <- fit_ricker_cc(dat$y, fam = dat$fam, off_patch = TRUE)
+    theta_init <- fit_init$estim
+    # convert alpha to log-alpha
+    # but take care that alpha was estimated as positive
+    if(theta_init["alpha"] < 0){
+      if(fit_init$upper[which(names(fit_init$estim) == "alpha")] < 0){
+        theta_init["alpha"] <- log(0.001)
+      } else{
+        theta_init["alpha"] <- log(fit_init$upper[which(names(fit_init$estim) == "alpha")])
+      }
+    } else{
+      theta_init["alpha"] <- log(fit_init$estim["alpha"])
+    }
+    if(is.infinite(theta_init["psi"])){
+      theta_init["psi"] <- log(100)
+    } else {
+      theta_init["psi"] <- log(theta_init["psi"])
+    }
+    names(theta_init)[which(names(theta_init) == "alpha")] <- "lalpha"
+    names(theta_init)[which(names(theta_init) == "psi")] <- "lpsi"
+    
+    p <- length(theta_init)
+    
+    # ---- Initialize sampler and conduct tuning ----
+    pars_afs <- list(
+      Gamma = diag(nrow = p),
+      width = runif(p)
+    )
+    theta_cov <- diag(nrow = p)
+    
+    n_tune_cov <- ceiling(burnin / adapt_cov)
+    theta <- matrix(nrow = 1, ncol = p)
+    theta[1, ] <- theta_init
+    
+    for(i in 1:adapt_cov){
+      
+      samps_i <- factor_slice_sampler(theta[nrow(theta), ], dat, lp, pars_afs, iter = n_tune_cov, control = list(adapt_A = T))
+      
+    }
+    
+  
+}
+
+
+
+factor_slice_sampler <- function(theta_init, dat, lp, pars_afs, iter = 1000, control = list()){
+  
+  # set controls for other funs if not set
+  alg_control <- list(
+    time_out = 100,
+    adapt_A = FALSE,
+    max_steps_out = 100
+  )
+  alg_control <- modifyList(alg_control, control)
+  
+  # initialize trackers
+  p <- length(theta_init)
+  theta <- matrix(nrow = iter, ncol = p)
+  colnames(theta) <- names(theta_init)
+  theta[1, ] <- theta_init
+  
+  if(alg_control$adapt_A){
+    out_steps <- double(iter)
+    in_steps <- double(iter)
+  }
+  
+  # alg 2 of Tibbits et al. 2013
+  for(i in 2:iter){
+    
+    h_i <- runif(1, max = exp(lp(theta[i - 1, ], dat)))
+    theta_prop <- theta[i - 1, ]
+    
+    for(j in 1:p){
+      # approximate interval
+      out <- step_out(j, theta_prop, pars_afs, h = h_i, lp = lp, dat = dat, alg_control$max_steps_out)
+      A_j <- out$int
+      # sample from interval
+      samp_i <- slice_proposals(j, A_j, theta_prop, pars_afs, h_i, lp, dat, alg_control$adapt_A, alg_control$time_out)
+      
+      theta[i, ] <- samp_i$theta
+      
+      if(alg_control$adapt_A){
+        out_steps[i] <- out$n_expand
+        in_steps[i] <- samp_i$contraction_count
+      }
+      
+    }
+  }
+  return(
+    list(
+      theta = theta,
+      out_steps = out_steps,
+      in_steps = in_steps
+    )
+  )
+}
 
 
 
