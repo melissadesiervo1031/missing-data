@@ -241,7 +241,7 @@ MH_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
 step_out <- function(k, theta_curr, pars_afs, h, lp, dat, max_steps_out = 100){
   
   # random interval placement
-  width <- pars_afs$width
+  width <- pars_afs$width[k]
   int <- double(length = 2)
   x_low <- runif(1, min = -width, max = 0)
   x_high <- x_low + width
@@ -280,9 +280,10 @@ step_out <- function(k, theta_curr, pars_afs, h, lp, dat, max_steps_out = 100){
 
 slice_proposals <- function(k, A_curr, theta_curr, pars_afs, h, lp, dat, adapt_A = F, time_out = 500){
   
-  h_prop <- -999
+  h_prop <- 0
   prop_counter <- 0
   contraction_counter <- 0
+  div_trans <- 0
   while(h_prop < h & prop_counter < time_out){
     q_prop <- runif(1, min = A_curr[1], max = A_curr[2])
     h_prop <- exp(lp(q_prop * pars_afs$Gamma[, k] + theta_curr, dat))
@@ -297,24 +298,19 @@ slice_proposals <- function(k, A_curr, theta_curr, pars_afs, h, lp, dat, adapt_A
     prop_counter <- prop_counter + 1
   }
   if(prop_counter >= time_out){
-    mess <- paste(
-      "Never found a suitable proposal in", time_out, "proposals.",
-      "Consider increasing steps with, control = list(time_out = )",
-      "or setting adapt = TRUE"
-    )
-    stop(mess)
+    div_trans <- 1
   }
   theta_prop <- q_prop * pars_afs$Gamma[, k] + theta_curr
   
   return(
-    list(theta = theta_prop, contraction_count = contraction_counter)
+    list(theta = theta_prop, contraction_count = contraction_counter, divergent_trans = div_trans)
   )
   
 }
 
 
 
-auto_tune_afs <- function(dat, lp, burnin = 3000, adapt_cov = 3, tune_w_after = 100, psi_target = 0.1){
+auto_tune_afs <- function(theta_init, dat, lp, adapt_cov = 100, tune_w_after = 10, psi_target = 0.1, stop_after = 500){
   
     # ---- Initializing starting values ----
     fit_init <- fit_ricker_cc(dat$y, fam = dat$fam, off_patch = TRUE)
@@ -343,18 +339,53 @@ auto_tune_afs <- function(dat, lp, burnin = 3000, adapt_cov = 3, tune_w_after = 
     # ---- Initialize sampler and conduct tuning ----
     pars_afs <- list(
       Gamma = diag(nrow = p),
-      width = runif(p)
+      width = runif(p),
+      theta_cov = diag(nrow = p)
     )
-    theta_cov <- diag(nrow = p)
     
-    n_tune_cov <- ceiling(burnin / adapt_cov)
     theta <- matrix(nrow = 1, ncol = p)
     theta[1, ] <- theta_init
-    
-    for(i in 1:adapt_cov){
+  
+    iter <- 1
+    convergence <- c(rep(1, p), 1)
+    while(iter < stop_after & any(convergence == 1)){
       
-      samps_i <- factor_slice_sampler(theta[nrow(theta), ], dat, lp, pars_afs, iter = n_tune_cov, control = list(adapt_A = T))
+      samps_i1 <- factor_slice_sampler(theta[nrow(theta), ], dat, lp, pars_afs, iter = tune_w_after, control = list(adapt_A = T))
       
+      # adapt w
+      wef <- sapply(
+        1:p,
+        FUN = function(j, samps){(sum(samps$out_steps[, j]) / 
+                (sum(samps$out_steps[, j]) + sum(samps$in_steps[, j]))) },
+        samps = samps_i1
+      )
+      
+      keep_going <- 0
+      for(j in 1:p){
+        if(wef[j] - 0.5 > psi_target | wef[j] - 0.5 < psi_target){
+          keep_going <- 1
+          pars_afs$width[j] <- pars_afs$width[j] * 2 * wef[j]
+          tune_w_after <- 2 * tune_w_after
+        } 
+      }
+      
+      theta <- samps_i1$theta
+      
+      samps_i2 <- factor_slice_sampler(theta[nrow(theta), ], dat, lp, pars_afs, iter = n_tune_cov, control = list(adapt_A = T))
+      
+      theta <- samps_i2$theta
+      xbar <- colMeans(samps_i2$theta)
+      # estimating the covariance matrix
+      V <- (1.0 / (n_tune_cov - 1)) *
+        (cov(samps_i2$theta) - xbar %*% xbar * (1.0 / n_tune_cov))
+      Gamma <- eigen(V)$vector
+      A_rot <- solve(pars_afs$theta_cov) %*% V
+      pars_afs$Gamma <- Gamma
+      pars_afs$theta_cov <- V
+      
+      if(sum(A_rot - diag(nrow = p)) < 0.1 & keep_going == 0){
+        break
+      }
     }
     
   
@@ -377,18 +408,25 @@ factor_slice_sampler <- function(theta_init, dat, lp, pars_afs, iter = 1000, con
   theta <- matrix(nrow = iter, ncol = p)
   colnames(theta) <- names(theta_init)
   theta[1, ] <- theta_init
+  div_trans <- matrix(0, nrow = iter, ncol = p)
+  colnames(div_trans) <- names(theta_init)
   
   if(alg_control$adapt_A){
-    out_steps <- double(iter)
-    in_steps <- double(iter)
+    out_steps <- matrix(nrow = iter, ncol = p)
+    in_steps <- matrix(nrow = iter, ncol = p)
+    out_steps[1, ] <- in_steps[1, ] <- 1
   }
   
   # alg 2 of Tibbits et al. 2013
   for(i in 2:iter){
     
-    h_i <- runif(1, max = exp(lp(theta[i - 1, ], dat)))
+    h_i <- runif(1, min = 0, max = exp(lp(theta[i - 1, ], dat)))
+    if(h_i == 0){
+      warning("Proposal near the boundary. Trying again.")
+      h_i <- runif(1, max = exp(-10))
+    }
+
     theta_prop <- theta[i - 1, ]
-    
     for(j in 1:p){
       # approximate interval
       out <- step_out(j, theta_prop, pars_afs, h = h_i, lp = lp, dat = dat, alg_control$max_steps_out)
@@ -396,20 +434,24 @@ factor_slice_sampler <- function(theta_init, dat, lp, pars_afs, iter = 1000, con
       # sample from interval
       samp_i <- slice_proposals(j, A_j, theta_prop, pars_afs, h_i, lp, dat, alg_control$adapt_A, alg_control$time_out)
       
-      theta[i, ] <- samp_i$theta
+      theta_prop[j] <- samp_i$theta[j]
       
       if(alg_control$adapt_A){
-        out_steps[i] <- out$n_expand
-        in_steps[i] <- samp_i$contraction_count
+        out_steps[i, j] <- out$n_expand
+        in_steps[i, j] <- samp_i$contraction_count
       }
       
+      div_trans[i, j] <- samp_i$divergent_trans
+      
     }
+    theta[i, ] <- theta_prop
   }
   return(
     list(
       theta = theta,
       out_steps = out_steps,
-      in_steps = in_steps
+      in_steps = in_steps,
+      divergent_trans = div_trans
     )
   )
 }
