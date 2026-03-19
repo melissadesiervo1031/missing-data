@@ -238,7 +238,7 @@ MH_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
 
 
 
-step_out <- function(k, theta_curr, pars_afs, h, lp, dat, max_steps_out = 100){
+step_out <- function(k, theta_curr, pars_afs, h, lp, dat, max_steps_out = 10000){
   
   # random interval placement
   width <- pars_afs$width[k]
@@ -278,13 +278,12 @@ step_out <- function(k, theta_curr, pars_afs, h, lp, dat, max_steps_out = 100){
 
 
 
-slice_proposals <- function(k, A_curr, theta_curr, pars_afs, h, lp, dat, adapt_A = F, time_out = 500){
+slice_proposals <- function(k, A_curr, theta_curr, pars_afs, h, lp, dat, adapt_A = T){
   
-  h_prop <- -999
+  h_prop <- -Inf
   prop_counter <- 0
   contraction_counter <- 0
-  div_trans <- 0
-  while(h_prop < h & prop_counter < time_out){
+  while(h_prop < h){
     q_prop <- runif(1, min = A_curr[1], max = A_curr[2])
     h_prop <- lp(q_prop * pars_afs$Gamma[, k] + theta_curr, dat)
     if(adapt_A & h_prop < h){
@@ -298,97 +297,88 @@ slice_proposals <- function(k, A_curr, theta_curr, pars_afs, h, lp, dat, adapt_A
     prop_counter <- prop_counter + 1
   }
   if(prop_counter >= time_out){
-    div_trans <- 1
+    stop(paste0("Failed to find suitable proposal for theta_", k))
   }
   theta_prop <- q_prop * pars_afs$Gamma[, k] + theta_curr
   
   return(
-    list(theta = theta_prop, contraction_count = contraction_counter, divergent_trans = div_trans)
+    list(theta = theta_prop, contraction_count = contraction_counter)
   )
   
 }
 
 
 
-auto_tune_afs <- function(theta_init, dat, lp, adapt_cov_after = 100, tune_w_after = 1, ratio_tol = 0.1, stop_after = 5000){
-  
-    # ---- Initializing starting values ----
-    fit_init <- fit_ricker_cc(dat$y, fam = dat$fam, off_patch = TRUE)
-    theta_init <- fit_init$estim
-    # convert alpha to log-alpha
-    # but take care that alpha was estimated as positive
-    if(theta_init["alpha"] < 0){
-      if(fit_init$upper[which(names(fit_init$estim) == "alpha")] < 0){
-        theta_init["alpha"] <- log(0.001)
-      } else{
-        theta_init["alpha"] <- log(fit_init$upper[which(names(fit_init$estim) == "alpha")])
-      }
-    } else{
-      theta_init["alpha"] <- log(fit_init$estim["alpha"])
-    }
-    if(is.infinite(theta_init["psi"])){
-      theta_init["psi"] <- log(100)
-    } else {
-      theta_init["psi"] <- log(theta_init["psi"])
-    }
-    names(theta_init)[which(names(theta_init) == "alpha")] <- "lalpha"
-    names(theta_init)[which(names(theta_init) == "psi")] <- "lpsi"
+auto_tune_afs <- function(theta_init, dat, lp, burnin = 500, tune_w_after = 1, ratio_target = 0.8, stop_after = 2^10 + 1){
     
     p <- length(theta_init)
     
     # ---- Initialize sampler and conduct tuning ----
     pars_afs <- list(
       Gamma = diag(nrow = p),
-      width = runif(p),
+      width = runif(p, max = 0.1),
       theta_cov = diag(nrow = p)
     )
     
-    theta <- matrix(nrow = 1, ncol = p)
-    theta[1, ] <- theta_init
-  
+    # set counters
     iter <- 1
-    convergence <- c(rep(1, p), 1)
-    while(iter < stop_after & any(convergence == 1)){
+    counter_w <- 1
+    # counter_cov <- 1
+    convergence <- rep(1, p)
+    names(convergence) <- paste("theta", 1:p, sep = "_")
+    steps_out <- rep(0, p)
+    contractions <- rep(0, p)
+    while(iter <= stop_after & any(convergence == 1)){
       
-      samps_i1 <- factor_slice_sampler(theta[nrow(theta), ], dat, lp, pars_afs, iter = tune_w_after, control = list(adapt_A = T))
+      samp_i <- factor_slice_sampler(theta, dat, lp, pars_afs, iter = 1, control = list(adapt_A = T))
       
-      # adapt w
-      wef <- sapply(
-        1:p,
-        FUN = function(j, samps){(sum(samps$out_steps[, j]) / 
-                (sum(samps$out_steps[, j]) + sum(samps$in_steps[, j]))) },
-        samps = samps_i1
-      )
+      # add to running totals
+      steps_out <- samp_i$out_steps[1, ] + steps_out
+      contractions <- samp_i$in_steps[1, ] + contractions
       
-      keep_going <- 0
+      # xbar <- xbar + samp_i$theta
+      # # note that theta is a row vector here
+      # sample_cov <- sample_cov + samp_i$theta %*% t(samp_i$theta)
+      
+      ## ---- Tuning the widths ----
       for(j in 1:p){
-        if(wef[j] - 0.5 > psi_target | wef[j] - 0.5 < psi_target){
-          keep_going <- 1
-          pars_afs$width[j] <- pars_afs$width[j] * 2 * wef[j]
-          tune_w_after <- 2 * tune_w_after
-        } 
+        denom <- steps_out[j] + contractions[j]
+        if(denom > 0.0){
+          ratio <- steps_out[j] / denom
+          
+          if(ratio == 0.0){
+            ratio <- 1 / denom
+          }
+          
+          multiplier <- (ratio / ratio_target)
+          
+          # modify width
+          pars_afs$width[j] <-
+            pars_afs$width[j] * multiplier
+          
+          if(multiplier > 0.9 & multiplier < 1.1){
+            convergence[j] <- 0
+          }
+        }
       }
+      # now reset counter for w and increase number of trials before reset
+      counter_w <- 0
+      steps_out <- rep(0, p)
+      contractions <- rep(0, p)
+      iter <- iter + 1
       
-      theta <- samps_i1$theta
-      
-      samps_i2 <- factor_slice_sampler(theta[nrow(theta), ], dat, lp, pars_afs, iter = n_tune_cov, control = list(adapt_A = T))
-      
-      theta <- samps_i2$theta
-      xbar <- colMeans(samps_i2$theta)
-      # normalized sample covariance
-      V <- (1.0 / (n_tune_cov - 1)) *
-        (cov(samps_i2$theta) - xbar %*% t(xbar) * (1.0 / n_tune_cov))
-      Gamma <- eigen(V)$vector
-      A_rot <- solve(pars_afs$theta_cov) %*% V
-      pars_afs$Gamma <- Gamma
-      pars_afs$theta_cov <- V
-      
-      if(sum(A_rot - diag(nrow = p)) < 0.1 & keep_going == 0){
-        break
-      }
-    }
+    } # end while
     
-  
+    ## ---- Estimating factors ----
+    theta_burn <- factor_slice_sampler(theta_init, dat, lp, pars_afs, iter = 2000)$theta
+    # normalize the covariance estimate
+    V <- cov(theta_burn)
+    
+    # estimate factors
+    pars_afs$Gamma <- eigen(V)$vectors
+    pars_afs$theta_cov <- V
+    
+    return(pars_afs)
 }
 
 
@@ -397,39 +387,38 @@ factor_slice_sampler <- function(theta_init, dat, lp, pars_afs, iter = 1000, con
   
   # set controls for other funs if not set
   alg_control <- list(
-    time_out = 100,
-    adapt_A = FALSE,
+    #time_out = 100,
+    adapt_A = TRUE,
     max_steps_out = 100
   )
   alg_control <- modifyList(alg_control, control)
   
   # initialize trackers
   p <- length(theta_init)
-  theta <- matrix(nrow = iter, ncol = p)
+  theta <- matrix(nrow = iter + 1, ncol = p)
   colnames(theta) <- names(theta_init)
   theta[1, ] <- theta_init
   div_trans <- matrix(0, nrow = iter, ncol = p)
   colnames(div_trans) <- names(theta_init)
   
   if(alg_control$adapt_A){
-    out_steps <- matrix(nrow = iter, ncol = p)
-    in_steps <- matrix(nrow = iter, ncol = p)
-    out_steps[1, ] <- in_steps[1, ] <- 1
+    out_steps <- matrix(0, nrow = iter, ncol = p)
+    in_steps <- matrix(0, nrow = iter, ncol = p)
   }
   
   # alg 2 of Tibbits et al. 2013
-  for(i in 2:iter){
+  for(i in 1:iter){
     
     # sample random height under the current value
-    h_i <- lp(theta[i - 1, ], dat) - rexp(1)
+    h_i <- lp(theta[i, ], dat) - rexp(1)
 
-    theta_prop <- theta[i - 1, ]
+    theta_prop <- theta[i, ]
     for(j in 1:p){
       # approximate interval
-      out <- step_out(j, theta_prop, pars_afs, h = h_i, lp = lp, dat = dat, alg_control$max_steps_out)
+      out <- step_out(j, theta_prop, pars_afs, h = h_i, lp = lp, dat = dat)
       A_j <- out$int
       # sample from interval
-      samp_i <- slice_proposals(j, A_j, theta_prop, pars_afs, h_i, lp, dat, alg_control$adapt_A, alg_control$time_out)
+      samp_i <- slice_proposals(j, A_j, theta_prop, pars_afs, h_i, lp, dat, alg_control$adapt_A)
       
       theta_prop[j] <- samp_i$theta[j]
       
@@ -438,17 +427,14 @@ factor_slice_sampler <- function(theta_init, dat, lp, pars_afs, iter = 1000, con
         in_steps[i, j] <- samp_i$contraction_count
       }
       
-      div_trans[i, j] <- samp_i$divergent_trans
-      
     }
-    theta[i, ] <- theta_prop
+    theta[i + 1, ] <- theta_prop
   }
   return(
     list(
-      theta = theta,
+      theta = theta[-1, ],
       out_steps = out_steps,
-      in_steps = in_steps,
-      divergent_trans = div_trans
+      in_steps = in_steps
     )
   )
 }
@@ -726,9 +712,31 @@ fit_ricker_DA <- function(
     ))
   }
   
+  # ---- Initializing starting values ----
+  fit_init <- fit_ricker_cc(dat, fam = fam, off_patch = TRUE)
+  theta_init <- fit_init$estim
+  # convert alpha to log-alpha
+  # but take care that alpha was estimated as positive
+  if(theta_init["alpha"] < 0){
+    if(fit_init$upper[which(names(fit_init$estim) == "alpha")] < 0){
+      theta_init["alpha"] <- log(0.001)
+    } else{
+      theta_init["alpha"] <- log(fit_init$upper[which(names(fit_init$estim) == "alpha")])
+    }
+  } else{
+    theta_init["alpha"] <- log(fit_init$estim["alpha"])
+  }
+  if(is.infinite(theta_init["psi"])){
+    theta_init["psi"] <- log(100)
+  } else {
+    theta_init["psi"] <- log(theta_init["psi"])
+  }
+  names(theta_init)[which(names(theta_init) == "alpha")] <- "lalpha"
+  names(theta_init)[which(names(theta_init) == "psi")] <- "lpsi"
+  
   
   # create internal function to compute the log-probability
-  compute_lp <- function(theta, datlist, y_full = NULL, family = fam){
+  compute_lp <- function(theta, datlist, y_full = NULL){
     if(is.null(y_full)){
       y_full <- c(datlist$y[1, "ytm1"], as.double(datlist$y[, "yt"]))
     }
@@ -738,20 +746,20 @@ fit_ricker_DA <- function(
       rep(1, length(y_full)),
       y_full
     )
-    if(family == "poisson"){
+    if(datlist$fam == "poisson"){
       theta2 = c(r, alpha)
     }
-    if(family == "neg_binom"){
+    if(datlist$fam == "neg_binom"){
       psi <- exp(theta["lpsi"])
       theta2 = c(r, alpha, psi = psi)
     }
-    lprob <- -ricker_count_neg_ll(theta = theta2, y = y_full, X = Xmm, fam = family) +
-      dnorm(theta["r"], mean = dat$m_r, sd = dat$sd_r, log = T) + 
-      dnorm(theta["lalpha"], mean = dat$m_lalpha, sd = dat$sd_lalpha, log = T)
+    lprob <- -ricker_count_neg_ll(theta = theta2, y = y_full, X = Xmm, fam = datlist$fam) +
+      dnorm(theta["r"], mean = datlist$m_r, sd = datlist$sd_r, log = T) + 
+      dnorm(theta["lalpha"], mean = datlist$m_lalpha, sd = datlist$sd_lalpha, log = T)
     
-    if(family == "neg_binom"){
+    if(datlist$fam == "neg_binom"){
       lprob <- lprob +
-        dnorm(theta["lpsi"], mean = dat$m_lpsi, sd = dat$sd_lpsi, log = T)
+        dnorm(theta["lpsi"], mean = datlist$m_lpsi, sd = datlist$sd_lpsi, log = T)
     }
     return(unname(lprob))
   }

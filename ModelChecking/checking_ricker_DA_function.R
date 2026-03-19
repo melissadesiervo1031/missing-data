@@ -14,7 +14,6 @@ lapply(flist, source)
 
 
 # one-off testing
-
 y <- ricker_sim(50, 0.8, 0.01, N0 = 50, err_fam = "neg_binom", psi = 10)
 
 
