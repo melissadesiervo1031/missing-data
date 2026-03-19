@@ -248,23 +248,23 @@ step_out <- function(k, theta_curr, pars_afs, h, lp, dat, max_steps_out = 100){
   Gam_k <- pars_afs$Gamma[, k]
   
   # do the lower bound
-  h_low <- exp(lp(x_low * Gam_k + theta_curr, dat))
+  h_low <- lp(x_low * Gam_k + theta_curr, dat)
   i <- 0
   n_expand <- 0
   while (i < max_steps_out & h_low > h) {
     x_low <- x_low - width
-    h_low <- exp(lp(x_low * Gam_k + theta_curr, dat))
+    h_low <- lp(x_low * Gam_k + theta_curr, dat)
     i <- i + 1
   }
   int[1] <- x_low
   n_expand <- n_expand + i
   
   # now expand upper bound
-  h_high <- exp(lp(x_high * Gam_k + theta_curr, dat))
+  h_high <- lp(x_high * Gam_k + theta_curr, dat)
   i <- 0
   while(i < max_steps_out & h_high > h) {
     x_high <- x_high + width
-    h_high <- exp(lp(x_high * Gam_k + theta_curr, dat))
+    h_high <- lp(x_high * Gam_k + theta_curr, dat)
     i <- i + 1
   }
   int[2] <- x_high
@@ -280,15 +280,15 @@ step_out <- function(k, theta_curr, pars_afs, h, lp, dat, max_steps_out = 100){
 
 slice_proposals <- function(k, A_curr, theta_curr, pars_afs, h, lp, dat, adapt_A = F, time_out = 500){
   
-  h_prop <- 0
+  h_prop <- -999
   prop_counter <- 0
   contraction_counter <- 0
   div_trans <- 0
   while(h_prop < h & prop_counter < time_out){
     q_prop <- runif(1, min = A_curr[1], max = A_curr[2])
-    h_prop <- exp(lp(q_prop * pars_afs$Gamma[, k] + theta_curr, dat))
+    h_prop <- lp(q_prop * pars_afs$Gamma[, k] + theta_curr, dat)
     if(adapt_A & h_prop < h){
-      if((A_curr[1] - q_prop)^2 < (A_curr[2] - q_prop)^2){
+      if(q_prop < 0){
         A_curr[1] <- q_prop
       } else {
         A_curr[2] <- q_prop
@@ -310,7 +310,7 @@ slice_proposals <- function(k, A_curr, theta_curr, pars_afs, h, lp, dat, adapt_A
 
 
 
-auto_tune_afs <- function(theta_init, dat, lp, adapt_cov = 100, tune_w_after = 10, psi_target = 0.1, stop_after = 500){
+auto_tune_afs <- function(theta_init, dat, lp, adapt_cov_after = 100, tune_w_after = 1, ratio_tol = 0.1, stop_after = 5000){
   
     # ---- Initializing starting values ----
     fit_init <- fit_ricker_cc(dat$y, fam = dat$fam, off_patch = TRUE)
@@ -375,9 +375,9 @@ auto_tune_afs <- function(theta_init, dat, lp, adapt_cov = 100, tune_w_after = 1
       
       theta <- samps_i2$theta
       xbar <- colMeans(samps_i2$theta)
-      # estimating the covariance matrix
+      # normalized sample covariance
       V <- (1.0 / (n_tune_cov - 1)) *
-        (cov(samps_i2$theta) - xbar %*% xbar * (1.0 / n_tune_cov))
+        (cov(samps_i2$theta) - xbar %*% t(xbar) * (1.0 / n_tune_cov))
       Gamma <- eigen(V)$vector
       A_rot <- solve(pars_afs$theta_cov) %*% V
       pars_afs$Gamma <- Gamma
@@ -420,11 +420,8 @@ factor_slice_sampler <- function(theta_init, dat, lp, pars_afs, iter = 1000, con
   # alg 2 of Tibbits et al. 2013
   for(i in 2:iter){
     
-    h_i <- runif(1, min = 0, max = exp(lp(theta[i - 1, ], dat)))
-    if(h_i == 0){
-      warning("Proposal near the boundary. Trying again.")
-      h_i <- runif(1, max = exp(-10))
-    }
+    # sample random height under the current value
+    h_i <- lp(theta[i - 1, ], dat) - rexp(1)
 
     theta_prop <- theta[i - 1, ]
     for(j in 1:p){
