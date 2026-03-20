@@ -51,8 +51,9 @@ ricker_count_neg_ll <- function(theta, y, X = NULL, fam = "poisson"){
     ))
   }
   if(fam == "neg_binom"){
+    b <- theta[1:(p-1)]
     for(t in 2:n){
-      eta[t] <- log(y[t - 1]) + X[t - 1, ] %*% theta[-p]
+      eta[t] <- log(y[t - 1]) + X[t - 1, ] %*% b
     }
     
     # return the negative log-likelihood
@@ -61,6 +62,24 @@ ricker_count_neg_ll <- function(theta, y, X = NULL, fam = "poisson"){
     ))
   }
   
+}
+
+
+zt_poisson_rng <- function(n, lambda){
+
+  p0 <- dpois(0, lambda = lambda)
+  u <- runif(n, min = p0, max = 1)
+  return(
+    qpois(u, lambda = lambda)
+  )
+
+}
+
+
+zt_neg_binom_rng <- function(n, mu, size){
+    p0 <- dnbinom(0, size = size, mu = mu)                                      
+    u  <- runif(n, min = p0, max = 1)                                           
+    return(qnbinom(u, size = size, mu = mu))                                    
 }
 
 

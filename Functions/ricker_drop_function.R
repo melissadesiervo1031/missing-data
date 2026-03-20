@@ -18,7 +18,9 @@ fit_ricker_cc <- function(y, fam = "poisson", pro_conf="none", off_patch=F){
   
   if(off_patch){ # we have taken in already offset patch data
     y0=y
-    y=as.numeric(y0[,1])
+    y=as.numeric(
+      c(y0[1, "ytm1"], y0[,"yt"])
+    )
   }
   
   # Check for population extinction
@@ -48,10 +50,10 @@ fit_ricker_cc <- function(y, fam = "poisson", pro_conf="none", off_patch=F){
     ))
   }
   
+  
+  
+  # some useful variables
   n <- length(y)
-  
-  
-
   
   if(off_patch){ # we have taken in already offset patch data
     dat=y0
@@ -94,11 +96,21 @@ fit_ricker_cc <- function(y, fam = "poisson", pro_conf="none", off_patch=F){
   
   # compile objects and rename
   estims <- coef(fit)
-  names(estims) <- c("r", "alpha")
   cis <- confint(fit)
-  rownames(cis) <- names(estims)
   ses <- sqrt(diag(vcov(fit)))
+  names(estims) <- c("r", "alpha")
+  if(fam == "neg_binom"){
+    estims <- c(estims, fit$theta)
+    names(estims)[3] <- "psi"
+    cis <- rbind(cis, rep(NA, ncol(cis)))
+    ses <- c(ses, NA)
+  }
+  rownames(cis) <- names(estims)
   names(ses) <- names(estims)
+  
+  # change sign of alpha
+  estims["alpha"] <- estims["alpha"] * -1
+  cis[rownames(cis) == "alpha", c(2, 1)] <- cis[rownames(cis) == "alpha", ] * -1
   
 
   
@@ -106,12 +118,10 @@ fit_ricker_cc <- function(y, fam = "poisson", pro_conf="none", off_patch=F){
   if(pro_conf=="none"){
     # return as a list
     return(list(
-      estim = estims * c(1, -1),
+      estim = estims,
       se = ses,
-      lower = as.double(diag(cis) * c(1, -1)),
-      upper = as.double(
-        c(cis[1,2], cis[2,1]) * c(1, -1)
-      )
+      lower = as.double(cis[, 1]),
+      upper = as.double(cis[, 2])
     ))
   }
   
@@ -126,12 +136,10 @@ fit_ricker_cc <- function(y, fam = "poisson", pro_conf="none", off_patch=F){
     
     # return as a list
     return(list(
-      estim = estims * c(1, -1),
+      estim = estims,
       se = ses,
-      lower = as.double(diag(cis) * c(1, -1)),
-      upper = as.double(
-        c(cis[1,2], cis[2,1]) * c(1, -1)
-      ),
+      lower = as.double(cis[, 1]),
+      upper = as.double(cis[, 2]),
       CI_results=CI_results
     ))
     
@@ -153,12 +161,10 @@ fit_ricker_cc <- function(y, fam = "poisson", pro_conf="none", off_patch=F){
     
     # return as a list
     return(list(
-      estim = estims * c(1, -1),
+      estim = estims,
       se = ses,
-      lower = as.double(diag(cis) * c(1, -1)),
-      upper = as.double(
-        c(cis[1,2], cis[2,1]) * c(1, -1)
-      ),
+      lower = as.double(cis[, 1]),
+      upper = as.double(cis[, 2]),
       CI_results=CI_results
     ))
   }
