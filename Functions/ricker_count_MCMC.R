@@ -238,6 +238,35 @@ MH_block_sample <- function(dat, lp, burnin, iter, nthin = 1){
 
 
 
+#' Expand a slice interval along a factor direction using the stepping-out procedure
+#'
+#' Starting from a randomly placed initial interval of width \code{pars_afs$width[k]},
+#' this function expands the lower and upper bounds until both lie below the
+#' log-probability threshold \code{h}, implementing the stepping-out procedure of
+#' Neal (2003) projected onto factor direction \code{k}.
+#'
+#' @param k Integer index of the factor direction to step out along.
+#' @param theta_curr Numeric vector giving the current parameter values.
+#' @param pars_afs List of factor slice sampler parameters. Must contain:
+#'   \describe{
+#'     \item{\code{width}}{Numeric vector of interval widths, one per factor direction.}
+#'     \item{\code{Gamma}}{Matrix whose columns are the factor directions (eigenvectors).}
+#'   }
+#' @param h Numeric scalar. Log-probability threshold defining the current slice height.
+#' @param lp Function to evaluate the log-joint probability. Must accept a parameter
+#'   vector as its first argument and the data list as its second.
+#' @param dat Data list passed to \code{lp}.
+#' @param max_steps_out Maximum number of expansion steps allowed in each direction
+#'   before giving up. Defaults to \code{10000}.
+#'
+#' @return A list with two elements:
+#'   \describe{
+#'     \item{\code{int}}{Numeric vector of length 2 giving the lower and upper bounds
+#'       of the expanded interval on the standardised factor scale.}
+#'     \item{\code{n_expand}}{Total number of expansion steps taken across both
+#'       directions (lower and upper combined); set to 1 if no expansion was needed.}
+#'   }
+#'
 step_out <- function(k, theta_curr, pars_afs, h, lp, dat, max_steps_out = 10000){
   
   # random interval placement
@@ -278,6 +307,32 @@ step_out <- function(k, theta_curr, pars_afs, h, lp, dat, max_steps_out = 10000)
 
 
 
+#' Draw a proposal from a slice interval via shrinkage (contraction)
+#'
+#' Samples uniformly from the current interval \code{A_curr} along factor direction
+#' \code{k} and contracts the interval toward the current point whenever the proposal
+#' falls below the slice height \code{h}, following the shrinkage procedure of Neal (2003).
+#'
+#' @param k Integer index of the factor direction to sample along.
+#' @param A_curr Numeric vector of length 2 giving the current lower and upper bounds
+#'   of the slice interval on the standardised factor scale.
+#' @param theta_curr Numeric vector of current parameter values.
+#' @param pars_afs List of factor slice sampler parameters. Must contain
+#'   \code{Gamma}, a matrix whose columns are the factor directions.
+#' @param h Numeric scalar. Log-probability threshold defining the current slice height.
+#' @param lp Function to evaluate the log-joint probability. Must accept a parameter
+#'   vector as its first argument and the data list as its second.
+#' @param dat Data list passed to \code{lp}.
+#' @param time_out Maximum number of proposals before an error is thrown. Defaults
+#'   to \code{100000}.
+#'
+#' @return A list with two elements:
+#'   \describe{
+#'     \item{\code{theta}}{Numeric vector of the accepted proposal in parameter space.}
+#'     \item{\code{contraction_count}}{Integer count of how many times the interval
+#'       was contracted before a valid proposal was found.}
+#'   }
+#'
 slice_proposals <- function(k, A_curr, theta_curr, pars_afs, h, lp, dat, time_out = 100000){
   
   h_prop <- -Inf
@@ -308,6 +363,45 @@ slice_proposals <- function(k, A_curr, theta_curr, pars_afs, h, lp, dat, time_ou
 }
 
 
+#' Run the Factor Slice Sampler (Algorithm 2 of Tibbits et al. 2013)
+#'
+#' At each iteration a random slice height is drawn beneath the log-probability of
+#' the current point, then each factor direction is updated in turn via
+#' \code{\link{step_out}} (to bracket the slice) and \code{\link{slice_proposals}}
+#' (to draw from within the bracket). The factor directions are taken from
+#' \code{pars_afs$Gamma}, so the sampler reduces to univariate slice sampling along
+#' the coordinate axes when \code{Gamma} is the identity matrix.
+#'
+#' @param theta_init Named numeric vector of initial parameter values.
+#' @param dat Data list passed to \code{lp}.
+#' @param lp Function to evaluate the log-joint probability. Must accept a parameter
+#'   vector as its first argument and the data list as its second.
+#' @param pars_afs List of factor slice sampler parameters. Must contain:
+#'   \describe{
+#'     \item{\code{Gamma}}{Matrix whose columns are the factor directions.}
+#'     \item{\code{width}}{Numeric vector of interval widths, one per factor.}
+#'   }
+#' @param iter Number of MCMC iterations to run. Defaults to \code{1000}.
+#' @param control Named list of algorithm controls. Recognised keys:
+#'   \describe{
+#'     \item{\code{time_out}}{Max proposals per contraction step (default \code{10000}).}
+#'     \item{\code{max_steps_out}}{Max expansion steps per direction (default \code{10000}).}
+#'     \item{\code{track_interval_steps}}{Logical; whether to record stepping-out and
+#'       contraction counts (default \code{TRUE}).}
+#'   }
+#'
+#' @return A list with three elements:
+#'   \describe{
+#'     \item{\code{theta}}{Numeric matrix with \code{iter} rows and one column per
+#'       parameter; row names omitted, column names inherited from \code{theta_init}.}
+#'     \item{\code{out_steps}}{Integer matrix (\code{iter} x \code{p}) of stepping-out
+#'       counts per iteration and factor direction; \code{NULL} if
+#'       \code{track_interval_steps} is \code{FALSE}.}
+#'     \item{\code{in_steps}}{Integer matrix (\code{iter} x \code{p}) of contraction
+#'       counts per iteration and factor direction; \code{NULL} if
+#'       \code{track_interval_steps} is \code{FALSE}.}
+#'   }
+#'
 factor_slice_sampler <- function(theta_init, dat, lp, pars_afs, iter = 1000, control = list()){
   
   # set controls for other funs if not set
@@ -353,17 +447,48 @@ factor_slice_sampler <- function(theta_init, dat, lp, pars_afs, iter = 1000, con
     }
     theta[i + 1, ] <- theta_prop
   }
-  return(
-    list(
-      theta = theta[-1, ],
-      out_steps = out_steps,
-      in_steps = in_steps
-    )
-  )
+  ret <- list(theta = theta[-1, ])
+  if(alg_control$track_interval_steps){
+    ret$out_steps <- out_steps
+    ret$in_steps <- in_steps
+  }
+  return(ret)
 }
 
 
 
+#' Tune factor slice sampler interval widths
+#'
+#' Runs the factor slice sampler and iteratively adjusts the interval width for
+#' each factor direction so that the ratio of stepping-out steps to total steps
+#' (stepping-out + contraction) converges toward \code{ratio_target}. Widths are
+#' scaled up when the ratio exceeds the target and scaled down when it falls below.
+#' Tuning is declared converged for a given direction once the multiplicative
+#' adjustment falls within 10\% of 1.
+#'
+#' @param theta_init Named numeric vector of initial parameter values.
+#' @param dat Data list passed to \code{lp}.
+#' @param lp Function to evaluate the log-joint probability. Must accept a parameter
+#'   vector as its first argument and the data list as its second.
+#' @param pars_afs List of factor slice sampler parameters, or \code{NULL} to
+#'   initialise with identity factor directions and small random widths. Must contain
+#'   \code{Gamma} (factor direction matrix) and \code{width} (per-factor widths)
+#'   when not \code{NULL}.
+#' @param tune_w_after Number of sampler steps between width adjustments. Doubles
+#'   automatically once all step-out rates drop below 10 per adjustment window.
+#'   Defaults to \code{1}.
+#' @param ratio_target Target ratio of stepping-out steps to total steps (stepping-out
+#'   + contraction). Defaults to \code{0.8}.
+#' @param stop_after Maximum total sampler steps before halting, regardless of
+#'   convergence. Defaults to \code{2^10 + 1}.
+#'
+#' @return A list with two elements:
+#'   \describe{
+#'     \item{\code{pars_afs}}{Updated parameter list with tuned \code{width} values.}
+#'     \item{\code{theta}}{Named numeric vector of the last sampled parameter values,
+#'       suitable for use as \code{theta_init} in a subsequent run.}
+#'   }
+#'
 tune_widths <- function(theta_init, dat, lp, pars_afs = NULL, tune_w_after = 1, ratio_target = 0.8, stop_after = 2^10 + 1){
   
   p <- length(theta_init)
@@ -444,6 +569,35 @@ tune_widths <- function(theta_init, dat, lp, pars_afs = NULL, tune_w_after = 1, 
 
 
 
+#' Estimate factor directions from a burn-in run
+#'
+#' Runs the factor slice sampler for \code{burnin} iterations, computes the
+#' empirical covariance matrix of the resulting samples, and sets the factor
+#' directions (\code{pars_afs$Gamma}) to the eigenvectors of that covariance
+#' matrix. This aligns the slice directions with the principal axes of the
+#' posterior, which is the core adaptation step of the Factor Slice Sampler
+#' (Tibbits et al. 2013).
+#'
+#' @param theta_init Named numeric vector of initial parameter values.
+#' @param dat Data list passed to \code{lp}.
+#' @param lp Function to evaluate the log-joint probability. Must accept a parameter
+#'   vector as its first argument and the data list as its second.
+#' @param pars_afs List of current factor slice sampler parameters. Must contain
+#'   \code{Gamma} and \code{width}. Both are passed to \code{\link{factor_slice_sampler}};
+#'   only \code{Gamma} and \code{theta_cov} are updated in the returned object.
+#' @param burnin Number of iterations to run for covariance estimation. Defaults
+#'   to \code{500}.
+#'
+#' @return A list with two elements:
+#'   \describe{
+#'     \item{\code{pars_afs}}{Updated parameter list with \code{Gamma} set to the
+#'       eigenvectors of the sample covariance and \code{theta_cov} set to the
+#'       sample covariance matrix itself.}
+#'     \item{\code{theta}}{Named numeric vector of the last sampled parameter values
+#'       from the burn-in run, suitable for use as \code{theta_init} in a subsequent
+#'       run.}
+#'   }
+#'
 estimate_factors <- function(theta_init, dat, lp, pars_afs, burnin = 500){
   
   theta_burn <- factor_slice_sampler(theta_init, dat, lp, pars_afs, iter = burnin)$theta
@@ -462,19 +616,82 @@ estimate_factors <- function(theta_init, dat, lp, pars_afs, burnin = 500){
 }
 
 
-
-auto_tune_sampler <- function(theta_init, dat, lp, control = list()){
-  
-  alg_control <- list(
-    pars_afs = NULL, 
-    tune_w_after = 1, 
-    ratio_target = 0.8, 
+#' Default control parameters for \code{\link{auto_tune_sampler}}
+#'
+#' Returns a named list of default values for the tuning pipeline. Pass the
+#' output (or a modified copy) as the \code{control} argument of
+#' \code{\link{auto_tune_sampler}}.
+#'
+#' @return A named list with the following elements:
+#'   \describe{
+#'     \item{\code{pars_afs}}{\code{NULL}; triggers initialisation from the
+#'       identity matrix and small random widths inside \code{\link{tune_widths}}.}
+#'     \item{\code{tune_w_after}}{Integer. Number of sampler steps between each
+#'       width adjustment (default \code{1}).}
+#'     \item{\code{ratio_target}}{Numeric. Target ratio of stepping-out to total
+#'       steps (default \code{0.8}).}
+#'     \item{\code{stop_after}}{Integer. Maximum width-tuning steps per round
+#'       (default \code{2^10 + 1}).}
+#'     \item{\code{burnin}}{Integer. Burn-in iterations used by
+#'       \code{\link{estimate_factors}} to estimate the posterior covariance
+#'       (default \code{500}).}
+#'   }
+#'
+control_tuning <- function(){
+  list(
+    pars_afs = NULL,
+    tune_w_after = 1,
+    ratio_target = 0.8,
     stop_after = 2^10 + 1,
     burnin = 500
   )
+}
+
+
+#' Automatically tune the Factor Slice Sampler
+#'
+#' Runs a three-stage auto-tuning pipeline for the Factor Slice Sampler:
+#' \enumerate{
+#'   \item \strong{Width tuning (round 1):} \code{\link{tune_widths}} is called
+#'     with coordinate-aligned factor directions to find good initial interval widths.
+#'   \item \strong{Factor estimation:} \code{\link{estimate_factors}} is called to
+#'     rotate the slice directions to align with the posterior covariance structure.
+#'   \item \strong{Width re-tuning (round 2):} \code{\link{tune_widths}} is called
+#'     again along the estimated factor directions to refine the widths.
+#' }
+#' The returned \code{pars_afs} object can be passed directly to
+#' \code{\link{factor_slice_sampler}} for production sampling.
+#'
+#' @param theta_init Named numeric vector of initial parameter values.
+#' @param dat Data list passed to \code{lp}.
+#' @param lp Function to evaluate the log-joint probability. Must accept a parameter
+#'   vector as its first argument and the data list as its second.
+#' @param control Named list of tuning controls. Recognised keys (all optional):
+#'   \describe{
+#'     \item{\code{pars_afs}}{Initial \code{pars_afs} list; \code{NULL} to start
+#'       from scratch (default \code{NULL}).}
+#'     \item{\code{tune_w_after}}{Passed to \code{\link{tune_widths}} (default \code{1}).}
+#'     \item{\code{ratio_target}}{Target step-out ratio; passed to
+#'       \code{\link{tune_widths}} (default \code{0.8}).}
+#'     \item{\code{stop_after}}{Maximum width-tuning steps; passed to
+#'       \code{\link{tune_widths}} (default \code{2^10 + 1}).}
+#'     \item{\code{burnin}}{Burn-in iterations for factor estimation; passed to
+#'       \code{\link{estimate_factors}} (default \code{500}).}
+#'   }
+#'
+#' @return A list with two elements (the output of the final \code{\link{tune_widths}}
+#'   call):
+#'   \describe{
+#'     \item{\code{pars_afs}}{Fully tuned parameter list with optimised \code{Gamma}
+#'       (factor directions), \code{width} (per-factor interval widths), and
+#'       \code{theta_cov} (estimated posterior covariance).}
+#'     \item{\code{theta}}{Named numeric vector of the last sampled parameter values,
+#'       ready to be used as the starting point for production sampling.}
+#'   }
+#'
+auto_tune_sampler <- function(theta_init, dat, lp, control = list()){
   
-  # update any user-supplied values
-  alg_control <- modifyList(alg_control, control)
+  alg_control <- modifyList(control_tuning(), control)
   
   all_pars <- c(
     list(
@@ -529,6 +746,145 @@ auto_tune_sampler <- function(theta_init, dat, lp, control = list()){
   })
   
   return(round3)
+  
+}
+
+
+#' Default control parameters for \code{\link{fss_in_Gibbs_sample}}
+#'
+#' Returns a named list of default values for the factor slice sampler when used
+#' inside a Gibbs loop. Pass the output (or a modified copy) as the
+#' \code{control_sampler} argument of \code{\link{fss_in_Gibbs_sample}}.
+#'
+#' @return A named list with the following elements:
+#'   \describe{
+#'     \item{\code{iter}}{Integer. Total number of Gibbs iterations to run
+#'       (default \code{1000}).}
+#'     \item{\code{time_out}}{Integer. Maximum contraction attempts per factor
+#'       direction before \code{\link{slice_proposals}} throws an error
+#'       (default \code{10000}).}
+#'     \item{\code{max_steps_out}}{Integer. Maximum expansion steps per direction
+#'       in \code{\link{step_out}} (default \code{10000}).}
+#'     \item{\code{track_interval_steps}}{Logical. Whether to record stepping-out
+#'       and contraction counts during sampling (default \code{TRUE}).}
+#'   }
+#'
+control_fssig <- function(){
+  return(
+    list(
+      iter = 1000,
+      time_out = 10000,
+      max_steps_out = 10000,
+      track_interval_steps = TRUE
+    )
+  )
+}
+
+
+#' Factor Slice Sampler within a Gibbs data-augmentation loop
+#'
+#' Alternates between two steps at each iteration:
+#' \enumerate{
+#'   \item \strong{Gibbs step:} \code{fill_rng} is called to draw the missing
+#'     observations from their full conditional distribution given the current
+#'     parameter values \eqn{\boldsymbol\theta}.
+#'   \item \strong{Factor slice step:} \code{\link{factor_slice_sampler}} is called
+#'     for a single iteration to draw a new \eqn{\boldsymbol\theta} given the
+#'     just-imputed complete data.
+#' }
+#' This function assumes that the factor slice sampler has already been tuned
+#' (via \code{\link{auto_tune_sampler}}) and that a valid \code{pars_afs} object
+#' is supplied.
+#'
+#' @param theta_init Named numeric vector of initial parameter values.
+#' @param dat Data list. Must contain a \code{y} element that is a data frame with
+#'   columns \code{yt} and \code{ytm1}, with \code{NA} in \code{yt} for any missing
+#'   time steps.
+#' @param lp Function to evaluate the log-joint probability. Must accept a parameter
+#'   vector as its first argument and the data list as its second.
+#' @param fill_rng Function that imputes missing observations. Must accept the current
+#'   parameter vector as its first argument and the data list as its second, and return
+#'   an updated version of \code{dat$y} with all \code{NA}s in \code{yt} filled in.
+#' @param pars_afs Tuned factor slice sampler parameter list, as returned by
+#'   \code{\link{auto_tune_sampler}}. Must contain \code{Gamma} (factor direction
+#'   matrix) and \code{width} (per-factor interval widths).
+#' @param control_sampler Named list of sampler controls. Unrecognised keys are
+#'   ignored; missing keys fall back to \code{\link{control_fssig}} defaults.
+#'   Recognised keys:
+#'   \describe{
+#'     \item{\code{iter}}{Total number of Gibbs iterations (default \code{1000}).}
+#'     \item{\code{time_out}}{Max contraction attempts per factor direction
+#'       (default \code{10000}).}
+#'     \item{\code{max_steps_out}}{Max expansion steps per direction
+#'       (default \code{10000}).}
+#'   }
+#'
+#' @return A list with three elements:
+#'   \describe{
+#'     \item{\code{theta}}{Numeric matrix with \code{iter} rows and one column per
+#'       parameter; column names inherited from \code{theta_init}.}
+#'     \item{\code{y}}{Numeric matrix with \code{iter} rows and one column per time
+#'       step, storing the full (imputed) \code{yt} vector at each iteration.
+#'       Columns corresponding to observed time steps will be constant.}
+#'     \item{\code{miss_ids}}{Integer vector of row indices in \code{dat$y} where
+#'       \code{yt} was \code{NA}, identifying which columns of \code{y} are imputed.}
+#'   }
+#'
+fss_in_Gibbs_sample <- function(theta_init, dat, lp, fill_rng, pars_afs, control_sampler = list()){
+  
+  cntrl_fss <- modifyList(control_fssig(), control_sampler)
+  
+  iter <- cntrl_fss$iter
+  p    <- length(theta_init)
+  
+  # storage for parameter samples
+  theta <- matrix(nrow = iter, ncol = p)
+  colnames(theta) <- names(theta_init)
+  
+  # track the full yt column so callers can inspect imputed values
+  y_samps  <- matrix(nrow = iter, ncol = nrow(dat$y))
+  miss_ids <- which(is.na(dat$y[, "yt"]))
+  
+  # inner FSS control: one slice step per Gibbs cycle, no step tracking
+  fss_ctrl <- list(
+    time_out = cntrl_fss$time_out,
+    max_steps_out = cntrl_fss$max_steps_out,
+    track_interval_steps = FALSE
+  )
+  
+  # recycled variables
+  theta_curr <- theta_init
+  dat_s <- dat
+  
+  for (i in 1:iter) {
+    
+    # Gibbs step: draw missing y given current theta 
+    dat_s$y <- fill_rng(theta_curr, dat)
+    
+    # Factor slice step: draw theta given filled-in data
+    fss_out <- factor_slice_sampler(
+      theta_curr, 
+      dat_s, 
+      lp, 
+      pars_afs,
+      iter = 1,
+      control = fss_ctrl
+    )
+    # update theta
+    theta_curr <- fss_out$theta
+    
+    # Store
+    theta[i, ]   <- theta_curr
+    y_samps[i, ] <- dat_s$y[, "yt"]
+    
+  }
+  
+  return(list(
+    theta = theta,
+    y = y_samps,
+    miss_ids = miss_ids
+  ))
+  
   
 }
 
@@ -712,25 +1068,86 @@ MH_Gibbs_DA <- function(dat, fill_rng, lp, burnin, iter, nthin = 1){
 
 #' Fit a Bayesian Ricker population growth model with (potentially) missing data
 #'
-#' @param y A vector of counts with NA's in place of any missing data
-#' @param fam Character of either \code(c("poisson", "neg_binom"))
-#' @param chains Number of MCMC chains to run in parallel. Each will generate \code{samples}
-#' samples from the posterior.
-#' @param samples Number of posterior samples to keep from each chain
-#' @param burnin Number of samples to use as warmup.
-#' @param priors_list Named list defining the priors for \eqn{r} and \eqn{\alpha}
-#' @param nthin Number of steps between samples that actually get returned.
-#' @param return_y Logical to indicate whether to return the posterior samples of the missing
-#' observations. This will return posterior modes and credible intervals for all observations,
-#' so the observed observations will simply be what was observed with no variance.
+#' Estimates the posterior distribution of the Ricker model parameters \eqn{r}
+#' and \eqn{\alpha} (and dispersion \eqn{\psi} for \code{fam = "neg_binom"}) using
+#' a data-augmentation MCMC scheme. Starting values are obtained via empirical Bayes
+#' (complete-case MLE), the Factor Slice Sampler is auto-tuned on the complete cases,
+#' and then \code{chains} independent chains are run via
+#' \code{\link{fss_in_Gibbs_sample}}, which alternates between Gibbs imputation of
+#' missing counts and factor slice updates of the parameters.
 #'
-#' @return A list of posterior estimates, sds, and CredIs
+#' @param y Observed count data, supplied in one of two formats depending on
+#'   \code{off_patch}:
+#'   \describe{
+#'     \item{Vector (\code{off_patch = FALSE})}{A numeric vector of counts in
+#'       chronological order. \code{NA} indicates a missing observation. Any
+#'       leading \code{NA}s are stripped with a warning because the first
+#'       observation is required as a known initial condition.}
+#'     \item{Data frame (\code{off_patch = TRUE})}{A data frame already in
+#'       lagged-pair format with columns \code{yt} (count at time \eqn{t}) and
+#'       \code{ytm1} (count at time \eqn{t-1}). \code{NA} in \code{yt} indicates
+#'       a missing observation. Use this format when observations come from
+#'       multiple patches or when the lagged pairs have been pre-constructed
+#'       externally.}
+#'   }
+#' @param fam Character string specifying the observation model. One of
+#'   \code{"poisson"} (default) or \code{"neg_binom"}.
+#' @param chains Positive integer. Number of independent MCMC chains to run. Each
+#'   produces \code{samples} draws from the posterior. Default \code{3}.
+#' @param samples Positive integer. Number of posterior samples to retain per
+#'   chain. Default \code{1000}.
+#' @param priors_list Named list of prior hyperparameters. All priors are normal.
+#'   Recognised keys (defaults in parentheses):
+#'   \describe{
+#'     \item{\code{m_r}, \code{sd_r}}{Mean and SD for the prior on \eqn{r}
+#'       (\code{0}, \code{2.5}).}
+#'     \item{\code{m_lalpha}, \code{sd_lalpha}}{Mean and SD for the prior on
+#'       \eqn{\log\alpha} (\code{-3}, \code{1}).}
+#'     \item{\code{m_lpsi}, \code{sd_lpsi}}{Mean and SD for the prior on
+#'       \eqn{\log\psi}; only used when \code{fam = "neg_binom"}
+#'       (\code{0}, \code{100}).}
+#'   }
+#' @param nthin Positive integer. Thinning interval; only every \code{nthin}-th
+#'   sample is retained. Default \code{1} (no thinning).
+#' @param return_y Logical. If \code{TRUE} and there are missing observations,
+#'   the posterior samples of each imputed count are appended as extra columns
+#'   (named \code{y1}, \ldots, \code{yn}) to all summary outputs. Columns
+#'   corresponding to observed time steps will be constant. Default \code{FALSE}.
+#' @param off_patch Logical. If \code{TRUE}, \code{y} is expected to be a data
+#'   frame with columns \code{yt} and \code{ytm1} (already in lagged-pair format,
+#'   e.g. for a multi-patch study). If \code{FALSE} (default), \code{y} is a plain
+#'   vector and the lagged-pair data frame is constructed internally.
+#' @param control_sampler Named list of controls passed to
+#'   \code{\link{fss_in_Gibbs_sample}} via \code{\link{control_fssig}}. Use this
+#'   to override the number of sampling iterations, time-out limits, etc.
+#' @param control_tuner Named list of controls passed to
+#'   \code{\link{auto_tune_sampler}} via \code{\link{control_tuning}}. Use this
+#'   to override the width-tuning schedule, factor-estimation burn-in, etc.
+#'
+#' @return On success, a named list with five elements:
+#'   \describe{
+#'     \item{\code{estim}}{Named numeric vector of posterior means. Parameters are
+#'       returned on the natural scale (\eqn{\alpha}, not \eqn{\log\alpha};
+#'       \eqn{\psi}, not \eqn{\log\psi}). If \code{return_y = TRUE} and data are
+#'       missing, imputed count means are appended as \code{y1}, \ldots, \code{yn}.}
+#'     \item{\code{rhat}}{Named numeric vector of Gelman-Rubin \eqn{\hat{R}}
+#'       convergence diagnostics (one per parameter), computed via
+#'       \code{posterior::rhat}.}
+#'     \item{\code{se}}{Named numeric vector of posterior standard deviations.}
+#'     \item{\code{lower}}{Named numeric vector of 2.5\% posterior quantiles.}
+#'     \item{\code{upper}}{Named numeric vector of 97.5\% posterior quantiles.}
+#'   }
+#'   On failure (population extinction, insufficient non-missing pairs, sampler
+#'   getting stuck, etc.) a two-element list \code{list(NA, reason = "...")} is
+#'   returned with a descriptive warning.
+#'
+#' @seealso \code{\link{auto_tune_sampler}}, \code{\link{fss_in_Gibbs_sample}},
+#'   \code{\link{control_tuning}}, \code{\link{control_fssig}}
 #'
 fit_ricker_DA <- function(
     y, fam = "poisson", 
-    chains = 4, 
+    chains = 3, 
     samples = 1000, 
-    burnin = 2000,
     priors_list = list(
       m_r = 0,
       sd_r = 2.5,
@@ -739,9 +1156,11 @@ fit_ricker_DA <- function(
       m_lpsi = 0,
       sd_lpsi = 100
     ),
-    nthin = 5, 
+    nthin = 1,
     return_y = FALSE,
-    off_patch = FALSE
+    off_patch = FALSE,
+    control_sampler = list(),
+    control_tuner = list()
 ){
   require(parallel)
 
@@ -806,6 +1225,7 @@ fit_ricker_DA <- function(
   }
   
   # ---- Initializing starting values ----
+  writeLines("Finding intial parameter values using complete cases...\n")
   fit_init <- fit_ricker_cc(dat, fam = fam, off_patch = TRUE)
   theta_init <- fit_init$estim
   # convert alpha to log-alpha
@@ -877,8 +1297,6 @@ fit_ricker_DA <- function(
     return(y)
   }
   
-  # proposal distribution is now determined based
-  
   # compile data
   datlist <- c(
     list(
@@ -888,94 +1306,60 @@ fit_ricker_DA <- function(
     priors_list
   )
   
-  # Starting point now determined based on empirical Bayes approach
+  datlist_cc <- modifyList(datlist, list(y = dat[complete.cases(dat), ]))
   
-  prop_miss <- mean(is.na(dat[, "yt"]))
-
-  if(prop_miss == 0){
-    force(ls(envir = environment()))
-    cl <- parallel::makeCluster(chains)
-    parallel::clusterEvalQ(
-      cl,
-      {
-        source(here::here("Functions/ricker_drop_function.R"))
-        source(here::here("Functions/ricker_count_MCMC.R"))
-        source(here::here("Functions/ricker_count_likelihood_functions.R"))
-        }
-    )
-
-    # export the remaining variables
-
-    parallel::clusterExport(
-      cl, 
-      varlist = ls(envir = environment()), 
-      envir = environment()
-    )
-    
-    post_samps <- parallel::clusterCall(
-      cl,
-      MH_block_sample,
-      dat = dat,
-      lp = compute_lp,
-      burnin = burnin,
-      iter = samples,
-      nthin = nthin
-    )
-    parallel::stopCluster(cl)
-  }
+  # ---- Conduct tuning ----
+  writeLines("Tuning the sampler...\n")
   
-  if(prop_miss > 0){
-    force(ls(envir = environment()))
-    cl <- parallel::makeCluster(chains)
-    parallel::clusterEvalQ(
-      cl,
-      {
-        source(here::here("Functions/ricker_drop_function.R"))
-        source(here::here("Functions/ricker_count_MCMC.R"))
-        source(here::here("Functions/ricker_count_likelihood_functions.R"))
-        }
-    )
-    
-    # export the remaining variables
-    parallel::clusterExport(
-      cl, 
-      varlist = ls(envir = environment()), 
-      envir = environment()
-    )
-    
-    post_samps <- parallel::clusterCall(
-      cl,
-      MH_Gibbs_DA,
-      dat = dat,
+  sampler_tune <- auto_tune_sampler(
+    theta_init, 
+    dat = datlist_cc,
+    lp = compute_lp,
+    control = control_tuner
+  )
+  
+  # ---- Main sampling ----
+  post_samps <- replicate(
+    chains,
+    fss_in_Gibbs_sample(
+      theta_init = sampler_tune$theta,
+      dat = datlist,
       lp = compute_lp,
       fill_rng = fill_rng,
-      burnin = burnin,
-      iter = samples,
-      nthin = nthin
-    )
-    parallel::stopCluster(cl)
-    
-  } 
+      pars_afs = sampler_tune$pars_afs,
+      control_sampler = control_sampler
+    ),
+    simplify = FALSE
+  )
   
   # compute rhat statistic for samples
-  post_r <- Reduce(
-    cbind,
-    lapply(post_samps, function(x){x$theta[,"r"]})
-  )
-  post_lalpha <- Reduce(
-    cbind,
-    lapply(post_samps, function(x){x$theta[,"lalpha"]})
+  samps_by_chains <- lapply(
+    names(theta_init),
+    FUN = function(n, post_samps){
+      Reduce(
+        cbind,
+        lapply(post_samps, \(x) x$theta[, n] )
+      )
+    },
+    post_samps = post_samps
   )
   
-  ses <- apply(cbind(post_r, post_lalpha), 2, sd)
+  rhats <- sapply(samps_by_chains, posterior::rhat)
+  
+  ses <- apply(
+    Reduce(cbind, samps_by_chains),
+    2, 
+    sd
+  )
+  names(ses) <- as.vector(sapply(
+    names(theta_init),
+    \(n) paste0(n, 1:chains)
+  ))
   if(any(ses == 0)){
-    stuck_r <- which(ses[1:chains] == 0)
-    stuck_alpha <- which(ses[(chains + 1):(2 * chains)] == 0)
-    mess <- paste(
-      "MCMC sampler got stuck. Chain", 
-      stuck_r, "for param r, and chain", 
-      stuck_alpha, "for param alpha.\n"
-    )
+    stuck <- names(ses)[which(ses == 0)]
+    mess <- paste(paste(
+      "MCMC sampler got stuck. Chain", stuck
+    ), collapse = "\n")
     warning(mess)
     return(list(
       NA,
@@ -986,14 +1370,12 @@ fit_ricker_DA <- function(
   # combine posterior samps of r and alpha
   theta_samps <- Reduce(
     rbind,
-    lapply(post_samps, function(x){
-      x$theta
-    })
+    lapply(post_samps, \(x){ x$theta })
   )
   theta_samps[,"lalpha"] <- exp(theta_samps[,"lalpha"])
   colnames(theta_samps)[1:2] <- c("r", "alpha")
   if(fam == "neg_binom"){
-    theta_samps["lpsi"] <- exp(theta_samps["lpsi"])
+    theta_samps[, "lpsi"] <- exp(theta_samps[, "lpsi"])
     colnames(theta_samps)[3] <- "psi"
   }
   
@@ -1005,18 +1387,18 @@ fit_ricker_DA <- function(
         x$y
       })
     )
+    names_all <- c(colnames(theta_samps), paste0("y", 1:n))
     theta_samps <- cbind(
       theta_samps, y_samps
     )
-    colnames(theta_samps)[3:ncol(theta_samps)] <- 
-      paste0("y", 1:n)
+    colnames(theta_samps) <- names_all
   }
   
   # return summaries
   return(
     list(
       estim = apply(theta_samps, 2, mean),
-      rhat = c(posterior::rhat(post_r), posterior::rhat(post_lalpha)),
+      rhat = rhats,
       se = apply(theta_samps, 2, sd),
       lower = apply(theta_samps, 2, quantile, probs = 0.025),
       upper = apply(theta_samps, 2, quantile, probs = 0.975)
