@@ -231,7 +231,7 @@ fit_arima_Kalman <- function(sim_list, sim_pars, forecast = TRUE, forecast_days 
       rename(xreg1 = "light", xreg2 = "discharge")
     xreg1 <- dat_forecast$xreg1
     xreg2 <- dat_forecast$xreg2
-    predictions <- map_df(ArimaoutputNAs[1], function(mod){
+    predictions <- map_df(ArimaoutputNAs, function(mod){
       if (!is.list(mod$arima_model)) {
         data.frame( "pred" = rep.int(NA, times = forecast_days+1),
                     "se" = rep.int(NA, times = forecast_days+1),
@@ -250,6 +250,7 @@ fit_arima_Kalman <- function(sim_list, sim_pars, forecast = TRUE, forecast_days 
                 sim_params = sim_pars))
   }
 }
+
 
 ###### 
 
@@ -372,7 +373,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
 }
 
 
-for (i in 1:5000) {
+for (i in 3069:5000) {
   CurSim <- i
   #### set up data for this iteration
   

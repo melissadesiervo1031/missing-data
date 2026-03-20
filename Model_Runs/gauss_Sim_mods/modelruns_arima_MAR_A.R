@@ -235,7 +235,7 @@ fit_arima_Kalman <- function(sim_list, sim_pars, forecast = TRUE, forecast_days 
       rename(xreg1 = "light", xreg2 = "discharge")
     xreg1 <- dat_forecast$xreg1
     xreg2 <- dat_forecast$xreg2
-    predictions <- map_df(ArimaoutputNAs[1], function(mod){
+    predictions <- map_df(ArimaoutputNAs, function(mod){
       if (!is.list(mod$arima_model)) {
         data.frame( "pred" = rep.int(NA, times = forecast_days+1),
                     "se" = rep.int(NA, times = forecast_days+1),
@@ -264,7 +264,7 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
 
   simmissingdf <- lapply(X = sim_list, 
                          FUN = function(X) cbind.data.frame(days = 1:292,
-                           GPP = X[1:292], #the first element of the list, which includes the full length of the time series w/ no msisingness, needs to be curtailed to match the lenght of the other missing datasets 
+                           GPP = X[1:292], #the first element of the list, which includes the full length of the time series w/ no missingness, needs to be curtailed to match the length of the other missing datasets 
                                                             light = sim_pars$X[,2][1:292], 
                                                             discharge = sim_pars$X[,3][1:292])) # Q is discharge
   
@@ -362,6 +362,9 @@ fit_arima_MI <- function(sim_list, sim_pars, imputationsnum, forecast = TRUE, fo
                  "GPP" = dat_forecast$GPP)
     },.id = "missingprop_autocor") 
     
+    # ggplot(predictions) + 
+    #   geom_line(aes(x = date, y = pred, col = missingprop_autocor)) + 
+    #   geom_line(aes(x = date, y = GPP))
     
     return(list(arima_forecast = predictions,
                 arima_pars = paramlistsim,
@@ -522,6 +525,10 @@ for (i in 1:5000) {
   params_MAR_all$sim_no <- simName
   preds_MAR_all$sim_no <- simName
   
+  ggplot(preds_MAR_all) + 
+    facet_wrap(~type) + 
+    geom_line(aes(x = date, y = pred, col = missingprop_autocor)) + 
+    geom_line(aes(x = date, y = GPP), col = "black")
   # Write the output to the folder which will contain all output files as separate csv
   #    files with a single line of data.
   write.csv(params_MAR_all, file = paste0(OutFile, CurSim,"_params.csv"), row.names = FALSE)
