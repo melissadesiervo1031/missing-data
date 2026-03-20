@@ -278,7 +278,7 @@ step_out <- function(k, theta_curr, pars_afs, h, lp, dat, max_steps_out = 10000)
 
 
 
-slice_proposals <- function(k, A_curr, theta_curr, pars_afs, h, lp, dat, adapt_A = T){
+slice_proposals <- function(k, A_curr, theta_curr, pars_afs, h, lp, dat, time_out = 100000){
   
   h_prop <- -Inf
   prop_counter <- 0
@@ -286,7 +286,7 @@ slice_proposals <- function(k, A_curr, theta_curr, pars_afs, h, lp, dat, adapt_A
   while(h_prop < h){
     q_prop <- runif(1, min = A_curr[1], max = A_curr[2])
     h_prop <- lp(q_prop * pars_afs$Gamma[, k] + theta_curr, dat)
-    if(adapt_A & h_prop < h){
+    if(h_prop < h){
       if(q_prop < 0){
         A_curr[1] <- q_prop
       } else {
@@ -297,7 +297,7 @@ slice_proposals <- function(k, A_curr, theta_curr, pars_afs, h, lp, dat, adapt_A
     prop_counter <- prop_counter + 1
   }
   if(prop_counter >= time_out){
-    stop(paste0("Failed to find suitable proposal for theta_", k))
+    stop(paste0("Failed to find suitable proposal for factor ", k))
   }
   theta_prop <- q_prop * pars_afs$Gamma[, k] + theta_curr
   
@@ -308,39 +308,100 @@ slice_proposals <- function(k, A_curr, theta_curr, pars_afs, h, lp, dat, adapt_A
 }
 
 
+factor_slice_sampler <- function(theta_init, dat, lp, pars_afs, iter = 1000, control = list()){
+  
+  # set controls for other funs if not set
+  alg_control <- list(
+    time_out = 10000,
+    max_steps_out = 10000,
+    track_interval_steps = TRUE
+  )
+  alg_control <- modifyList(alg_control, control)
+  
+  # initialize trackers
+  p <- length(theta_init)
+  theta <- matrix(nrow = iter + 1, ncol = p)
+  colnames(theta) <- names(theta_init)
+  theta[1, ] <- theta_init
+  
+  if(alg_control$track_interval_steps){
+    out_steps <- matrix(0, nrow = iter, ncol = p)
+    in_steps <- matrix(0, nrow = iter, ncol = p)
+  }
+  
+  # alg 2 of Tibbits et al. 2013
+  for(i in 1:iter){
+    
+    # sample random height under the current value
+    h_i <- lp(theta[i, ], dat) - rexp(1)
+    
+    theta_prop <- theta[i, ]
+    for(j in 1:p){
+      # approximate interval
+      out <- step_out(j, theta_prop, pars_afs, h = h_i, lp = lp, dat = dat)
+      A_j <- out$int
+      # sample from interval
+      samp_i <- slice_proposals(j, A_j, theta_prop, pars_afs, h_i, lp, dat, time_out = alg_control$time_out)
+      
+      theta_prop <- samp_i$theta
+      
+      if(alg_control$track_interval_steps){
+        out_steps[i, j] <- out$n_expand
+        in_steps[i, j] <- samp_i$contraction_count
+      }
+      
+    }
+    theta[i + 1, ] <- theta_prop
+  }
+  return(
+    list(
+      theta = theta[-1, ],
+      out_steps = out_steps,
+      in_steps = in_steps
+    )
+  )
+}
 
-auto_tune_afs <- function(theta_init, dat, lp, burnin = 500, tune_w_after = 1, ratio_target = 0.8, stop_after = 2^10 + 1){
-    
-    p <- length(theta_init)
-    
-    # ---- Initialize sampler and conduct tuning ----
+
+
+tune_widths <- function(theta_init, dat, lp, pars_afs = NULL, tune_w_after = 1, ratio_target = 0.8, stop_after = 2^10 + 1){
+  
+  p <- length(theta_init)
+  
+  # ---- Initialize sampler and conduct tuning ----
+  if(is.null(pars_afs)){
     pars_afs <- list(
       Gamma = diag(nrow = p),
       width = runif(p, max = 0.1),
       theta_cov = diag(nrow = p)
     )
+  }
+  theta <- theta_init
+  
+  # set counters
+  iter <- 1
+  counter_w <- 1
+  # counter_cov <- 1
+  convergence <- rep(1, p)
+  names(convergence) <- paste("theta", 1:p, sep = "_")
+  steps_out <- rep(0, p)
+  contractions <- rep(0, p)
+  while(iter <= stop_after & any(convergence == 1)){
     
-    # set counters
-    iter <- 1
-    counter_w <- 1
-    # counter_cov <- 1
-    convergence <- rep(1, p)
-    names(convergence) <- paste("theta", 1:p, sep = "_")
-    steps_out <- rep(0, p)
-    contractions <- rep(0, p)
-    while(iter <= stop_after & any(convergence == 1)){
-      
-      samp_i <- factor_slice_sampler(theta, dat, lp, pars_afs, iter = 1, control = list(adapt_A = T))
-      
-      # add to running totals
-      steps_out <- samp_i$out_steps[1, ] + steps_out
-      contractions <- samp_i$in_steps[1, ] + contractions
-      
-      # xbar <- xbar + samp_i$theta
-      # # note that theta is a row vector here
-      # sample_cov <- sample_cov + samp_i$theta %*% t(samp_i$theta)
-      
-      ## ---- Tuning the widths ----
+    samp_i <- factor_slice_sampler(theta, dat, lp, pars_afs, iter = 1)
+    
+    # add to running totals
+    steps_out <- samp_i$out_steps[1, ] + steps_out
+    contractions <- samp_i$in_steps[1, ] + contractions
+    
+    theta <- samp_i$theta
+    
+    # xbar <- xbar + samp_i$theta
+    # # note that theta is a row vector here
+    # sample_cov <- sample_cov + samp_i$theta %*% t(samp_i$theta)
+    
+    ## ---- Tuning the widths ----
+    if(counter_w == tune_w_after){
       for(j in 1:p){
         denom <- steps_out[j] + contractions[j]
         if(denom > 0.0){
@@ -365,78 +426,110 @@ auto_tune_afs <- function(theta_init, dat, lp, burnin = 500, tune_w_after = 1, r
       counter_w <- 0
       steps_out <- rep(0, p)
       contractions <- rep(0, p)
-      iter <- iter + 1
-      
-    } # end while
+      if(all((steps_out / tune_w_after) < 10)){
+        tune_w_after <- tune_w_after * 2
+      } # end if
+    } # end if
+    counter_w <- counter_w + 1
+    iter <- iter + 1
     
-    ## ---- Estimating factors ----
-    theta_burn <- factor_slice_sampler(theta_init, dat, lp, pars_afs, iter = 2000)$theta
-    # normalize the covariance estimate
-    V <- cov(theta_burn)
-    
-    # estimate factors
-    pars_afs$Gamma <- eigen(V)$vectors
-    pars_afs$theta_cov <- V
-    
-    return(pars_afs)
+  } # end while
+  
+  return(list(
+    pars_afs = pars_afs,
+    theta = theta
+  ))
 }
 
 
 
-factor_slice_sampler <- function(theta_init, dat, lp, pars_afs, iter = 1000, control = list()){
+
+estimate_factors <- function(theta_init, dat, lp, pars_afs, burnin = 500){
   
-  # set controls for other funs if not set
+  theta_burn <- factor_slice_sampler(theta_init, dat, lp, pars_afs, iter = burnin)$theta
+  # estimate the covariance
+  V <- cov(theta_burn)
+  
+  # estimate factors
+  pars_afs$Gamma <- eigen(V)$vectors
+  pars_afs$theta_cov <- V
+  
+  return(list(
+    pars_afs = pars_afs, 
+    theta = theta_burn[burnin, ]
+  ))
+  
+}
+
+
+
+auto_tune_sampler <- function(theta_init, dat, lp, control = list()){
+  
   alg_control <- list(
-    #time_out = 100,
-    adapt_A = TRUE,
-    max_steps_out = 100
+    pars_afs = NULL, 
+    tune_w_after = 1, 
+    ratio_target = 0.8, 
+    stop_after = 2^10 + 1,
+    burnin = 500
   )
+  
+  # update any user-supplied values
   alg_control <- modifyList(alg_control, control)
   
-  # initialize trackers
-  p <- length(theta_init)
-  theta <- matrix(nrow = iter + 1, ncol = p)
-  colnames(theta) <- names(theta_init)
-  theta[1, ] <- theta_init
-  div_trans <- matrix(0, nrow = iter, ncol = p)
-  colnames(div_trans) <- names(theta_init)
-  
-  if(alg_control$adapt_A){
-    out_steps <- matrix(0, nrow = iter, ncol = p)
-    in_steps <- matrix(0, nrow = iter, ncol = p)
-  }
-  
-  # alg 2 of Tibbits et al. 2013
-  for(i in 1:iter){
-    
-    # sample random height under the current value
-    h_i <- lp(theta[i, ], dat) - rexp(1)
-
-    theta_prop <- theta[i, ]
-    for(j in 1:p){
-      # approximate interval
-      out <- step_out(j, theta_prop, pars_afs, h = h_i, lp = lp, dat = dat)
-      A_j <- out$int
-      # sample from interval
-      samp_i <- slice_proposals(j, A_j, theta_prop, pars_afs, h_i, lp, dat, alg_control$adapt_A)
-      
-      theta_prop[j] <- samp_i$theta[j]
-      
-      if(alg_control$adapt_A){
-        out_steps[i, j] <- out$n_expand
-        in_steps[i, j] <- samp_i$contraction_count
-      }
-      
-    }
-    theta[i + 1, ] <- theta_prop
-  }
-  return(
+  all_pars <- c(
     list(
-      theta = theta[-1, ],
-      out_steps = out_steps,
-      in_steps = in_steps
-    )
+      theta_init = theta_init,
+      dat = dat,
+      lp = lp
+    ),
+    alg_control
   )
+  
+  round1 <- with(all_pars, {
+      tune_widths(
+        theta_init,
+        dat,
+        lp,
+        pars_afs,
+        tune_w_after,
+        ratio_target,
+        stop_after
+      )
+  })
+  
+  # now estimate factors
+  names(round1)[which(names(round1) == "theta")] <- "theta_init"
+  all_pars <- modifyList(all_pars, round1)
+  
+  round2 <- with(all_pars,{
+    estimate_factors(
+      theta_init,
+      dat,
+      lp,
+      pars_afs,
+      burnin
+    )
+  })
+  
+  # update the list
+  names(round2)[which(names(round2) == "theta")] <- "theta_init"
+  all_pars <- modifyList(all_pars, round2)
+  
+  # retune the step sizes
+  round3 <- with(all_pars, {
+    tune_widths(
+      theta_init,
+      dat,
+      lp,
+      pars_afs,
+      tune_w_after,
+      ratio_target,
+      stop_after
+    )
+  })
+  
+  return(round3)
+  
 }
 
 
