@@ -489,7 +489,7 @@ factor_slice_sampler <- function(theta_init, dat, lp, pars_afs, iter = 1000, con
 #'       suitable for use as \code{theta_init} in a subsequent run.}
 #'   }
 #'
-tune_widths <- function(theta_init, dat, lp, pars_afs = NULL, tune_w_after = 1, ratio_target = 0.8, stop_after = 2^10 + 1){
+tune_widths <- function(theta_init, dat, lp, pars_afs = NULL, init_width = 0.1, tune_w_after = 1, ratio_target = 0.8, stop_after = 2^10 + 1){
   
   p <- length(theta_init)
   
@@ -497,7 +497,7 @@ tune_widths <- function(theta_init, dat, lp, pars_afs = NULL, tune_w_after = 1, 
   if(is.null(pars_afs)){
     pars_afs <- list(
       Gamma = diag(nrow = p),
-      width = runif(p, max = 0.1),
+      width = runif(p, max = init_width),
       theta_cov = diag(nrow = p)
     )
   }
@@ -551,9 +551,13 @@ tune_widths <- function(theta_init, dat, lp, pars_afs = NULL, tune_w_after = 1, 
       counter_w <- 0
       steps_out <- rep(0, p)
       contractions <- rep(0, p)
-      if(all((steps_out / tune_w_after) < 10)){
-        tune_w_after <- tune_w_after * 2
-      } # end if
+      # this is just a "good enough" sort of criterion
+      if(all((steps_out / tune_w_after) < 10) & all(contractions < steps_out)){
+        convergence <- rep(0, p)
+      } else if(all((steps_out / tune_w_after) < 10)) {
+        tune_w_after <- 2 * tune_w_after
+      }
+      # end if
     } # end if
     counter_w <- counter_w + 1
     iter <- iter + 1
@@ -640,6 +644,7 @@ estimate_factors <- function(theta_init, dat, lp, pars_afs, burnin = 500){
 control_tuning <- function(){
   list(
     pars_afs = NULL,
+    init_width = 0.1,
     tune_w_after = 1,
     ratio_target = 0.8,
     stop_after = 2^10 + 1,
@@ -708,6 +713,7 @@ auto_tune_sampler <- function(theta_init, dat, lp, control = list()){
         dat,
         lp,
         pars_afs,
+        init_width,
         tune_w_after,
         ratio_target,
         stop_after
@@ -1147,7 +1153,6 @@ MH_Gibbs_DA <- function(dat, fill_rng, lp, burnin, iter, nthin = 1){
 fit_ricker_DA <- function(
     y, fam = "poisson", 
     chains = 3, 
-    samples = 1000, 
     priors_list = list(
       m_r = 0,
       sd_r = 2.5,
@@ -1162,7 +1167,6 @@ fit_ricker_DA <- function(
     control_sampler = list(),
     control_tuner = list()
 ){
-  require(parallel)
 
   # Check for population extinction
   if(sum(y==0,na.rm=T)>0){
@@ -1239,13 +1243,19 @@ fit_ricker_DA <- function(
   } else{
     theta_init["alpha"] <- log(fit_init$estim["alpha"])
   }
-  if(is.infinite(theta_init["psi"])){
-    theta_init["psi"] <- log(100)
-  } else {
-    theta_init["psi"] <- log(theta_init["psi"])
-  }
   names(theta_init)[which(names(theta_init) == "alpha")] <- "lalpha"
-  names(theta_init)[which(names(theta_init) == "psi")] <- "lpsi"
+  
+  
+  # some tuning if fam = neg_binom
+  if(fam == "neg_binom"){
+    if(is.infinite(theta_init["psi"])){
+      theta_init["psi"] <- log(100)
+    } else {
+      theta_init["psi"] <- log(theta_init["psi"])
+    }
+    names(theta_init)[which(names(theta_init) == "psi")] <- "lpsi"
+  }
+  
   
   
   # create internal function to compute the log-probability
@@ -1278,7 +1288,7 @@ fit_ricker_DA <- function(
   }
   
   # function to "fill in" the missing data based on current values of params
-  fill_rng <- function(theta, datlist, family = fam){
+  fill_rng <- function(theta, datlist){
     y <- datlist$y
     for(t in 1:nrow(y)){
       if(is.na(y[t, "yt"])){
@@ -1286,11 +1296,13 @@ fit_ricker_DA <- function(
           theta = c(theta["r"], -exp(theta["lalpha"])), 
           Nt = y[t, "ytm1"]
         )
-        if(family == "poisson"){
+        if(datlist$fam == "poisson"){
           y[t, "yt"] <- zt_poisson_rng(1, mu_t)
+          y[t + 1, "ytm1"] <- y[t, "yt"]
         }
-        if(family == "neg_binom"){
+        if(datlist$fam == "neg_binom"){
           y[t, "yt"] <- zt_neg_binom_rng(1, size = exp(theta["lpsi"]), mu = mu_t)
+          y[t + 1, "ytm1"] <- y[t, "yt"]
         }
       }
     }
@@ -1306,7 +1318,8 @@ fit_ricker_DA <- function(
     priors_list
   )
   
-  datlist_cc <- modifyList(datlist, list(y = dat[complete.cases(dat), ]))
+  datlist_cc <- datlist
+  datlist_cc$y <- dat[complete.cases(dat), ]
   
   # ---- Conduct tuning ----
   writeLines("Tuning the sampler...\n")
@@ -1319,6 +1332,7 @@ fit_ricker_DA <- function(
   )
   
   # ---- Main sampling ----
+  writeLines("Sampling from posterior...\n")
   post_samps <- replicate(
     chains,
     fss_in_Gibbs_sample(
@@ -1380,6 +1394,7 @@ fit_ricker_DA <- function(
   }
   
   # if we want to return posterior estims for missing obs
+  prop_miss <- mean(is.na(datlist$y[, "yt"]))
   if(isTRUE(return_y) & prop_miss > 0){
     y_samps <- Reduce(
       rbind,

@@ -9,84 +9,73 @@
 set.seed(5526)
 library(tidyverse)
 
-flist <- list.files("Functions/", pattern = ".R", full.names = T)
+flist <- list.files("Functions/", pattern = "\\.R$", full.names = T)
 lapply(flist, source)
 
 
-# one-off testing
+# ---- one-off Neg Binom testing ----
+
+## ---- No missing ----
+
 y <- ricker_sim(50, 0.8, 0.01, N0 = 50, err_fam = "neg_binom", psi = 5)
 
+( test_1 <- fit_ricker_DA(y, fam = "neg_binom") )
 
 
-y <- purrr::map(
-  seq(50, 500, by = 50),
-  ~ ricker_sim(.x, 0.8, 0.02, N0 = 40)
+## ---- With missing obs ----
+
+y2 <- y
+y2[sample(1:length(y), 6)] <- NA
+
+( test2 <- fit_ricker_DA(y2, fam = "neg_binom") )
+
+
+## ---- Creating offset dataframe ahead of time ----
+
+# remove starting NAs
+if(is.na(y2[1])){
+  start <- min(which(!is.na(y2)))
+  y2 <- y2[start:length(y2)]
+}
+
+y3 <- data.frame(
+  yt = y2[2:length(y2)],
+  ytm1 = y2[1:(length(y2) - 1)]
 )
 
-nas <- purrr::map(
-  y,
-  ~ {
-    sample(1:length(.x), size = round(length(.x) * 0.2))
-  }
+(test_3 <- fit_ricker_DA(y3, fam = "neg_binom", off_patch = TRUE))
+
+
+# ---- one-off Poisson testing ----
+
+## ---- No missing ----
+
+y <- ricker_sim(50, 0.8, 0.01, N0 = 50, err_fam = "poisson")
+
+( test_4 <- fit_ricker_DA(y, fam = "poisson") )
+
+
+## ---- With missing obs ----
+
+y2 <- y
+y2[sample(1:length(y), 6)] <- NA
+
+( test_5 <- fit_ricker_DA(y2, fam = "poisson") )
+
+
+## ---- Creating offset dataframe ahead of time ----
+
+# remove starting NAs
+if(is.na(y2[1])){
+  start <- min(which(!is.na(y2)))
+  y2 <- y2[start:length(y2)]
+}
+
+y3 <- data.frame(
+  yt = y2[2:length(y2)],
+  ytm1 = y2[1:(length(y2) - 1)]
 )
 
-y_miss <- map2(
-  y, nas,
-  ~ replace(.x, .y, NA)
-)
+( test_6 <- fit_ricker_DA(y3, fam = "poisson", off_patch = TRUE) )
 
-fit_mcmc <- purrr::map(
-  y,
-  ~ fit_ricker_DA(
-    .x,
-    burnin = 5000,
-    priors_list = list(
-      m_r = 0,
-      sd_r = 2.5,
-      m_lalpha = -3,
-      sd_lalpha = 1
-    ),
-    nthin = 5,
-    return_y = T
-  )
-)
-
-fit_cc <- purrr::map(
-  y,
-  ~ fit_ricker_cc(.x)
-)
-
-
-df <- tibble(
-  n = rep(seq(50, 500, by = 50), each = 2) %>% rep(., 2),
-  par = rep(c("r", "alpha"), 20),
-  method = c(rep("DA", 20), rep("cc", 20)),
-  estim = c(
-    unlist(map(fit_mcmc, ~ .x$estim)),
-    unlist(map(fit_cc, ~ .x$estim))
-  ),
-  low = c(
-    unlist(map(fit_mcmc, ~ .x$lower)),
-    unlist(map(fit_cc, ~ .x$lower))
-  ),
-  high = c(
-    unlist(map(fit_mcmc, ~ .x$upper)),
-    unlist(map(fit_cc, ~ .x$upper))
-  )
-)
-
-ggplot(data = df, aes(x = n, y = estim, color = method)) +
-  facet_wrap(vars(par), scales = "free_y") +
-  geom_errorbar(aes(ymin = low, ymax = high), width = 0) +
-  geom_point() +
-  theme_classic() +
-  ylab("Estimate")
-
-ggsave(
-  here("figures/DA_example.png"),
-  device = "png",
-  height = 3,
-  width = 6,
-  units = "in"
-)
   

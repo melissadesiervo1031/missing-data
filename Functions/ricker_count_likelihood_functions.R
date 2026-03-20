@@ -66,31 +66,20 @@ ricker_count_neg_ll <- function(theta, y, X = NULL, fam = "poisson"){
 
 
 zt_poisson_rng <- function(n, lambda){
-  
-  u <- runif(n)
-  
-  t <- -log(1 - u * (1 - exp(-lambda)))
-  
-  lambda_prime <- lambda - t
-  
-  return(rpois(n, lambda_prime) + 1)
-  
+
+  p0 <- dpois(0, lambda = lambda)
+  u <- runif(n, min = p0, max = 1)
+  return(
+    qpois(u, lambda = lambda)
+  )
+
 }
 
 
-zt_neg_binom_rng <- function(n, mu, size, max_iter = 1000){
-  y <- rnbinom(n, size = size, mu = mu)
-  i <- 1
-  while(sum(y == 0) > 0 & i < max_iter){
-    n_new <- sum(y == 0)
-    y_new <- rnbinom(n_new, size = size, mu = mu)
-    y[y == 0] <- y_new
-    i <- i + 1
-  }
-  if(i == max_iter){
-    stop("Timed out. Increase the max iterations or try an alternative approach.")
-  }
-  return(y)
+zt_neg_binom_rng <- function(n, mu, size){
+    p0 <- dnbinom(0, size = size, mu = mu)                                      
+    u  <- runif(n, min = p0, max = 1)                                           
+    return(qnbinom(u, size = size, mu = mu))                                    
 }
 
 
