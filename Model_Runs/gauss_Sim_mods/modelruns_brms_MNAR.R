@@ -23,6 +23,10 @@ gauss_sim_MNAR <- readRDS("data/missingDatasets/gauss_sim_minMaxMiss.rds")
 # will put them all together after all run, using the command line
 OutFile <- paste0("./data/model_results/gauss_sim_minMax_modelResults/")
 
+# OR create directory for local output  - COMMENT OUT FOR HPC!
+# dir.create("./data/model_results/gauss_sim_minMax_modelResults/", recursive = TRUE, showWarnings = FALSE)
+
+
 #########################################################################################
 ### MY BRMS FUNCTIONS #####
 ##########################################################################################
@@ -30,7 +34,7 @@ OutFile <- paste0("./data/model_results/gauss_sim_minMax_modelResults/")
 fit_brms_model <- function(sim_list, sim_pars, 
                            iter = 4000, include_missing = FALSE,
                            forecast = TRUE, forecast_days = 73,
-                           dat_full ){
+                           dat_full){
   
   simmissingdf <-lapply(X = sim_list, 
                         FUN = function(X) cbind.data.frame(GPP = X[1:292], 
@@ -72,7 +76,7 @@ fit_brms_model <- function(sim_list, sim_pars,
   
   if(forecast){  
     dat_forecast <- dat_full %>%
-      slice((nrow(dat_full)-forecast_days):nrow(dat_full)) %>%
+      slice((nrow(dat_full)-forecast_days):nrow(dat_full)) %>%  # Minor point (CT): this gives 74 forecast days (obs 292-365 inclusive); for 73 forecast days, would need to change to (nrow(dat_full) - forecast_days + 1)
       select(date, GPP, light, discharge)
     
     predictions <- lapply(bmod, function(mod){
@@ -97,13 +101,15 @@ fit_brms_model <- function(sim_list, sim_pars,
 #########################################################
 # slightly increase the control of size of object fitted by parallel brms 
 options(future.globals.maxSize = 1.0 * 1e10)
+
 # fit models
 for (i in 976:length(gauss_sim_MNAR)) {
   CurSim <- i
 
   ###
-  OutFile_params <- paste(OutFile, CurSim, "brmsvals.csv", sep = "")
-  OutFile_preds <- paste(OutFile, CurSim, "brmspreds.csv", sep = "")
+  # Commented out as they were duplicated below, under 'SAVE' - CT
+  # OutFile_params <- paste(OutFile, CurSim, "brmsvals.csv", sep = "")
+  # OutFile_preds <- paste(OutFile, CurSim, "brmspreds.csv", sep = "")
   
   # make sure sim_list and sim_params are not pointing to the whole list, which starts w character elements
   sim_list<- gauss_sim_MNAR[[CurSim]]$y
@@ -113,8 +119,8 @@ for (i in 976:length(gauss_sim_MNAR)) {
   # the 'full' dataset is the first list in the 'sim_list" 
   dat_full <- data.frame("date" = 1:365,
                          "GPP" = gauss_sim_MNAR[[CurSim]]$y$y_noMiss, 
-                         "light" = gauss_sim_MNAR[[1]]$sim_params$X[,2],
-                         "discharge" = gauss_sim_MNAR[[1]]$sim_params$X[,3]
+                         "light" = gauss_sim_MNAR[[CurSim]]$sim_params$X[,2],  #changed from 1 to CurSim, assuming we don't want to use sim1 data for every iteration  - CT
+                         "discharge" = gauss_sim_MNAR[[CurSim]]$sim_params$X[,3] #changed from 1 to CurSim, for above reasons - CT
   )
 
   # fit models
@@ -156,8 +162,9 @@ for (i in 491:length(gauss_sim_MNAR)) {
   CurSim <- i
   
   ###
-  OutFile_params <- paste(OutFile, CurSim, "brmsvals.csv", sep = "")
-  OutFile_preds <- paste(OutFile, CurSim, "brmspreds.csv", sep = "")
+  # Commented out as they were duplicated below, under 'SAVE' - CT
+  # OutFile_params <- paste(OutFile, CurSim, "brmsvals.csv", sep = "")
+  # OutFile_preds <- paste(OutFile, CurSim, "brmspreds.csv", sep = "")
   
   # make sure sim_list and sim_params are not pointing to the whole list, which starts w character elements
   sim_list<- gauss_sim_MNAR[[CurSim]]$y
@@ -167,8 +174,9 @@ for (i in 491:length(gauss_sim_MNAR)) {
   # the 'full' dataset is the first list in the 'sim_list" 
   dat_full <- data.frame("date" = 1:365,
                          "GPP" = gauss_sim_MNAR[[CurSim]]$y$y_noMiss, 
-                         "light" = gauss_sim_MNAR[[1]]$sim_params$X[,2],
-                         "discharge" = gauss_sim_MNAR[[1]]$sim_params$X[,3]
+                         "light" = gauss_sim_MNAR[[CurSim]]$sim_params$X[,2],  #changed from 1 to CurSim, assuming we don't want to use sim1 data for every iteration  - CT
+                         "discharge" = gauss_sim_MNAR[[CurSim]]$sim_params$X[,3]    #changed from 1 to CurSim, for above reasons - CT
+  )
   )
   
   # fit models

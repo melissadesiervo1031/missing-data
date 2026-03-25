@@ -16,6 +16,8 @@ library(brms)
 # CurSim <- as.numeric(CurSim)
 # CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
 
+## Would need to define CurSim somewhere if NOT passed to an HPC cluster - CT
+
 ## read in the autocor_01 list ##
   
 # gauss_sim_randMiss_autoCorr_01 <- readRDS("data/missingDatasets/forBeartooth/gauss_sim_randMiss_A.rds")
@@ -25,8 +27,13 @@ gauss_sim_randMiss_autoCorr_01 <- readRDS("/project/modelscape/users/astears/gau
 # will put them all together after all run, using the command line
 OutFile <- paste0("gauss_sim_MAR_B_brms_results_normPriorNB/", CurSim, "brmsvals.csv")
 
+
+
+# OR for local runs, create directory - COMMENT OUT FOR HPC run
+# dir.create("gauss_sim_MAR_B_brms_results_normPriorNB/", recursive = TRUE, showWarnings = FALSE)
+
 ######################################################################################### 
-### MY BRNS FUNCTIONS #####
+### MY BRMS FUNCTIONS #####
 ##########################################################################################
 ### Function to fit a BRMS model on a time series ###
 fit_brms_model <- function(sim_list, sim_pars, 
