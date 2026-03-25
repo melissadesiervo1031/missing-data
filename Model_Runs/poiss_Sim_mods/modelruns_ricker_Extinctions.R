@@ -17,9 +17,7 @@ library(parallel)
 library(tidyverse)
 
 # source functions
-f_list <- list.files(here("Functions"), full.names = T)
-# remove the file name for the "README" file
-f_list <- f_list[which(is.na(stringr::str_locate(f_list, pattern ="README")[,1]))]
+f_list <- list.files(here("Functions"), pattern = "\\.R$", full.names = T)
 lapply(f_list, source)
 
 
@@ -47,8 +45,31 @@ dat_flat <- map(
 ) %>% list_flatten()
 
 
-## get rid of time series that are fewer than 5 observations (arbitrary thing here?)
-dat_flat <- keep(dat_flat, function(x) length(x) >= 5)
+
+# dat_flat <- keep(dat_flat, function(x) length(x) >= 5)
+## get rid of time series that have fewer than 5 complete cases, following the drop_cc function
+# check for too few non-missing sets y(t) and y(t-1) for initial estimates from fit_ricker_cc 
+# compile into sliced dataframe
+
+check_cc=function(y,limN=5){
+  n <- length(y)
+  dat <- data.frame(
+    yt = y[2:n],
+    ytm1 = y[1:(n - 1)]
+  )
+  
+  # drop incomplete cases
+  dat_cc <- dat[complete.cases(dat), ]
+  
+  if(nrow(dat_cc) < limN){
+    return(FALSE)
+  } else {
+    return(TRUE)
+  }
+}
+
+dat_flat=keep(dat_flat,check_cc)
+#saveRDS(dat_flat,"data/model_results/ricker_Sim_reruns/extinctSets.rds")
 
 # double check the autocorrelation of each timeseries
 autoCorr_actual <- map(dat_flat, 
@@ -86,7 +107,7 @@ dropNA_fits <- map(dat_flat, function(x) fit_ricker_drop(x, fam = "poisson"))
 dropNAcc_fits <- map(dat_flat, function(x) fit_ricker_cc(y = x, fam = "poisson")) 
 
 # multiple imputations
-MI_fits <- map(dat_flat, function(x) fit_ricker_MI(y = x))
+MI_fits <- map(dat_flat, function(x) fit_ricker_MI_lead(y = x))
 
 # expectation maximization
 EM_fits <- map(dat_flat, function(x) fit_ricker_EM(y = x))

@@ -28,11 +28,13 @@ lapply(f_list, source)
 
 # for testing outside of command line, can use this next line
 #in_args=c("data/missingDatasets/pois_sim_randMiss_A.rds", "data/missingDatasets/pois_sim_params.rds", 2, "Model_Runs/RickerA_resultTable1.csv", 1648, 1648,1493)
+#in_args=c("data/missingDatasets/pois_sim_randMiss_trim_A.rds", "data/missingDatasets/pois_sim_params.rds", 2, "Model_Runs/RickerA_resultTable1.csv", 142, 142,1493)
 in_args <- commandArgs(trailingOnly = T)
 cat(in_args)
 # read in datafile
 dat <- readRDS(here(in_args[1]))
 pars <- readRDS(here(in_args[2]))
+dat0=readRDS(here("data/ricker_0miss_datasets.rds"))
 cat("data has been loaded")
 set.seed(in_args[7])
 
@@ -53,6 +55,8 @@ dat_flat <- map(
   dat,
   ~ pluck(.x, "y")
 ) %>% list_flatten()
+
+dat_flat_o=dat_flat
 
 if(!is.null(names(dat))){
   
@@ -84,9 +88,9 @@ if(!is.null(names(dat))){
   
   pars_full <- pars_full %>% mutate(
     id = 1:length(dat_flat),
-    autoCorr = rep(autocorrs, each = 15),
+    autoCorr = rep(autocorrs, each = 16),
     propMiss = rep(
-      seq(0.05, 0.75, by = 0.05),
+      seq(0.00, 0.75, by = 0.05),
       nrow(pars) * n_autocorrs
     ),
     actAutoCorr = autocorr_act,
@@ -99,7 +103,7 @@ if(!is.null(names(dat))){
   pars_full <- pars_full %>% mutate(
     id = 1:length(dat_flat),
     propMiss = rep(
-      seq(0.05, 0.75, by = 0.05),
+      seq(0.00, 0.75, by = 0.05),
       nrow(pars)
     ),
     actPropMiss = prop_miss
@@ -144,6 +148,8 @@ res1 <- lapply(
 
 res1
 
+
+
 if(is.na(res1[[1]][1][[1]][1])){
   results_vec[1]=res1[[1]][2][[1]][1] # estim_r
   results_vec[2]=NA # estim_alpha
@@ -166,6 +172,40 @@ if(is.na(res1[[1]][1][[1]][1])){
 }
 
 })
+
+# add in forecasts here
+forecast_rmse=function(ralpha,trueTS){
+  r=ralpha[1]
+  alpha=ralpha[2]
+  l_ts=length(trueTS)
+  # we assume that the 1st value in trueTS is the given starting value for all
+  pred_TS=numeric(l_ts-1) 
+  pred_TS[1]=trueTS[1]
+  for(i in 1:(l_ts-1)){
+    pred_TS[i+1]=pred_TS[i]*exp(r-alpha*pred_TS[i])
+  }
+  
+  RMSE=sqrt(mean((pred_TS[2:l_ts] - trueTS[2:l_ts])^2))
+  return(RMSE)
+}
+
+cur_index=as.numeric(in_args[5])
+
+cur_sim=pars_full$SimNumber[1]
+trueTS1=dat0[[cur_sim]]$y
+trimmedlength=length(dat_flat[[1]])
+trueTS=trueTS1[(trimmedlength+1):length(trueTS1)]
+
+if(is.na(results_vec[1])|is.na(results_vec[2])){
+  forecasts_MI=NA
+} else {
+  forecasts_MI=forecast_rmse(c(results_vec[1],results_vec[2]),trueTS=trueTS)
+}
+
+results_vec[9]=forecasts_MI
+names(results_vec)[9]="forecasts_MI"
+
+
 
 if(is.na(in_args[8])){
   ran20=F

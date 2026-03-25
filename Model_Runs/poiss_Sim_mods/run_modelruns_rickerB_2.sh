@@ -10,11 +10,11 @@
 ### please enter your own email address below in order to track the results
 #SBATCH --mail-user=apatte12@uwyo.edu
 ### enter any job name that you prefer
-#SBATCH --job-name=rickerRerunB_2
+#SBATCH --job-name=B_2
 #SBATCH --array=1-7500
 
 
-module load arcc/1.0 gcc/12.2.0 r/4.4.0
+module load arcc/1.0 gcc/14.2.0 r/4.4.0
 
 cd /project/modelscape/analyses/MissingTS/missing-data
 

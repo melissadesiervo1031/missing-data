@@ -51,8 +51,9 @@ ricker_count_neg_ll <- function(theta, y, X = NULL, fam = "poisson"){
     ))
   }
   if(fam == "neg_binom"){
+    b <- theta[1:(p-1)]
     for(t in 2:n){
-      eta[t] <- log(y[t - 1]) + X[t - 1, ] %*% theta[-p]
+      eta[t] <- log(y[t - 1]) + X[t - 1, ] %*% b
     }
     
     # return the negative log-likelihood
@@ -63,5 +64,38 @@ ricker_count_neg_ll <- function(theta, y, X = NULL, fam = "poisson"){
   
 }
 
+
+zt_poisson_rng <- function(n, lambda){
+
+  p0 <- dpois(0, lambda = lambda)
+  u <- runif(n, min = p0, max = 1)
+  return(
+    qpois(u, lambda = lambda)
+  )
+
+}
+
+
+zt_neg_binom_rng <- function(n, mu, size){
+    p0 <- dnbinom(0, size = size, mu = mu)                                      
+    u  <- runif(n, min = p0, max = 1)                                           
+    return(qnbinom(u, size = size, mu = mu))                                    
+}
+
+
+#' Negative log-likelihood for multiple independent Ricker time series
+#' 
+#' @param theta Parameter vector
+#' @param y_list List of population count vectors (NAs already filled in)
+#' @param X_list List of model matrices corresponding to each series
+#' @param fam Error family
+#' 
+ricker_count_neg_ll_multi <- function(theta, y_list, X_list, fam = "poisson"){
+  total_nll <- 0
+  for(i in seq_along(y_list)){
+    total_nll <- total_nll + ricker_count_neg_ll(theta, y_list[[i]], X_list[[i]], fam)
+  }
+  return(total_nll)
+}
 
 

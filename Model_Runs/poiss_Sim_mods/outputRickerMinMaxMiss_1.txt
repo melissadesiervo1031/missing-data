@@ -1,0 +1,853 @@
+[[1]]
+[[1]]$value
+function (sim_list, sim_pars) 
+{
+    simmissingdf <- lapply(X = sim_list, FUN = function(X) cbind.data.frame(GPP = X, 
+        light = sim_pars$X[, 2], discharge = sim_pars$X[, 3]))
+    sim_missing_list_drop <- lapply(seq_along(simmissingdf), 
+        function(j) {
+            drop_na(simmissingdf[[j]])
+        })
+    Arimaoutputdrop <- lapply(seq_along(sim_missing_list_drop), 
+        function(j) {
+            modeldrop <- Arima(sim_missing_list_drop[[j]][["GPP"]], 
+                order = c(1, 0, 0), xreg = matrix(c(sim_missing_list_drop[[j]][["light"]], 
+                  sim_missing_list_drop[[j]][["discharge"]]), 
+                  ncol = 2))
+            arimacoefsdrop <- modeldrop$coef
+            arimasesdrop <- sqrt(diag(vcov(modeldrop)))
+            return(list(arima_pars = arimacoefsdrop, arima_errors = arimasesdrop, 
+                sim_params = sim_pars))
+        })
+}
+
+[[1]]$visible
+[1] FALSE
+
+
+[[2]]
+[[2]]$value
+function (sim_list, sim_pars) 
+{
+    simmissingdf <- lapply(X = sim_list, FUN = function(X) cbind.data.frame(GPP = X, 
+        light = sim_pars$X[, 2], discharge = sim_pars$X[, 3]))
+    ArimaoutputNAs <- lapply(seq_along(simmissingdf), function(j) {
+        modelNAs <- Arima(simmissingdf[[j]][["GPP"]], order = c(1, 
+            0, 0), xreg = matrix(c(simmissingdf[[j]][["light"]], 
+            simmissingdf[[j]][["discharge"]]), ncol = 2))
+        arimacoefsNAs <- modelNAs$coef
+        arimasesNAs <- sqrt(diag(vcov(modelNAs)))
+        list(arimacoefsNAs = arimacoefsNAs, arimasesNAs = arimasesNAs)
+        return(list(arima_pars = arimacoefsNAs, arima_errors = arimasesNAs, 
+            sim_params = sim_pars))
+    })
+}
+
+[[2]]$visible
+[1] FALSE
+
+
+[[3]]
+[[3]]$value
+function (sim_list, sim_pars, imputationsnum) 
+{
+    days <- seq(1, length(sim_list[[1]]))
+    sim_missing_df <- lapply(X = sim_list, FUN = function(X) cbind.data.frame(days = days, 
+        GPP = X, light = sim_pars$X[, 2], discharge = sim_pars$X[, 
+            3]))
+    full_amelia <- lapply(X = sim_missing_df, FUN = function(X) amelia(X, 
+        ts = "days", m = imputation_sum, lags = "GPP"))
+    imputations_only <- map(full_amelia, ~.[["imputations"]])
+    model_param_list_sim <- list()
+    model_error_list_sim <- list()
+    for (i in seq_along(imputations_only)) {
+        imputation_coefficients <- list()
+        imputation_ses <- list()
+        for (j in seq_along(imputations_only[[i]])) {
+            imputation_fit <- Arima(imputations_only[[i]][[j]]$GPP, 
+                order = c(1, 0, 0), xreg = matrix(c(sim_missing_df[[j]][["light"]], 
+                  sim_missing_df[[j]][["discharge"]]), ncol = 2))
+            arima_coefs <- imputation_fit$coef
+            arima_ses <- sqrt(diag(vcov(imputation_fit)))
+            name <- paste("imp", seq_along((imputations_only)[[i]])[[j]], 
+                sep = "")
+            imputation_coefficients[[name]] <- arima_coefs
+            imputation_ses[[name]] <- arima_ses
+        }
+        name1 <- names(imputations_only)[[i]]
+        model_param_list_sim[[name1]] <- imputation_coefficients
+        model_error_list_sim[[name1]] <- imputation_ses
+    }
+    coef_se_sim_list <- mapply(function(X, Y) {
+        list(mi.meld(data.frame(X), data.frame(Y), byrow = FALSE))
+    }, X = model_param_list_sim, Y = model_error_list_sim)
+    return(list(paramlistsim = map(coef_se_sim_list, ~.["q.mi"]), 
+        selistsim = map(coef_se_sim_list, ~.["se.mi"])))
+}
+
+[[3]]$visible
+[1] FALSE
+
+
+[[4]]
+[[4]]$value
+function (timeSeries, typeMissing, propMiss = NULL, autoCorr = NULL, 
+    type, ...) 
+{
+    if (is.null(propMiss)) {
+        propMiss_f <- seq(0.05, 0.75, by = 0.05)
+    }
+    else {
+        propMiss_f <- propMiss
+    }
+    if (is.null(autoCorr)) {
+        autoCorr_f <- 0
+    }
+    else {
+        autoCorr_f <- autoCorr
+    }
+    if (typeMissing == "random") {
+        for (i in 1:length(propMiss_f)) {
+            n <- length(timeSeries)
+            M <- matrix(nrow = 2, ncol = 2)
+            p <- 1 - propMiss_f[i]
+            M[1, ] <- c(1 - (1 - autoCorr_f) * p, (1 - autoCorr_f) * 
+                p)
+            M[2, ] <- c((1 - autoCorr_f) * (1 - p), autoCorr_f + 
+                (1 - autoCorr_f) * p)
+            if (sum(M > 1) > 0 | sum(M < 0) > 0) {
+                missingDat_temp <- c("no viable transition matrix for this combination of autocorrelation and proportion missing")
+                if (i == 1) {
+                  missingDat_list <- list(missingDat_temp)
+                }
+                else {
+                  missingDat_list[[i]] <- missingDat_temp
+                }
+                next
+            }
+            X <- vector(mode = "double", length = n)
+            X[1] <- 2
+            for (t in 2:n) {
+                p_t <- M[X[t - 1], ]
+                X[t] <- which(rmultinom(1, size = 1, prob = p_t) == 
+                  1)
+            }
+            if (sum(X != 1) == 0) {
+                while (sum(X != 1) == 0) {
+                  X <- vector(mode = "double", length = n)
+                  X[1] <- 2
+                  for (t in 2:n) {
+                    p_t <- M[X[t - 1], ]
+                    X[t] <- which(rmultinom(1, size = 1, prob = p_t) == 
+                      1)
+                  }
+                }
+            }
+            if (sum(X != 2) == 0) {
+                while (sum(X != 2) == 0) {
+                  X <- vector(mode = "double", length = n)
+                  X[1] <- 2
+                  for (t in 2:n) {
+                    p_t <- M[X[t - 1], ]
+                    X[t] <- which(rmultinom(1, size = 1, prob = p_t) == 
+                      1)
+                  }
+                }
+            }
+            missingVec <- X - 1
+            actualAutoCorr <- acf(x = missingVec, plot = FALSE, 
+                lag.max = 1)$acf[, , 1][2]
+            actualAutoCorr_while <- actualAutoCorr
+            while (actualAutoCorr_while < 0) {
+                X <- vector(mode = "double", length = n)
+                X[1] <- 2
+                for (t in 2:n) {
+                  p_t <- M[X[t - 1], ]
+                  X[t] <- which(rmultinom(1, size = 1, prob = p_t) == 
+                    1)
+                }
+                if (sum(X != 1) == 0) {
+                  while (sum(X != 1) == 0) {
+                    X <- vector(mode = "double", length = n)
+                    X[1] <- 2
+                    for (t in 2:n) {
+                      p_t <- M[X[t - 1], ]
+                      X[t] <- which(rmultinom(1, size = 1, prob = p_t) == 
+                        1)
+                    }
+                  }
+                }
+                if (sum(X != 2) == 0) {
+                  while (sum(X != 2) == 0) {
+                    X <- vector(mode = "double", length = n)
+                    X[1] <- 2
+                    for (t in 2:n) {
+                      p_t <- M[X[t - 1], ]
+                      X[t] <- which(rmultinom(1, size = 1, prob = p_t) == 
+                        1)
+                    }
+                  }
+                }
+                missingVec <- X - 1
+                actualAutoCorr_while <- acf(x = missingVec, plot = FALSE, 
+                  lag.max = 1)$acf[, , 1][2]
+            }
+            missingDat_temp <- replace(timeSeries, list = which(missingVec == 
+                0), values = NA)
+            if (i == 1) {
+                missingDat_list <- list(missingDat_temp)
+            }
+            else {
+                missingDat_list[[i]] <- missingDat_temp
+            }
+            names(missingDat_list)[i] <- paste0("propMissAct_", 
+                round(sum(is.na(missingDat_list[[i]]))/length(missingDat_list[[i]]), 
+                  2), "_autoCorr_", round(acf(x = missingVec, 
+                  plot = FALSE, lag.max = 1)$acf[, , 1][2], 2))
+        }
+    }
+    if (typeMissing == "minMax") {
+        if (type == "Gaussian") {
+            missingDat_list <- lapply(X = propMiss_f, FUN = function(X) replace(timeSeries, 
+                list = c(which(timeSeries < qnorm(X/2, mean = mean(timeSeries, 
+                  na.rm = TRUE), sd = sd(timeSeries, na.rm = TRUE))), 
+                  which(timeSeries > qnorm(1 - X/2, mean = mean(timeSeries, 
+                    na.rm = TRUE), sd = sd(timeSeries, na.rm = TRUE)))), 
+                values = NA))
+            names(missingDat_list) <- paste0("propMissAct_", 
+                lapply(X = missingDat_list, FUN = function(x) round(sum(is.na(x))/length(x), 
+                  2)))
+        }
+        else if (type == "Poisson") {
+            getParm2 = function(betas, my.data) {
+                b1 = betas[1]
+                b2 = betas[2]
+                return(-sum(dnbinom(my.data, mu = b1, size = b2, 
+                  log = TRUE)))
+            }
+            r1 <- optim(c(0.75, 5), fn = getParm2, my.data = timeSeries, 
+                method = "Nelder-Mead", hessian = TRUE)
+            missingDat_list <- lapply(X = propMiss_f, FUN = function(X) replace(timeSeries, 
+                list = c(which(timeSeries < qnbinom(p = X, size = r1$par[2], 
+                  mu = r1$par[1], lower.tail = TRUE))), values = NA))
+            names(missingDat_list) <- paste0("propMissAct_", 
+                lapply(X = missingDat_list, FUN = function(x) round(sum(is.na(x))/length(x), 
+                  2)))
+        }
+    }
+    return(missingDat_list)
+}
+
+[[4]]$visible
+[1] FALSE
+
+
+[[5]]
+[[5]]$value
+function (sim_list, sim_pars, iter = 4000, include_missing = FALSE) 
+{
+    simmissingdf <- lapply(X = sim_list, FUN = function(X) cbind.data.frame(GPP = X, 
+        light = sim_pars$X[, 2], discharge = sim_pars$X[, 3]))
+    bform <- brms::bf(GPP | mi() ~ light + discharge + ar(p = 1))
+    bprior <- c(prior(uniform(0, 1), class = "ar", lb = 0, ub = 1), 
+        prior(normal(0, 5), class = "b"))
+    bmod <- brms::brm_multiple(bform, data = simmissingdf, prior = bprior, 
+        iter = iter, combine = FALSE)
+    extract_brms_pars <- function(bfit, include_missing = FALSE) {
+        bsum <- brms::posterior_summary(bfit, probs = c(0.025, 
+            0.5, 0.975))
+        bsum <- as.data.frame(bsum) %>% mutate(parameter = row.names(bsum)) %>% 
+            filter(!(parameter %in% c("lprior", "lp__"))) %>% 
+            mutate(parameter = case_when(parameter == "ar[1]" ~ 
+                "phi", TRUE ~ parameter)) %>% select(parameter, 
+            mean = Estimate, sd = Est.Error, `2.5%` = Q2.5, `50%` = Q50, 
+            `97.5%` = Q97.5)
+        if (!include_missing) {
+            bsum <- bsum[grep("^Ymi", bsum$parameter, invert = TRUE), 
+                ]
+        }
+        row.names(bsum) <- NULL
+        return(bsum)
+    }
+    bpars <- lapply(bmod, extract_brms_pars, include_missing = include_missing)
+    names(bpars) <- names(simmissingdf)
+    return(list(brms_pars = bpars, sim_params = sim_pars))
+}
+
+[[5]]$visible
+[1] FALSE
+
+
+[[6]]
+[[6]]$value
+function (y, fam = "poisson", ...) 
+{
+    if (sum(y == 0, na.rm = T) > 1) {
+        warning("population extinction caused a divide by zero problem, returning NA")
+        return(list(NA, cause = "population extinction"))
+    }
+    if (any(is.nan(y), na.rm = T)) {
+        warning("NaN found, recode missing data as NA, returning NA")
+        return(list(NA, reason = "NaN found"))
+    }
+    if (any(is.infinite(y), na.rm = T)) {
+        warning("infinite population detected, recheck data returning NA")
+        return(list(NA, reason = "population explosion"))
+    }
+    if (is.na(y[1])) {
+        warning("Removing starting NAs...")
+        start <- min(which(!is.na(y)))
+        y <- y[start:length(y)]
+    }
+    init_theta <- c(0.5, -0.01)
+    if (fam == "neg_binom") {
+        init_theta <- c(init_theta, 10)
+    }
+    args <- list(y = y, fam = fam, init_theta = init_theta, tol = 1e-05, 
+        max_iter = 50)
+    args2 <- list(...)
+    if (length(args2) > 0) {
+        args[names(args2)] <- args2
+    }
+    fit <- do.call(ricker_EM, args = args)
+    if (is.na(fit[1])) {
+        return(list(NA, reason = "we have had an error in evaluating function at initial parameters"))
+    }
+    if (fam == "neg_binom") {
+        parnames <- c("r", "alpha", "psi")
+        estims <- fit$theta * c(1, -1, 1)
+        names(estims) <- parnames
+    }
+    if (fam == "poisson") {
+        parnames <- c("r", "alpha")
+        estims <- fit$theta * c(1, -1)
+        names(estims) <- parnames
+    }
+    return(list(estim = estims, se = NA, lower = NA, upper = NA))
+}
+
+[[6]]$visible
+[1] FALSE
+
+
+[[7]]
+[[7]]$value
+function (theta, y, X = NULL, fam = "poisson") 
+{
+    n <- length(y)
+    p <- length(theta)
+    eta <- vector(mode = "double", length = n)
+    eta[1] <- log(y[1])
+    if (fam == "poisson") {
+        for (t in 2:n) {
+            eta[t] <- log(y[t - 1]) + X[t - 1, ] %*% theta
+        }
+        return(-sum(dpois(x = y[2:n], lambda = exp(eta[2:n]), 
+            log = T)))
+    }
+    if (fam == "neg_binom") {
+        for (t in 2:n) {
+            eta[t] <- log(y[t - 1]) + X[t - 1, ] %*% theta[-p]
+        }
+        return(-sum(dnbinom(x = y[2:n], mu = exp(eta[2:n]), size = theta[p], 
+            log = T)))
+    }
+}
+
+[[7]]$visible
+[1] FALSE
+
+
+[[8]]
+[[8]]$value
+function (y, fam = "poisson", chains = 4, samples = 1000, burnin = 5000, 
+    priors_list = list(m_r = 0, sd_r = 2.5, m_lalpha = -3, sd_lalpha = 1), 
+    nthin = 5, return_y = FALSE) 
+{
+    require(parallel)
+    if (fam == "neg_binom") {
+        stop("Implementation of Negative Binomial model is still in the works.")
+    }
+    if (sum(y == 0, na.rm = T) > 0) {
+        warning("population extinction caused a divide by zero problem, returning NA")
+        return(list(NA, cause = "population extinction"))
+    }
+    if (any(is.nan(y), na.rm = T)) {
+        warning("NaN found, recode missing data as NA, returning NA")
+        return(list(NA, reason = "NaN found"))
+    }
+    if (any(is.infinite(y), na.rm = T)) {
+        warning("infinite population detected, recheck data returning NA")
+        return(list(NA, reason = "population explosion"))
+    }
+    if (is.na(y[1])) {
+        warning("Removing starting NAs...")
+        start <- min(which(!is.na(y)))
+        y <- y[start:length(y)]
+    }
+    n <- length(y)
+    dat <- data.frame(yt = y[2:n], ytm1 = y[1:(n - 1)])
+    dat_cc <- dat[complete.cases(dat), ]
+    if (nrow(dat_cc) < 5) {
+        warning("There are not enough non-missing sets y(t) and y(t-1)")
+        return(list(NA, reason = "missingness limit"))
+    }
+    compute_lp <- function(theta, dat, y_full = NULL, family = fam) {
+        if (is.null(y_full)) {
+            y_full <- dat$y
+        }
+        r <- theta["r"]
+        alpha <- -exp(theta["lalpha"])
+        Xmm <- cbind(rep(1, length(y_full)), y_full)
+        lp <- -ricker_count_neg_ll(theta = c(r, alpha), y = y_full, 
+            X = Xmm, fam = family) + dnorm(r, mean = dat$m_r, 
+            sd = dat$sd_r, log = T) + dnorm(theta["lalpha"], 
+            mean = dat$m_lalpha, sd = dat$sd_lalpha, log = T)
+        return(unname(lp))
+    }
+    fill_rng <- function(theta, dat, family = fam) {
+        y <- dat$y
+        n <- length(y)
+        y_full <- vector("double", length = n)
+        y_full[1] <- y[1]
+        for (t in 2:n) {
+            if (is.na(y[t])) {
+                mu_t <- ricker_step(theta = c(theta["r"], -exp(theta["lalpha"])), 
+                  Nt = y_full[t - 1])
+                if (family == "poisson") {
+                  y_full[t] <- rpois(1, mu_t)
+                }
+                if (family == "neg_binom") {
+                  y_full[t] <- rnbinom(1, size = exp(theta["lpsi"]), 
+                    mu = mu_t)
+                }
+            }
+            else {
+                y_full[t] <- y[t]
+            }
+        }
+        y_full[y_full == 0] <- 1
+        return(y_full)
+    }
+    n <- length(y)
+    p <- 2
+    dat <- c(list(y = y), priors_list)
+    prop_miss <- mean(is.na(y))
+    if (prop_miss == 0 & fam == "poisson") {
+        force(ls(envir = environment()))
+        cl <- parallel::makeCluster(chains)
+        parallel::clusterEvalQ(cl, {
+            source(here::here("Functions/ricker_drop_function.R"))
+            source(here::here("Functions/ricker_count_MCMC.R"))
+            source(here::here("Functions/ricker_count_likelihood_functions.R"))
+        })
+        parallel::clusterExport(cl, varlist = ls(envir = environment()), 
+            envir = environment())
+        post_samps <- parallel::clusterCall(cl, MH_block_sample, 
+            dat = dat, lp = compute_lp, burnin = burnin, iter = samples, 
+            nthin = nthin)
+        parallel::stopCluster(cl)
+    }
+    if (prop_miss > 0 & fam == "poisson") {
+        force(ls(envir = environment()))
+        cl <- parallel::makeCluster(chains)
+        parallel::clusterEvalQ(cl, {
+            source(here::here("Functions/ricker_drop_function.R"))
+            source(here::here("Functions/ricker_count_MCMC.R"))
+            source(here::here("Functions/ricker_count_likelihood_functions.R"))
+        })
+        parallel::clusterExport(cl, varlist = ls(envir = environment()), 
+            envir = environment())
+        post_samps <- parallel::clusterCall(cl, MH_Gibbs_DA, 
+            dat = dat, lp = compute_lp, fill_rng = fill_rng, 
+            burnin = burnin, iter = samples, nthin = nthin)
+        parallel::stopCluster(cl)
+    }
+    post_r <- Reduce(cbind, lapply(post_samps, function(x) {
+        x$theta[, "r"]
+    }))
+    post_lalpha <- Reduce(cbind, lapply(post_samps, function(x) {
+        x$theta[, "lalpha"]
+    }))
+    ses <- apply(cbind(post_r, post_lalpha), 2, sd)
+    if (any(ses == 0)) {
+        stuck_r <- which(ses[1:chains] == 0)
+        stuck_alpha <- which(ses[(chains + 1):(2 * chains)] == 
+            0)
+        mess <- paste("MCMC sampler got stuck. Chain", stuck_r, 
+            "for param r, and chain", stuck_alpha, "for param alpha.\n")
+        warning(mess)
+        return(list(NA, reason = "Sampler got stuck"))
+    }
+    theta_samps <- Reduce(rbind, lapply(post_samps, function(x) {
+        x$theta
+    }))
+    theta_samps[, 2] <- exp(theta_samps[, 2])
+    colnames(theta_samps) <- c("r", "alpha")
+    if (isTRUE(return_y) & prop_miss > 0) {
+        y_samps <- Reduce(rbind, lapply(post_samps, function(x) {
+            x$y
+        }))
+        theta_samps <- cbind(theta_samps, y_samps)
+        colnames(theta_samps)[3:ncol(theta_samps)] <- paste0("y", 
+            1:n)
+    }
+    return(list(estim = apply(theta_samps, 2, mean), rhat = c(posterior::rhat(post_r), 
+        posterior::rhat(post_lalpha)), se = apply(theta_samps, 
+        2, sd), lower = apply(theta_samps, 2, quantile, probs = 0.025), 
+        upper = apply(theta_samps, 2, quantile, probs = 0.975)))
+}
+
+[[8]]$visible
+[1] FALSE
+
+
+[[9]]
+[[9]]$value
+function (y, fam = "poisson", pro_conf = "none") 
+{
+    if (sum(y == 0, na.rm = T) > 1) {
+        warning("population extinction caused a divide by zero problem, returning NA")
+        return(list(NA, cause = "population extinction"))
+    }
+    if (any(is.nan(y), na.rm = T)) {
+        warning("NaN found, recode missing data as NA, returning NA")
+        return(list(NA, reason = "NaN found"))
+    }
+    if (any(is.infinite(y), na.rm = T)) {
+        warning("infinite population detected, recheck data returning NA")
+        return(list(NA, reason = "population explosion"))
+    }
+    y <- y[complete.cases(y)]
+    if (length(y) <= 5) {
+        warning("Time series with NAs dropped is too short! Model can't fit well")
+        return(list(NA, reason = "ts too short"))
+    }
+    n <- length(y)
+    dat <- data.frame(yt = y[2:n], ytm1 = y[1:(n - 1)])
+    if (fam == "poisson") {
+        fit <- glm(yt ~ ytm1, data = dat, family = poisson, offset = log(ytm1))
+    }
+    if (fam == "neg_binom") {
+        fit <- MASS::glm.nb(yt ~ ytm1 + offset(log(ytm1)), data = dat)
+    }
+    estims <- coef(fit)
+    names(estims) <- c("r", "alpha")
+    cis <- confint(fit)
+    rownames(cis) <- names(estims)
+    ses <- sqrt(diag(vcov(fit)))
+    names(ses) <- names(estims)
+    if (pro_conf == "none") {
+        return(list(estim = estims * c(1, -1), se = ses, lower = as.double(diag(cis) * 
+            c(1, -1)), upper = as.double(c(cis[1, 2], cis[2, 
+            1]) * c(1, -1))))
+    }
+    if (pro_conf == "sim") {
+        sim_per_fit = 1000
+        betas <- coef(fit)
+        vcov_mat <- vcov(fit)
+        CI_results = mvrnorm(sim_per_fit, betas, vcov_mat)
+        return(list(estim = estims * c(1, -1), se = ses, lower = as.double(diag(cis) * 
+            c(1, -1)), upper = as.double(c(cis[1, 2], cis[2, 
+            1]) * c(1, -1)), CI_results = CI_results))
+    }
+    if (pro_conf == "boot") {
+        sim_per_fit = 1000
+        boot = function(x, model) {
+            data = model.frame(model)
+            data_sample = data[sample(seq_len(nrow(data)), replace = TRUE), 
+                ]
+            names(data_sample) = c("yt", "ytm1", "offset")
+            coef(update(model, data = data_sample))
+        }
+        CI_results <- do.call(rbind, lapply(1:sim_per_fit, boot, 
+            fit))
+        return(list(estim = estims * c(1, -1), se = ses, lower = as.double(diag(cis) * 
+            c(1, -1)), upper = as.double(c(cis[1, 2], cis[2, 
+            1]) * c(1, -1)), CI_results = CI_results))
+    }
+}
+
+[[9]]$visible
+[1] FALSE
+
+
+[[10]]
+[[10]]$value
+function (y, imputationsnum = 5, fam = "poisson", method = "dual", 
+    p2samelia = 1, ameliatimeout = 60, pro_conf = "none") 
+{
+    if (sum(y == 0, na.rm = T) > 0) {
+        warning("population extinction caused a divide by zero problem, returning NA")
+        return(list(NA, cause = "population extinction"))
+    }
+    if (any(is.nan(y), na.rm = T)) {
+        warning("NaN found, recode missing data as NA, returning NA")
+        return(list(NA, reason = "NaN found"))
+    }
+    if (any(is.infinite(y), na.rm = T)) {
+        warning("infinite population detected, recheck data returning NA")
+        return(list(NA, reason = "population explosion"))
+    }
+    if (any(is.na(y)) == FALSE) {
+        warning("cannot fit a model with Amelia, there are no missing values to impute!")
+        return(list(NA, reason = "no missing values"))
+    }
+    n <- length(y)
+    if (length(which(is.na(y[2:n] - y[1:(n - 1)]))) >= (n - 2)) {
+        warning("There are not enough non-missing sets y(t) and y(t-1)")
+        return(list(NA, reason = "missingness limits"))
+    }
+    if (sum(!is.na(y)) <= 5) {
+        warning("Time series with NAs dropped is too short! Model can't fit well")
+        return(list(NA, reason = "ts too short"))
+    }
+    if (sum(!is.na(y - lag(y))) <= 3) {
+        warning("too few consecutive time points (three or less)")
+    }
+    simmissingdf = cbind.data.frame(1:(n - 1), y[2:n], y[1:(n - 
+        1)])
+    names(simmissingdf) <- c("time", "yt", "yt1")
+    bound1 = matrix(c(2, 1, 999999, 3, 1, 999999), byrow = T, 
+        ncol = 3)
+    tryCatch(expr = {
+        withTimeout(expr = {
+            if (method == "dual") {
+                amelia1sim <- amelia(simmissingdf, m = imputationsnum, 
+                  ts = "time", bounds = bound1, p2s = p2samelia, 
+                  leads = "yt")
+                for (i in 1:imputationsnum) {
+                  while (length(which(is.na(amelia1sim$imputations[[i]]$yt))) > 
+                    0 | length(which(is.na(amelia1sim$imputations[[i]]$yt1))) > 
+                    0) {
+                    navec <- which(is.na(amelia1sim$imputations[[i]]$yt))
+                    amelia1sim$imputations[[i]]$yt[navec] <- amelia1sim$imputations[[i]]$yt1[navec + 
+                      1]
+                    amelia1sim$imputations[[i]]$yt1[navec] <- amelia1sim$imputations[[i]]$yt[navec - 
+                      1]
+                    if (length(which(is.na(amelia1sim$imputations[[i]]$yt))) > 
+                      0) {
+                      am2 <- amelia(amelia1sim$imputations[[i]], 
+                        m = 1, ts = "time", bounds = bound1, 
+                        p2s = p2samelia, leads = "yt")
+                      amelia1sim$imputations[[i]] <- am2$imputations$imp1
+                    }
+                  }
+                }
+            }
+            if (method == "forward") {
+                amelia1sim <- amelia(simmissingdf, m = imputationsnum, 
+                  ts = "time", bounds = bound1, p2s = p2samelia, 
+                  leads = "yt")
+                for (i in 1:imputationsnum) {
+                  fill1 = which(amelia1sim$imputations[[i]][1:(n - 
+                    2), 2] != amelia1sim$imputations[[i]][2:(n - 
+                    1), 3])
+                  amelia1sim$imputations[[i]][fill1 + 1, 3] = amelia1sim$imputations[[i]][fill1, 
+                    2]
+                  while (length(which(is.na(amelia1sim$imputations[[i]]$yt))) > 
+                    0) {
+                    navec <- which(is.na(amelia1sim$imputations[[i]]$yt))
+                    amelia1sim$imputations[[i]]$yt1[navec] <- amelia1sim$imputations[[i]]$yt[navec - 
+                      1]
+                    if (length(which(is.na(amelia1sim$imputations[[i]]$yt))) > 
+                      0) {
+                      am2 <- amelia(amelia1sim$imputations[[i]], 
+                        m = 1, ts = "time", bounds = bound1, 
+                        p2s = p2samelia, leads = "yt")
+                      amelia1sim$imputations[[i]] <- am2$imputations$imp1
+                    }
+                    fill1 = which(amelia1sim$imputations[[i]][1:(n - 
+                      2), 2] != amelia1sim$imputations[[i]][2:(n - 
+                      1), 3])
+                    amelia1sim$imputations[[i]][fill1 + 1, 3] = amelia1sim$imputations[[i]][fill1, 
+                      2]
+                  }
+                }
+            }
+            if (method == "backward") {
+                amelia1sim <- amelia(simmissingdf, m = imputationsnum, 
+                  ts = "time", bounds = bound1, p2s = p2samelia, 
+                  leads = "yt")
+                for (i in 1:imputationsnum) {
+                  fill1 = which(amelia1sim$imputations[[i]][1:(n - 
+                    2), 2] != amelia1sim$imputations[[i]][2:(n - 
+                    1), 3])
+                  amelia1sim$imputations[[i]][fill1, 2] = amelia1sim$imputations[[i]][fill1 + 
+                    1, 3]
+                  while (length(which(is.na(amelia1sim$imputations[[i]]$yt))) > 
+                    0) {
+                    navec <- which(is.na(amelia1sim$imputations[[i]]$yt))
+                    amelia1sim$imputations[[i]]$yt[navec] <- amelia1sim$imputations[[i]]$yt1[navec + 
+                      1]
+                    if (length(which(is.na(amelia1sim$imputations[[i]]$yt))) > 
+                      0) {
+                      am2 <- amelia(amelia1sim$imputations[[i]], 
+                        m = 1, ts = "time", bounds = bound1, 
+                        p2s = p2samelia, leads = "yt")
+                      amelia1sim$imputations[[i]] <- am2$imputations$imp1
+                    }
+                    fill1 = which(amelia1sim$imputations[[i]][1:(n - 
+                      2), 2] != amelia1sim$imputations[[i]][2:(n - 
+                      1), 3])
+                    amelia1sim$imputations[[i]][fill1, 2] = amelia1sim$imputations[[i]][fill1 + 
+                      1, 3]
+                  }
+                }
+            }
+            if (method == "averaging") {
+                amelia1sim <- amelia(simmissingdf, m = imputationsnum, 
+                  ts = "time", bounds = bound1, p2s = p2samelia, 
+                  leads = "yt")
+                for (i in 1:imputationsnum) {
+                  while (length(which(is.na(amelia1sim$imputations[[i]]$yt))) > 
+                    0) {
+                    navec <- which(is.na(amelia1sim$imputations[[i]]$yt))
+                    amelia1sim$imputations[[i]]$yt[navec] <- amelia1sim$imputations[[i]]$yt1[navec + 
+                      1]
+                    amelia1sim$imputations[[i]]$yt1[navec] <- amelia1sim$imputations[[i]]$yt[navec - 
+                      1]
+                    if (length(which(is.na(amelia1sim$imputations[[i]]$yt))) > 
+                      0) {
+                      am2 <- amelia(amelia1sim$imputations[[i]], 
+                        m = 1, ts = "time", bounds = bound1, 
+                        p2s = p2samelia, leads = "yt")
+                      amelia1sim$imputations[[i]] <- am2$imputations$imp1
+                    }
+                  }
+                  fill1 = which(amelia1sim$imputations[[i]][1:(n - 
+                    2), 2] != amelia1sim$imputations[[i]][2:(n - 
+                    1), 3])
+                  fill2 = (amelia1sim$imputations[[i]][fill1, 
+                    2] + amelia1sim$imputations[[i]][fill1 + 
+                    1, 3])/2
+                  amelia1sim$imputations[[i]][fill1, 2] = fill2
+                  amelia1sim$imputations[[i]][fill1 + 1, 3] = fill2
+                }
+            }
+        }, timeout = ameliatimeout)
+    }, TimeoutException = function(msg) {
+        warning("Amelia has timed out, likely due to high missingness")
+        return(list(NA, reason = "Amelia time out"))
+    }, error = function(e) {
+        warning("Amelia unable to fit the model, likely due to too little data")
+        return(list(NA, reason = "Amelia fitting error"))
+    })
+    if (!exists("amelia1sim")) {
+        warning("Amelia was unable to fit for reason other than timeout")
+        return(list(NA, reason = "Amelia fitting error"))
+    }
+    if (amelia1sim$code != 1) {
+        cat("we should be returning NA, code is not 1")
+        warning("Amelia was unable to fit for reason other than timeout")
+        return(list(NA, reason = paste("Amelia internal fitting error, code", 
+            amelia1sim$code)))
+    }
+    if (any(is.na(amelia1sim))) {
+        warning("Amelia has timed out, likely due to exceptionally high missingness")
+        return(list(NA, reason = "Amelia time out"))
+    }
+    if (any(is.na(amelia1sim$imputations))) {
+        warning("Amelia has timed out, likely due to exceptionally high missingness")
+        return(list(NA, reason = "Amelia fitting error"))
+    }
+    fit = list()
+    for (i in 1:imputationsnum) {
+        dat = data.frame(yt = amelia1sim$imputations[[i]][2:(n - 
+            1), 2], ytm1 = amelia1sim$imputations[[i]][1:(n - 
+            2), 2])
+        if (fam == "poisson") {
+            fit[[i]] <- tryCatch({
+                glm(round(yt) ~ round(ytm1), data = dat, family = poisson, 
+                  offset = log(ytm1))
+            }, error = function(cond) {
+                message(paste("we have had an error in the model fitting X2"))
+                return(list(NA, reason = "model fitting error"))
+            })
+        }
+        if (fam == "neg_binom") {
+            fit[[i]] <- tryCatch({
+                MASS::glm.nb(round(yt) ~ round(ytm1) + offset(log(round(ytm1))), 
+                  data = dat)
+            }, error = function(cond) {
+                message(paste("we have had an error in the model fitting"))
+                return(list(NA, reason = "model fitting error"))
+            })
+        }
+    }
+    if (any(is.na(fit))) {
+        warning("There has been a model fitting error")
+        return(list(NA, reason = "Amelia model fit error"))
+    }
+    sapply(fit, profile)
+    estims1 = sapply(fit, coef, simplify = T)
+    estims = rowMeans(estims1)
+    estims = estims * c(1, -1)
+    names(estims) <- c("r", "alpha")
+    cis1 = sapply(fit, confint, simplify = T)
+    cis = rowMeans(cis1)
+    l1 = as.double(cis[c(1, 4)] * c(1, -1))
+    names(l1) <- c("r", "alpha")
+    u1 = as.double(cis[c(3, 2)] * c(1, -1))
+    names(u1) <- c("r", "alpha")
+    ses1 = sapply(fit, function(X) sqrt(diag(vcov(X))), simplify = T)
+    ses = rowMeans(ses1)
+    names(ses) <- c("r", "alpha")
+    if (pro_conf == "none") {
+        return(list(estim = estims, se = ses, lower = l1, upper = u1))
+    }
+    if (pro_conf == "sim") {
+        sim_per_fit = 1000/length(fit)
+        results <- lapply(fit, function(model) {
+            betas <- coef(model)
+            vcov_mat <- vcov(model)
+            mvrnorm(sim_per_fit, betas, vcov_mat)
+        })
+        CI_results = do.call(rbind, results)
+        return(list(estim = estims, se = ses, lower = l1, upper = u1, 
+            CI_results = CI_results))
+    }
+    if (pro_conf == "boot") {
+        sim_per_fit = 1000/length(fit)
+        boot = function(x, model) {
+            data = model.frame(model)
+            data_sample = data[sample(seq_len(nrow(data)), replace = TRUE), 
+                ]
+            names(data_sample) = c("yt", "ytm1", "offset")
+            coef(update(model, data = data_sample))
+        }
+        CI_results <- do.call(rbind, lapply(fit, function(single_fit) {
+            do.call(rbind, lapply(1:sim_per_fit, boot, single_fit))
+        }))
+        return(list(estim = estims, se = ses, lower = l1, upper = u1, 
+            CI_results = CI_results))
+    }
+}
+
+[[10]]$visible
+[1] FALSE
+
+
+[[11]]
+[[11]]$value
+function (n, r, alpha, N0, err_fam = "poisson", psi = NULL) 
+{
+    N <- vector(mode = "double", length = n)
+    N[1] <- N0
+    for (t in 2:n) {
+        mu_t <- N[t - 1] * exp(r - alpha * N[t - 1])
+        if (err_fam == "poisson") {
+            N[t] <- rpois(1, lambda = mu_t)
+        }
+        if (err_fam == "neg_binom") {
+            N[t] <- rnbinom(1, mu = mu_t, size = psi)
+        }
+    }
+    return(N)
+}
+
+[[11]]$visible
+[1] FALSE
+
+
+/Users/amypatterson/Documents/Laramie_postdoc/Missing_data_TS/missing-data/data/missingDatasets/pois_sim_MinMaxMiss_trim.rds /Users/amypatterson/Documents/Laramie_postdoc/Missing_data_TS/missing-data/data/missingDatasets/pois_sim_params.rds 5 /Users/amypatterson/Documents/Laramie_postdoc/Missing_data_TS/missing-data/Model_Runs/Ricker_MinMaxMiss_resultTable1.rds 1 2500data has been loaded

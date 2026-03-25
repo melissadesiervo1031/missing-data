@@ -2,7 +2,7 @@
 #make sure these are already in the folder on supercomputer where I need them ##
 
 # .libPaths("/pfs/tc1/project/modelscape/users/mdesierv")
-setwd('/project/modelscape/users/astears/')
+#setwd('/project/modelscape/users/astears/')
 
 library(tidyverse)
 library(brms)
@@ -12,9 +12,9 @@ library(brms)
 
 #CurSim = like a loop ##
 
-CurSim <- commandArgs(trailingOnly = TRUE) #Look at command line arguments only after the R script
-CurSim <- as.numeric(CurSim)
-CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
+# CurSim <- commandArgs(trailingOnly = TRUE) #Look at command line arguments only after the R script
+# CurSim <- as.numeric(CurSim)
+# CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
 
 ## read in the autocor_01 list ##
   
@@ -25,7 +25,7 @@ gauss_sim_randMiss_autoCorr_01 <- readRDS("/project/modelscape/users/astears/gau
 # will put them all together after all run, using the command line
 OutFile <- paste0("gauss_sim_MAR_B_brms_results_normPriorNB/", CurSim, "brmsvals.csv")
 
-#########################################################################################
+######################################################################################### 
 ### MY BRNS FUNCTIONS #####
 ##########################################################################################
 ### Function to fit a BRMS model on a time series ###
