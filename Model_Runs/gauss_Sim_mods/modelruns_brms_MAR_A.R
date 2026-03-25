@@ -23,11 +23,16 @@ gauss_sim_randMiss_autoCorr_01 <- readRDS("./data/missingDatasets/gauss_sim_rand
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
-OutFile <- paste("./data/model_results/gauss_sim_randMiss_modelResults_A/"#, CurSim, "arimavals.csv", sep = ""
-)
+# OutFile <- paste("./data/model_results/gauss_sim_randMiss_modelResults_A/"#, CurSim, "arimavals.csv", sep = "")
+
+OutFile <- "./data/model_results/gauss_sim_randMiss_modelResults_A/"   # cleaner version of the above - CT
+
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
 #OutFile <- paste0("gauss_sim_MAR_A_brms_results_normPriorNB/", CurSim, "brmsvals.csv")
+
+# OR for local runs, create directory - COMMENT OUT FOR HPC run - CT
+# dir.create("./data/model_results/gauss_sim_randMiss_modelResults_A/",recursive = TRUE, showWarnings = FALSE)
 
 #########################################################################################
 ### MY BRMS FUNCTIONS #####
@@ -125,7 +130,7 @@ fit_brms_model <- function(sim_list, sim_pars,
   
   if(forecast){  
     dat_forecast <- dat_full %>%
-      slice((nrow(dat_full)-forecast_days):nrow(dat_full)) %>%
+      slice((nrow(dat_full)-forecast_days):nrow(dat_full)) %>%  # Minor point (CT): this gives 74 forecast days (obs 292-365 inclusive); for exactly 73 forecast days, would need to change to (nrow(dat_full) - forecast_days + 1)
       select(date, GPP, light, discharge)
     
     predictions <- lapply(bmod, function(mod){
@@ -176,11 +181,12 @@ for (i in 3139:length(gauss_sim_randMiss_autoCorr_01)){#seq_along(gauss_sim_rand
   # the 'full' dataset is the first list in the 'sim_list" 
   dat_full <- data.frame("date" = 1:365,
                          "GPP" = gauss_sim_randMiss_autoCorr_01[[CurSim]]$y$y_noMiss, 
-                         "light" = gauss_sim_randMiss_autoCorr_01[[1]]$sim_params$X[,2],
-                         "discharge" = gauss_sim_randMiss_autoCorr_01[[1]]$sim_params$X[,3]
+                         "light" = gauss_sim_randMiss_autoCorr_01[[CurSim]]$sim_params$X[,2],  #changed from 1 to CurSim, assuming we don't want to use sim1 data for every iteration  - CT
+                         "discharge" = gauss_sim_randMiss_autoCorr_01[[CurSim]]$sim_params$X[,3]  #changed from 1 to CurSim, for above reasons - CT
   )
   # slightly increase the control of size of object fitted by parallel brms 
-  options(future.globals.maxSize = 1.0 * 1e9)
+  # options(future.globals.maxSize = 1.0 * 1e9)  # already set w/in fit_brms_model function, to a different value: oopts <- options(future.globals.maxSize = 1.0 * 1e11)  ## 1.0 GB
+  
   # fit models
   brms_MAR <- fit_brms_model(sim_list = sim_list,
                              sim_pars = gauss_sim_randMiss_autoCorr_01[[CurSim]]$sim_params,
@@ -210,7 +216,7 @@ for (i in 3139:length(gauss_sim_randMiss_autoCorr_01)){#seq_along(gauss_sim_rand
 #################################################
 # Write the output to the folder which will contain all output files as separate csv
 #    files with a single line of data.
-write_csv(brms_MAR_df, file = OutFile)
+# write_csv(brms_MAR_df, file = OutFile) - Outside the for loop: orphaned from single run version?  Looks like this would only save the last iteration of the loop - CT
 
 
 # Once the job finishes, you can use the following command from within the folder
