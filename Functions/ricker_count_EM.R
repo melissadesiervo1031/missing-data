@@ -1,8 +1,8 @@
-####################################################
+####################################################-
 # This is a user-defined function to fit Ricker
 # population models to count data, potentially with 
 # missing observations, using EM
-####################################################
+####################################################-
 
 source(here::here("Functions/ricker_count_likelihood_functions.R"))
 #' Fitting the Ricker population model to count data
@@ -21,26 +21,19 @@ source(here::here("Functions/ricker_count_likelihood_functions.R"))
 #' full data vector with latent values filled in (\code{z_hat}), and a convergence code. 0 means 
 #' the algorithm converged before being stopped.
 #' 
-ricker_EM <- function(y, init_theta, fam = "poisson", tol = 1e-5, max_iter = 50, off_patch = FALSE){
+ricker_EM <- function(y, init_theta, fam = "poisson", tol = 1e-5, max_iter = 50){
   
-  if(off_patch){
-    n <- nrow(y) + 1
-  } else{
-    n <- length(y)
-    # remove starting NAs
-    if(is.na(y[1])){
-      obs <- which(!is.na(y))
-      y <- y[min(obs):n]
-      n <- length(y)
-    }
+  if(!all(c("yt", "ytm1") %in% colnames(y))){
+    stop("Expecting y as a dataframe or matrix with yt and ytm1 as named columns.")
   }
   p <- length(init_theta)
   
   # define initial parameter vector
   Theta <- matrix(init_theta, ncol = length(init_theta), nrow= 1)
+  colnames(Theta) <- names(init_theta)
   
   # define matrix of latent vectors
-  Z <- matrix(data = NA, ncol = n, nrow = 1)
+  Z <- matrix(data = NA, ncol = nrow(y), nrow = 1)
   
   nll <- vector(mode = "double")
   
@@ -53,60 +46,39 @@ ricker_EM <- function(y, init_theta, fam = "poisson", tol = 1e-5, max_iter = 50,
     #initialize latent data
     z_s <- y
     
-    # determine parameter sets
-    theta <- as.double(Theta[s, ])
-    if(fam == "poisson"){
-      beta <- theta
-    }
+    theta_curr <- Theta[s, ]
     if(fam == "neg_binom"){
-      beta <- theta[-p]
-      phi <- theta[p]
+      beta_curr <- theta_curr[1:2]
+    } else {
+      beta_curr <- theta_curr
     }
+    beta_curr[2] <- exp(beta_curr[2])
+    
     
     # fill in missing values with their expected values
-    # first the single vector option
-    if(isFALSE(off_patch)){
-      for(t in 2:n){
-        if(is.na(z_s[t])){
-          z_s[t] <- round(ricker_step(beta, z_s[t - 1]))
-          # if rounds to zero, round up instead
-          if(z_s[t] == 0){z_s[t] <- 1}
+    for(t in 1:nrow(z_s)){
+      if(is.na(z_s[t, "yt"])){
+        z_s[t, "yt"] <- round(ricker_step(beta_curr, z_s[t, "ytm1"]))
+        if(z_s[t, "yt"] == 0){
+          z_s[t, "yt"] <- 1
         }
-      }
-      X <- cbind(
-        rep(1, n),
-        z_s
-      )
-    }
-    
-    if(off_patch) {
-      for(t in 1:nrow(z_s)){
-        if(is.na(z_s[t, "yt"])){
-          z_s[t, "yt"] <- round(ricker_step(beta, z_s[t, "ytm1"]))
-          if(t < nrow(z_s)){
+        if(t < nrow(z_s)){
+          if(is.na(z_s[t + 1, "ytm1"])){
             z_s[t + 1, "ytm1"] <- z_s[t, "yt"]
           }
         }
       }
-      # round up if rounding to zero
-      z_s[z_s == 0] <- 1
-      
-      # undo the offsetting for use with ricker_count_neg_ll
-      z_s_vec <- c(z_s[1, "ytm1"], z_s[, "yt"])
-      X <- cbind(
-        rep(1, n),
-        z_s_vec
-      )
-      # overwrite for later steps
-      z_s <- z_s_vec
     }
 
     # adding try catch here to avoid error "function cannot be evaluated at initial parameters"
     fit_s <- tryCatch({
-      optim(
-        par = theta, fn = ricker_count_neg_ll,
-        y = z_s, X = X, fam = fam, hessian = T
-      )
+      if(fam == "poisson"){
+        ricker_count_pois_fit(theta_curr, z_s)
+      } else if(fam == "neg_binom"){
+        ricker_count_nb_fit(theta_curr, z_s)
+      } else {
+        stop("fam must be poisson or neg_binom")
+      }
     },error=function(cond){
       message(paste("we have had an error in evaluating function at initial parameters"))
       return(NA)
@@ -118,14 +90,14 @@ ricker_EM <- function(y, init_theta, fam = "poisson", tol = 1e-5, max_iter = 50,
     # store new value of theta and update
     Theta <- rbind(
       Theta,
-      fit_s$par
+      fit_s$working
     )
     Z <- rbind(
-      Z, z_s
+      Z, z_s[["yt"]]
     )
-    nll <- c(nll, fit_s$value)
+    nll <- c(nll, fit_s$nll)
     
-    # calculate the mean relative difference
+    # calculate the difference
     if(s == 1){
       dif <- dif
     } else{
@@ -139,14 +111,21 @@ ricker_EM <- function(y, init_theta, fam = "poisson", tol = 1e-5, max_iter = 50,
   }
   
   # compute final values for the return list
-  theta_star <- as.double(Theta[nrow(Theta), ])
+  theta_star <- Theta[nrow(Theta), ]
+  theta_star["lalpha"] <- exp(theta_star["lalpha"])
+  names(theta_star)[which(names(theta_star) == "lalpha")] <- "alpha"
+  if(fam == "neg_binom"){
+    theta_star["lpsi"] <- exp(theta_star["lpsi"])
+    names(theta_star)[which(names(theta_star) == "lpsi")] <- "psi"
+  }
   convergence <- as.numeric(s == max_iter)
   
   return(list(
     theta = theta_star,
     Theta = Theta,
     z_s = z_s,
-    convergence = convergence
+    convergence = convergence,
+    nll = nll[length(nll)]
   ))
   
 }
@@ -184,7 +163,7 @@ fit_ricker_EM <- function(y, fam = "poisson", off_patch = FALSE, ...){
     if(!all(c("yt", "ytm1") %in% colnames(y))){
       stop("If feeding in offset data, ensure that yt and ytm1 are named columns.")
     }
-    y <- as.matrix(y[,c("ytm1", "yt")])
+    y <- as.matrix(y[,c("yt", "ytm1")])
   }
   # Check for population extinction
   if(sum(y==0,na.rm=T)>1){
@@ -214,16 +193,24 @@ fit_ricker_EM <- function(y, fam = "poisson", off_patch = FALSE, ...){
   }
   
   # remove starting NAs
-  if(is.na(y[1])){
-    warning("Removing starting NAs...")
-    start <- min(which(!is.na(y)))
-    y <- y[start:length(y)]
+  if(is.vector(y)){
+    if(is.na(y[1])){
+      warning("Removing starting NAs...")
+      start <- min(which(!is.na(y)))
+      y <- y[start:length(y)]
+    }
+    dat <- data.frame(
+      yt = y[2:length(y)],
+      ytm1 = y[1:(length(y) - 1)]
+    )
+  } else {
+    dat <- y[, c("yt", "ytm1")]
   }
   
   if(!exists("init_theta", args)){
-    init_theta <- c(0.5, -0.01)
+    init_theta <- c(r = 0.5, lalpha = log(0.01))
     if(fam == "neg_binom"){
-      init_theta <- c(init_theta, 5)
+      init_theta <- c(init_theta, lpsi = log(5))
     }
     args$init_theta <- init_theta
   }
@@ -232,9 +219,8 @@ fit_ricker_EM <- function(y, fam = "poisson", off_patch = FALSE, ...){
   
   args <- c(
     list(
-      y = y,
-      fam = fam,
-      off_patch = off_patch
+      y = dat,
+      fam = fam
     ),
     args
   )
@@ -246,26 +232,16 @@ fit_ricker_EM <- function(y, fam = "poisson", off_patch = FALSE, ...){
     return(list(NA,reason="we have had an error in evaluating function at initial parameters"))
   }
   
-  if(fam == "neg_binom"){
-    parnames <- c("r", "alpha", "psi")
-    estims <- fit$theta * c(1, -1, 1)
-    names(estims) <- parnames
-  }
-  if(fam == "poisson"){
-    parnames <- c("r", "alpha")
-    estims <- fit$theta * c(1, -1)
-    names(estims) <- parnames
-  }
-  
   if(fit$convergence == 1){
     warning("EM algorithm did not converge. Consider different starting values or increasing max_iter.")
   }
   
   return(list(
-    estim = estims,
+    estim = fit$theta,
     se = NA,
     lower = NA,
-    upper = NA
+    upper = NA,
+    convergence = fit$convergence
   ))
   
 }
