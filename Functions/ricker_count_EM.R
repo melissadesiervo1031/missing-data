@@ -24,7 +24,7 @@ source(here::here("Functions/ricker_count_likelihood_functions.R"))
 ricker_EM <- function(y, init_theta, fam = "poisson", tol = 1e-5, max_iter = 50){
   
   if(!all(c("yt", "ytm1") %in% colnames(y))){
-    stop("Expecting y as a dataframe or matrix with yt and ytm1 as named columns.")
+    stop("Expecting y as a dataframe with yt and ytm1 as named columns.")
   }
   p <- length(init_theta)
   
@@ -132,29 +132,72 @@ ricker_EM <- function(y, init_theta, fam = "poisson", tol = 1e-5, max_iter = 50)
 
 
 
-#' Wrapper to fit a Ricker count model to data using the EM algorithm
-#' 
-#' This function is a wrapper to fit the stochastic Ricker model with
-#' either Poisson or Negative Binomial error distribution and missing observations
-#' encoded as NAs.
+#' Fit a Ricker population model to count data using the EM algorithm
 #'
-#' @param y Vector of population counts, with NA in the place of missing observations. If \code{off_patch == TRUE},
-#' this should be a dataframe with \code{yt} and \code{ytm1} in separate columns, pre-filtered such
-#' that \code{ytm1} for a given time series or "patch" does not start with \code{NA}.
-#' @param fam Error family. Can be either c("poisson", "neg_binom").
-#' @param off_patch Logical. Set to \code{TRUE} when the data come from multiple replicate time series.
-#' @param ... Additional arguments passed to the EM algorithm, such as initial values 
-#' (init_theta = c()) or maximum iterations before stopping (max_iter = 50).
+#' Fits the stochastic Ricker model to a single time series of population counts,
+#' optionally with missing observations. Missing values are handled via Expectation
+#' Maximization (EM): at each E-step, missing counts are replaced by their expected
+#' value under the current parameter estimates; at each M-step, parameters are
+#' re-estimated by maximum likelihood on the filled-in series. Supports Poisson
+#' and Negative Binomial error distributions.
 #'
-#' @return List of intrinsic growth factor and intra-specific competitive effect estimates,
-#' standard errors, and 95% confidence limits. The standard errors are not available using the
-#' EM algorithm, so \code{se = NA; lower = NA; upper = NA}. 
+#' @param y Either (1) a numeric vector of population counts with \code{NA} marking
+#'   missing observations, or (2) if \code{off_patch = TRUE}, a data frame with columns
+#'   \code{yt} (count at time \eqn{t}) and \code{ytm1} (count at time \eqn{t-1}),
+#'   already formatted into lag pairs and filtered so that no series begins with
+#'   \code{ytm1 = NA}. Leading \code{NA}s in a vector input are stripped with a warning.
+#' @param fam Error distribution family. One of \code{"poisson"} (default) or
+#'   \code{"neg_binom"}.
+#' @param off_patch Logical. Set to \code{TRUE} when \code{y} has already been
+#'   formatted into lag pairs (i.e., the \code{yt}/\code{ytm1} data frame format).
+#'   Use this when fitting to data from multiple replicate time series that have
+#'   been row-bound into a single data frame prior to calling this function.
+#'   Default is \code{FALSE}.
+#' @param ... Additional arguments passed to the internal \code{ricker_EM} algorithm:
+#'   \describe{
+#'     \item{\code{init_theta}}{Named numeric vector of starting values. For Poisson,
+#'       \code{c(r = 0.5, lalpha = log(0.01))}; for Negative Binomial, also includes
+#'       \code{lpsi = log(5)}. Note that \code{alpha} is parameterized on the log scale
+#'       internally as \code{lalpha = log(alpha)}, and similarly for the NB dispersion
+#'       parameter \code{psi}.}
+#'     \item{\code{tol}}{Convergence tolerance on the change in negative log-likelihood
+#'       between successive EM iterations. Default \code{1e-5}.}
+#'     \item{\code{max_iter}}{Maximum number of EM iterations before stopping.
+#'       Default \code{50}.}
+#'   }
+#'
+#' @return A list with the following elements:
+#'   \describe{
+#'     \item{\code{estim}}{Named numeric vector of parameter estimates on the natural
+#'       scale: \code{r} (intrinsic growth rate) and \code{alpha} (intraspecific
+#'       competition coefficient, positive). For \code{fam = "neg_binom"}, also
+#'       includes \code{psi} (NB dispersion parameter).}
+#'     \item{\code{se}}{Always \code{NA}. The EM algorithm does not directly yield
+#'       standard errors; use \code{fit_ricker_DA} for posterior uncertainty
+#'       quantification.}
+#'     \item{\code{lower}}{Always \code{NA} (see \code{se}).}
+#'     \item{\code{upper}}{Always \code{NA} (see \code{se}).}
+#'     \item{\code{convergence}}{Convergence code. \code{0} indicates the algorithm
+#'       converged (NLL change fell below \code{tol}) before reaching \code{max_iter};
+#'       \code{1} indicates the algorithm was stopped at \code{max_iter} without
+#'       converging. In the latter case a warning is issued.}
+#'   }
+#'   Returns a list with \code{NA} as its first element (and a named \code{cause} or
+#'   \code{reason} element) if the series contains zeros (population extinction),
+#'   \code{NaN}, \code{Inf}, or if the M-step optimizer fails.
+#'
+#' @seealso \code{\link{ricker_EM}} for the underlying EM implementation,
+#'   \code{\link{fit_ricker_DA}} for Bayesian estimation with posterior uncertainty,
+#'   \code{\link{fit_ricker_cc}} for complete-case (listwise deletion) MLE.
 #'
 #' @examples
-#' 
 #' y <- readRDS("data/missingDatasets/pois_sim_randMiss_A.rds")[[1]]$y[[1]]
 #' fit_ricker_EM(y)
-#' 
+#'
+#' # Negative Binomial with custom starting values and more iterations
+#' fit_ricker_EM(y, fam = "neg_binom", init_theta = c(r = 1, lalpha = log(0.05), lpsi = log(10)),
+#'               max_iter = 100)
+#'
 fit_ricker_EM <- function(y, fam = "poisson", off_patch = FALSE, ...){
   
   args <- list(...)
@@ -204,7 +247,7 @@ fit_ricker_EM <- function(y, fam = "poisson", off_patch = FALSE, ...){
       ytm1 = y[1:(length(y) - 1)]
     )
   } else {
-    dat <- y[, c("yt", "ytm1")]
+    dat <- as.data.frame(y[, c("yt", "ytm1")])
   }
   
   if(!exists("init_theta", args)){

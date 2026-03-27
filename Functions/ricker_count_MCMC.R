@@ -276,11 +276,20 @@ step_out <- function(k, theta_curr, pars_afs, h, lp, dat, max_steps_out = 10000)
   x_high <- x_low + width
   Gam_k <- pars_afs$Gamma[, k]
   
+  # safe_lp <- function(x) {
+  #   val <- lp(x, dat)
+  #   if (!is.finite(val)) {
+  #     warning(sprintf("step_out: lp returned %s at factor %d — treating as -Inf", val, k))
+  #     return(-Inf)
+  #   }
+  #   val
+  # }
+  
   # do the lower bound
   h_low <- lp(x_low * Gam_k + theta_curr, dat)
   i <- 0
   n_expand <- 0
-  while (i < max_steps_out & h_low > h) {
+  while (i < max_steps_out & isTRUE(h_low > h)) {
     x_low <- x_low - width
     h_low <- lp(x_low * Gam_k + theta_curr, dat)
     i <- i + 1
@@ -291,7 +300,7 @@ step_out <- function(k, theta_curr, pars_afs, h, lp, dat, max_steps_out = 10000)
   # now expand upper bound
   h_high <- lp(x_high * Gam_k + theta_curr, dat)
   i <- 0
-  while(i < max_steps_out & h_high > h) {
+  while(i < max_steps_out & isTRUE(h_high > h)) {
     x_high <- x_high + width
     h_high <- lp(x_high * Gam_k + theta_curr, dat)
     i <- i + 1
@@ -1284,6 +1293,10 @@ fit_ricker_DA <- function(
       lprob <- lprob +
         dnorm(theta["lpsi"], mean = datlist$m_lpsi, sd = datlist$sd_lpsi, log = T)
     }
+    # defend against infinite or NaN
+    if(!is.finite(lprob) | is.nan(lprob) | is.na(lprob)){
+      return(-Inf)
+    }
     return(unname(lprob))
   }
   
@@ -1293,16 +1306,25 @@ fit_ricker_DA <- function(
     for(t in 1:nrow(y)){
       if(is.na(y[t, "yt"])){
         mu_t <- ricker_step(
-          theta = c(theta["r"], -exp(theta["lalpha"])), 
+          theta = c(theta["r"], exp(theta["lalpha"])), 
           Nt = y[t, "ytm1"]
         )
+        # fallback
+        if(!is.finite(mu_t)){
+          warning("computed non finite mu_t. Falling back to y_tm1")
+          mu_t <- y[t, "ytm1"]
+        }
         if(datlist$fam == "poisson"){
           y[t, "yt"] <- zt_poisson_rng(1, mu_t)
-          y[t + 1, "ytm1"] <- y[t, "yt"]
+          if(is.na(y[t + 1, "ytm1"])){
+            y[t + 1, "ytm1"] <- y[t, "yt"]
+          }
         }
         if(datlist$fam == "neg_binom"){
           y[t, "yt"] <- zt_neg_binom_rng(1, size = exp(theta["lpsi"]), mu = mu_t)
-          y[t + 1, "ytm1"] <- y[t, "yt"]
+          if(is.na(y[t + 1, "ytm1"])){
+            y[t + 1, "ytm1"] <- y[t, "yt"]
+          }
         }
       }
     }

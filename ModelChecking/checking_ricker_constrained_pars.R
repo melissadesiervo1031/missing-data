@@ -30,9 +30,19 @@ fit2_da <- fit_ricker_DA(y2)
 
 ## ---- multi-series ----
 
-y3 <- lapply(1:5, \(i) { ricker_sim(50, 0.8, 0.01, N0 = rpois(1, 10), err_fam = "poisson") })
+y3 <- lapply(1:5, \(i) { ricker_sim(50, 0.8, 0.01, N0 = rpois(1, 15), err_fam = "poisson") })
 for(i in 1:length(y3)){
   y3[[i]][sample(1:length(y3[[i]]), size = rpois(1, 5))] <- NA
+  # remove starting NAs
+  if(is.na(y3[[i]][1])){
+    start <- 1
+    j <- 1
+    while(is.na(y3[[i]][j])){
+      start <- start + 1
+      j <- j + 1
+    }
+    y3[[i]] <- y3[[i]][-(1:(start - 1))]
+  }
 }
 
 y_df <- lapply(1:length(y3), function(i, y){
@@ -48,6 +58,7 @@ y_df <- Reduce(rbind, y_df)
 fit3 <- fit_ricker_cc(y_df, off_patch = T)
 fit3_d <- fit_ricker_drop(y_df, off_patch = T, patch_col = "patch")
 fit3_em <- fit_ricker_EM(y_df, off_patch = T)
+fit3_da <- fit_ricker_DA(y_df, off_patch = T)
 
 
 # ---- one-off Negative Binomial testing ----
@@ -58,6 +69,8 @@ y_nb <- ricker_sim(50, 0.8, 0.01, N0 = 20, err_fam = "neg_binom", psi = 5)
 
 fit_nb <- fit_ricker_cc(y_nb, fam = "neg_binom")
 fit_nb_d <- fit_ricker_drop(y_nb, fam = "neg_binom")
+fit_nb_em <- fit_ricker_EM(y_nb, fam = "neg_binom")
+fit_nb_da <- fit_ricker_DA(y_nb, fam = "neg_binom")
 
 ## ---- Some missing ----
 
@@ -66,6 +79,8 @@ y2_nb[sample(1:length(y_nb), size = 6)] <- NA
 
 fit2_nb <- fit_ricker_cc(y2_nb, fam = "neg_binom")
 fit2_nb_d <- fit_ricker_drop(y2_nb, fam = "neg_binom")
+fit2_nb_em <- fit_ricker_EM(y2_nb, fam = "neg_binom")
+fit2_nb_da <- fit_ricker_DA(y2_nb, fam = "neg_binom")
 
 
 ## ---- multi-series ----
@@ -73,6 +88,16 @@ fit2_nb_d <- fit_ricker_drop(y2_nb, fam = "neg_binom")
 y3_nb <- lapply(1:5, \(i) { ricker_sim(50, 0.8, 0.01, N0 = rpois(1, 10), err_fam = "neg_binom", psi = 5) })
 for(i in 1:length(y3_nb)){
   y3_nb[[i]][sample(1:length(y3_nb[[i]]), size = rpois(1, 5))] <- NA
+  # remove starting NAs
+  if(is.na(y3_nb[[i]][1])){
+    start <- 1
+    j <- 1
+    while(is.na(y3_nb[[i]][j])){
+      start <- start + 1
+      j <- j + 1
+    }
+    y3_nb[[i]] <- y3_nb[[i]][-(1:(start - 1))]
+  }
 }
 
 y_df_nb <- lapply(1:length(y3_nb), function(i, y){
@@ -87,8 +112,8 @@ y_df_nb <- Reduce(rbind, y_df_nb)
 
 fit3_nb <- fit_ricker_cc(y_df_nb, off_patch = T, fam = "neg_binom")
 fit3_nb_d <- fit_ricker_drop(y_df_nb, off_patch = T, patch_col = "patch", fam = "neg_binom")
-
-
+fit3_nb_em <- fit_ricker_drop(y_df_nb, off_patch = T, fam = "neg_binom")
+fit3_nb_da <- fit_ricker_DA(y_df_nb, off_patch = T, fam = "neg_binom")
 
 
 
