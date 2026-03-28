@@ -24,7 +24,7 @@ gauss_sim_MNAR <- readRDS("data/missingDatasets/gauss_sim_minMaxMiss.rds")
 OutFile <- paste0("./data/model_results/gauss_sim_minMax_modelResults/")
 
 # OR create directory for local output  - COMMENT OUT FOR HPC!
-# dir.create("./data/model_results/gauss_sim_minMax_modelResults/", recursive = TRUE, showWarnings = FALSE)
+dir.create("./data/model_results/gauss_sim_minMax_modelResults/", recursive = TRUE, showWarnings = FALSE)
 
 
 #########################################################################################
@@ -100,7 +100,7 @@ fit_brms_model <- function(sim_list, sim_pars,
 #### MODEL RUN BRMS DROP ##############
 #########################################################
 # slightly increase the control of size of object fitted by parallel brms 
-options(future.globals.maxSize = 1.0 * 1e10)
+options(future.globals.maxSize = 1.0 * 1e10) # 10 GB
 
 # fit models
 for (i in 976:length(gauss_sim_MNAR)) {
@@ -110,6 +110,7 @@ for (i in 976:length(gauss_sim_MNAR)) {
   # Commented out as they were duplicated below, under 'SAVE' - CT
   # OutFile_params <- paste(OutFile, CurSim, "brmsvals.csv", sep = "")
   # OutFile_preds <- paste(OutFile, CurSim, "brmspreds.csv", sep = "")
+  
   
   # make sure sim_list and sim_params are not pointing to the whole list, which starts w character elements
   sim_list<- gauss_sim_MNAR[[CurSim]]$y
@@ -155,10 +156,15 @@ for (i in 976:length(gauss_sim_MNAR)) {
   write_csv(brms_MNAR_df, file = OutFile_params)
   write_csv(brms_MNAR_preds, file = OutFile_preds)
   
+  # explicitly clear large objects and free memory after each iteration saves - 
+  #    my R session kept aborting before the noMiss loop finished (CT)
+  rm(brms_MNAR, brms_MNAR_df, brms_MNAR_preds, sim_list, dat_full)
+  gc()  # 'garbage collector' - forces R to release memory back to OS immediately
+  
 }
 
 # fit the model w/ no missingness
-for (i in 491:length(gauss_sim_MNAR)) {
+for (i in 491:length(gauss_sim_MNAR)) {   
   CurSim <- i
   
   ###
@@ -177,7 +183,7 @@ for (i in 491:length(gauss_sim_MNAR)) {
                          "light" = gauss_sim_MNAR[[CurSim]]$sim_params$X[,2],  #changed from 1 to CurSim, assuming we don't want to use sim1 data for every iteration  - CT
                          "discharge" = gauss_sim_MNAR[[CurSim]]$sim_params$X[,3]    #changed from 1 to CurSim, for above reasons - CT
   )
-  )
+  
   
   # fit models
   brms_MNAR <- fit_brms_model(sim_list = sim_list,
@@ -211,12 +217,31 @@ for (i in 491:length(gauss_sim_MNAR)) {
   write_csv(brms_MNAR_df, file = OutFile_params)
   write_csv(brms_MNAR_preds, file = OutFile_preds)
   
+  # explicitly clear large objects and free memory after each iteration saves - 
+  #   my R session kept aborting before this loop finished (CT)
+  rm(brms_MNAR, brms_MNAR_df, brms_MNAR_preds, sim_list, dat_full)
+  gc()  # 'garbage collector' - forces R to release memory back to OS immediately
+  
 }
 
 # Once the job finishes, you can use the following command from within the folder
 #    containing all single line csv files to compile them into a single csv file:
-#     awk '(NR == 1) || (FNR > 1)' *brmsvals.csv > AllParams_brms.csv
-#     awk '(NR == 1) || (FNR > 1)' *brmspreds.csv > AllPreds_brms.csv
+# # change to the correct folder
+# cd ./data/model_results/gauss_sim_minMax_modelResults/
+
+# # Combine files
+# awk '(NR == 1) || (FNR > 1)' *brmsvals.csv > AllParams_brms.csv
+# awk '(NR == 1) || (FNR > 1)' *brmspreds.csv > AllPreds_brms.csv
+# 
+# # and for the noMiss data
+# awk '(NR == 1) || (FNR > 1)' *brmsvals_noMiss.csv > AllParams_brms_noMiss.csv
+# awk '(NR == 1) || (FNR > 1)' *brmspreds_noMiss.csv > AllPreds_brms_noMiss.csv
+
+# # remove individual files when ready
+# rm *noMiss.csv  *preds.csv  *vals.csv
+# 
+# cd -  # return to previous directory  
+    
 # The * is a wildcard character so the input to this will match any file within
 #    your current folder that ends with vals.csv regardless of the rest of the filename.
 #    These will then all be combined into a single file (AllResults.csv). The order
