@@ -1,18 +1,69 @@
+# Table of Contents
+
+*Documentation written with help from Claude Code*
+
+**MCMC & Sampling**
+- [`auto_tune_sampler`](#automatically-tune-the-factor-slice-sampler)
+- [`control_fssig`](#default-control-parameters-for)
+- [`control_tuning`](#default-control-parameters-for-1)
+- [`estimate_factors`](#estimate-factor-directions-from-a-burn-in-run)
+- [`factor_slice_sampler`](#run-the-factor-slice-sampler-algorithm-2-of-tibbits-et-al-2013)
+- [`fss_in_Gibbs_sample`](#factor-slice-sampler-within-a-gibbs-data-augmentation-loop)
+- [`MH_block_sample`](#metropolis-hastings-sampling-of-the-posterior-with-block-updates)
+- [`MH_Gibbs_DA`](#block-metropolis-hastings-within-gibbs-sampling-of-the-posterior-for-data-augmentation)
+- [`slice_proposals`](#draw-a-proposal-from-a-slice-interval-via-shrinkage-contraction)
+- [`step_out`](#expand-a-slice-interval-along-a-factor-direction-using-the-stepping-out-procedure)
+- [`tune_widths`](#tune-factor-slice-sampler-interval-widths)
+
+**Ricker Model — Fitting**
+- [`fit_ricker_cc`](#fit-ricker-count-model-with-complete-cases-only)
+- [`fit_ricker_DA`](#fit-a-bayesian-ricker-population-growth-model-with-potentially-missing-data)
+- [`fit_ricker_drop`](#fit-ricker-count-model-by-naively-dropping-nas)
+- [`fit_ricker_EM`](#fit-a-ricker-population-model-to-count-data-using-the-em-algorithm)
+- [`fit_ricker_MI`](#title-fit-ricker-model-to-population-count-data-with-multiple-imputation-using-amelia)
+- [`ricker_EM`](#fitting-the-ricker-population-model-to-count-data)
+
+**Ricker Model — Likelihood & Helpers**
+- [`ricker_count_nb_fit`](#fit-ricker-count-model-with-negative-binomial-errors-via-alternating-optimization)
+- [`ricker_count_neg_ll`](#negative-log-likelihood-function-for-ricker-time-series-with)
+- [`ricker_count_neg_ll_cnstr`](#constrained-negative-log-likelihood-for-a-ricker-count-time-series)
+- [`ricker_count_neg_ll_multi`](#negative-log-likelihood-for-multiple-independent-ricker-time-series)
+- [`ricker_count_pois_fit`](#fit-ricker-count-model-with-poisson-errors)
+- [`ricker_sim`](#simulate-population-abundance-from-a-stochastic-ricker-model)
+- [`ricker_step`](#one-step-in-the-deterministic-ricker-population-process)
+- [`zt_neg_binom_rng`](#draw-samples-from-a-zero-truncated-negative-binomial-distribution)
+- [`zt_poisson_rng`](#draw-samples-from-a-zero-truncated-poisson-distribution)
+
+**Gaussian (ARIMA) Fitting**
+- [`fit_arima_dropmissing`](#function-that-will-drop-missing-values-and-then-fit-model-using-arima)
+- [`fit_arima_Kalman`](#function-that-will-fit-the-model-using-arima-while-dealing-with-missing)
+- [`fit_arima_MI`](#function-that-will-fit-the-model-using-arima-while-dealing-with-missing-1)
+- [`fit_brms_model`](#fit_brms_model-use-brms-to-fit-a-missing-data-model-to-simulated-data)
+
+**Utilities**
+- [`makeMissing`](#function-that-will-introduce-varying-types-and-amounts-of-missing-data-in-a-time-series)
+- [`posterior_mode`](#compute-the-mode-of-an-empirical-distribution)
+- [`.init_theta`](#initialize-theta-from-a-list-of-y-vectors)
+- [`.make_X`](#build-a-model-matrix-x-for-a-single-complete-y-vector)
+- [`.proposal_sigma`](#compute-the-hessian-based-proposal-covariance-for-a-list-of-series)
+
+---
+
 # Automatically tune the Factor Slice Sampler
 
 ## Description
 
 Runs a three-stage auto-tuning pipeline for the Factor Slice Sampler:
 
-1. ***Width tuning (round 1):*** `[tune_widths](tune_widths)` is called
+1. ***Width tuning (round 1):*** [`tune_widths`](#tune_widths) is called
     with coordinate-aligned factor directions to find good initial interval widths.
-1. ***Factor estimation:*** `[estimate_factors](estimate_factors)` is called to
+2. ***Factor estimation:*** [`estimate_factors`](#estimate_factors) is called to
     rotate the slice directions to align with the posterior covariance structure.
-1. ***Width re-tuning (round 2):*** `[tune_widths](tune_widths)` is called
+3. ***Width re-tuning (round 2):*** [`tune_widths`](#tune_widths) is called
     again along the estimated factor directions to refine the widths.
 
 The returned `pars_afs` object can be passed directly to
-`[factor_slice_sampler](factor_slice_sampler)` for production sampling.
+[`factor_slice_sampler`](#factor_slice_sampler) for production sampling.
 
 ## Usage
 
@@ -29,17 +80,17 @@ vector as its first argument and the data list as its second.
 * `control`: Named list of tuning controls. Recognised keys (all optional):
 * `pars_afs`: Initial `pars_afs` list; `NULL` to start
     from scratch (default `NULL`).
-* `tune_w_after`: Passed to `[tune_widths](tune_widths)` (default `1`).
+* `tune_w_after`: Passed to [`tune_widths`](#tune_widths) (default `1`).
 * `ratio_target`: Target step-out ratio; passed to
-    `[tune_widths](tune_widths)` (default `0.8`).
+    [`tune_widths`](#tune_widths) (default `0.8`).
 * `stop_after`: Maximum width-tuning steps; passed to
-    `[tune_widths](tune_widths)` (default `2^10 + 1`).
+    [`tune_widths`](#tune_widths) (default `2^10 + 1`).
 * `burnin`: Burn-in iterations for factor estimation; passed to
-    `[estimate_factors](estimate_factors)` (default `500`).
+    [`estimate_factors`](#estimate_factors) (default `500`).
 
 ## Value
 
-A list with two elements (the output of the final `[tune_widths](tune_widths)`  call):
+A list with two elements (the output of the final [`tune_widths`](#tune_widths)  call):
 
 * `pars_afs`: Fully tuned parameter list with optimised `Gamma`
       (factor directions), `width` (per-factor interval widths), and
@@ -53,7 +104,7 @@ A list with two elements (the output of the final `[tune_widths](tune_widths)`  
 
 Returns a named list of default values for the factor slice sampler when used
 inside a Gibbs loop. Pass the output (or a modified copy) as the
-`control_sampler` argument of `[fss_in_Gibbs_sample](fss_in_Gibbs_sample)`.
+`control_sampler` argument of [`fss_in_Gibbs_sample`](#fss_in_gibbs_sample).
 
 ## Usage
 
@@ -68,10 +119,10 @@ A named list with the following elements:
 * `iter`: Integer. Total number of Gibbs iterations to run
       (default `1000`).
 * `time_out`: Integer. Maximum contraction attempts per factor
-      direction before `[slice_proposals](slice_proposals)` throws an error
+      direction before [`slice_proposals`](#slice_proposals) throws an error
       (default `10000`).
 * `max_steps_out`: Integer. Maximum expansion steps per direction
-      in `[step_out](step_out)` (default `10000`).
+      in [`step_out`](#step_out) (default `10000`).
 * `track_interval_steps`: Logical. Whether to record stepping-out
       and contraction counts during sampling (default `TRUE`).
 
@@ -81,7 +132,7 @@ A named list with the following elements:
 
 Returns a named list of default values for the tuning pipeline. Pass the
 output (or a modified copy) as the `control` argument of
-`[auto_tune_sampler](auto_tune_sampler)`.
+[`auto_tune_sampler`](#auto_tune_sampler).
 
 ## Usage
 
@@ -94,7 +145,7 @@ control_tuning()
 A named list with the following elements:
 
 * `pars_afs`: `NULL`; triggers initialisation from the
-      identity matrix and small random widths inside `[tune_widths](tune_widths)`.
+      identity matrix and small random widths inside [`tune_widths`](#tune_widths).
 * `tune_w_after`: Integer. Number of sampler steps between each
       width adjustment (default `1`).
 * `ratio_target`: Numeric. Target ratio of stepping-out to total
@@ -102,7 +153,7 @@ A named list with the following elements:
 * `stop_after`: Integer. Maximum width-tuning steps per round
       (default `2^10 + 1`).
 * `burnin`: Integer. Burn-in iterations used by
-      `[estimate_factors](estimate_factors)` to estimate the posterior covariance
+      [`estimate_factors`](#estimate_factors) to estimate the posterior covariance
       (default `500`).
 
 # Initialize theta from a list of y vectors
@@ -166,7 +217,7 @@ estimate_factors(theta_init, dat, lp, pars_afs, burnin = 500)
 * `lp`: Function to evaluate the log-joint probability. Must accept a parameter
 vector as its first argument and the data list as its second.
 * `pars_afs`: List of current factor slice sampler parameters. Must contain
-`Gamma` and `width`. Both are passed to `[factor_slice_sampler](factor_slice_sampler)`;
+`Gamma` and `width`. Both are passed to [`factor_slice_sampler`](#factor_slice_sampler);
 only `Gamma` and `theta_cov` are updated in the returned object.
 * `burnin`: Number of iterations to run for covariance estimation. Defaults
 to `500`.
@@ -188,7 +239,7 @@ A list with two elements:
 
 At each iteration a random slice height is drawn beneath the log-probability of
 the current point, then each factor direction is updated in turn via
-`[step_out](step_out)` (to bracket the slice) and `[slice_proposals](slice_proposals)`(to draw from within the bracket). The factor directions are taken from
+[`step_out`](#step_out) (to bracket the slice) and [`slice_proposals`](#slice_proposals)(to draw from within the bracket). The factor directions are taken from
 `pars_afs$Gamma`, so the sampler reduces to univariate slice sampling along
 the coordinate axes when `Gamma` is the identity matrix.
 
@@ -408,7 +459,7 @@ Estimates the posterior distribution of the Ricker model parameters $r$and $\alp
 a data-augmentation MCMC scheme. Starting values are obtained via empirical Bayes
 (complete-case MLE), the Factor Slice Sampler is auto-tuned on the complete cases,
 and then `chains` independent chains are run via
-`[fss_in_Gibbs_sample](fss_in_Gibbs_sample)`, which alternates between Gibbs imputation of
+[`fss_in_Gibbs_sample`](#fss_in_gibbs_sample), which alternates between Gibbs imputation of
 missing counts and factor slice updates of the parameters.
 
 ## Usage
@@ -460,16 +511,16 @@ frame with columns `yt` and `ytm1` (already in lagged-pair format,
 e.g. for a multi-patch study). If `FALSE` (default), `y` is a plain
 vector and the lagged-pair data frame is constructed internally.
 * `control_sampler`: Named list of controls passed to
-`[fss_in_Gibbs_sample](fss_in_Gibbs_sample)` via `[control_fssig](control_fssig)`. Use this
+[`fss_in_Gibbs_sample`](#fss_in_gibbs_sample) via [`control_fssig`](#control_fssig). Use this
 to override the number of sampling iterations, time-out limits, etc.
 * `control_tuner`: Named list of controls passed to
-`[auto_tune_sampler](auto_tune_sampler)` via `[control_tuning](control_tuning)`. Use this
+[`auto_tune_sampler`](#auto_tune_sampler) via [`control_tuning`](#control_tuning). Use this
 to override the width-tuning schedule, factor-estimation burn-in, etc.
 
 ## Seealso
 
-`[auto_tune_sampler](auto_tune_sampler)`, `[fss_in_Gibbs_sample](fss_in_Gibbs_sample)`,
-`[control_tuning](control_tuning)`, `[control_fssig](control_fssig)`
+[`auto_tune_sampler`](#auto_tune_sampler), [`fss_in_Gibbs_sample`](#fss_in_gibbs_sample),
+[`control_tuning`](#control_tuning), [`control_fssig`](#control_fssig)
 
 ## Value
 
@@ -504,7 +555,13 @@ spacing between observations in the time series.
 ## Usage
 
 ```r
-fit_ricker_drop(y, fam = "poisson", pro_conf = "none", off_patch = F)
+fit_ricker_drop(
+  y,
+  fam = "poisson",
+  pro_conf = "none",
+  off_patch = F,
+  patch_col = "patch"
+)
 ```
 
 ## Arguments
@@ -525,13 +582,16 @@ y <- readRDS("data/missingDatasets/pois_sim_randMiss_A.rds")[[1]]$y[[1]]
 fit_ricker_cc(y)
 ```
 
-# Wrapper to fit a Ricker count model to data using the EM algorithm
+# Fit a Ricker population model to count data using the EM algorithm
 
 ## Description
 
-This function is a wrapper to fit the stochastic Ricker model with
-either Poisson or Negative Binomial error distribution and missing observations
-encoded as NAs.
+Fits the stochastic Ricker model to a single time series of population counts,
+optionally with missing observations. Missing values are handled via Expectation
+Maximization (EM): at each E-step, missing counts are replaced by their expected
+value under the current parameter estimates; at each M-step, parameters are
+re-estimated by maximum likelihood on the filled-in series. Supports Poisson
+and Negative Binomial error distributions.
 
 ## Usage
 
@@ -541,24 +601,66 @@ fit_ricker_EM(y, fam = "poisson", off_patch = FALSE, ...)
 
 ## Arguments
 
-* `y`: Vector of population counts, with NA in the place of missing observations. If `off_patch == TRUE`,
-this should be a dataframe with `yt` and `ytm1` in separate columns, pre-filtered such
-that `ytm1` for a given time series or "patch" does not start with `NA`.
-* `fam`: Error family. Can be either c("poisson", "neg_binom").
-* `off_patch`: Logical. Set to `TRUE` when the data come from multiple replicate time series.
-* `...`: Additional arguments passed to the EM algorithm, such as initial values 
-(init_theta = c()) or maximum iterations before stopping (max_iter = 50).
+* `y`: Either (1) a numeric vector of population counts with `NA` marking
+missing observations, or (2) if `off_patch = TRUE`, a data frame with columns
+`yt` (count at time $t$) and `ytm1` (count at time $t-1$),
+already formatted into lag pairs and filtered so that no series begins with
+`ytm1 = NA`. Leading `NA`s in a vector input are stripped with a warning.
+* `fam`: Error distribution family. One of `"poisson"` (default) or
+`"neg_binom"`.
+* `off_patch`: Logical. Set to `TRUE` when `y` has already been
+formatted into lag pairs (i.e., the `yt`/`ytm1` data frame format).
+Use this when fitting to data from multiple replicate time series that have
+been row-bound into a single data frame prior to calling this function.
+Default is `FALSE`.
+* `...`: Additional arguments passed to the internal `ricker_EM` algorithm:
+* `init_theta`: Named numeric vector of starting values. For Poisson,
+    `c(r = 0.5, lalpha = log(0.01))`; for Negative Binomial, also includes
+    `lpsi = log(5)`. Note that `alpha` is parameterized on the log scale
+    internally as `lalpha = log(alpha)`, and similarly for the NB dispersion
+    parameter `psi`.
+* `tol`: Convergence tolerance on the change in negative log-likelihood
+    between successive EM iterations. Default `1e-5`.
+* `max_iter`: Maximum number of EM iterations before stopping.
+    Default `50`.
+
+## Seealso
+
+[`ricker_EM`](#ricker_em) for the underlying EM implementation,
+[`fit_ricker_DA`](#fit_ricker_da) for Bayesian estimation with posterior uncertainty,
+[`fit_ricker_cc`](#fit_ricker_cc) for complete-case (listwise deletion) MLE.
 
 ## Value
 
-List of intrinsic growth factor and intra-specific competitive effect estimates,
-standard errors, and 95EM algorithm, so `se = NA; lower = NA; upper = NA`.
+A list with the following elements:
+
+* `estim`: Named numeric vector of parameter estimates on the natural
+      scale: `r` (intrinsic growth rate) and `alpha` (intraspecific
+      competition coefficient, positive). For `fam = "neg_binom"`, also
+      includes `psi` (NB dispersion parameter).
+* `se`: Always `NA`. The EM algorithm does not directly yield
+      standard errors; use `fit_ricker_DA` for posterior uncertainty
+      quantification.
+* `lower`: Always `NA` (see `se`).
+* `upper`: Always `NA` (see `se`).
+* `convergence`: Convergence code. `0` indicates the algorithm
+      converged (NLL change fell below `tol`) before reaching `max_iter`;
+      `1` indicates the algorithm was stopped at `max_iter` without
+      converging. In the latter case a warning is issued.
+
+Returns a list with `NA` as its first element (and a named `cause` or
+`reason` element) if the series contains zeros (population extinction),
+`NaN`, `Inf`, or if the M-step optimizer fails.
 
 ## Examples
 
 ```r
 y <- readRDS("data/missingDatasets/pois_sim_randMiss_A.rds")[[1]]$y[[1]]
 fit_ricker_EM(y)
+
+# Negative Binomial with custom starting values and more iterations
+fit_ricker_EM(y, fam = "neg_binom", init_theta = c(r = 1, lalpha = log(0.05), lpsi = log(10)),
+              max_iter = 100)
 ```
 
 # Title Fit Ricker Model to population count data with Multiple Imputation using Amelia
@@ -612,12 +714,12 @@ Alternates between two steps at each iteration:
 1. ***Gibbs step:*** `fill_rng` is called to draw the missing
     observations from their full conditional distribution given the current
     parameter values $\boldsymbol\theta$.
-1. ***Factor slice step:*** `[factor_slice_sampler](factor_slice_sampler)` is called
+1. ***Factor slice step:*** [`factor_slice_sampler`](#factor_slice_sampler) is called
     for a single iteration to draw a new $\boldsymbol\theta$ given the
     just-imputed complete data.
 
 This function assumes that the factor slice sampler has already been tuned
-(via `[auto_tune_sampler](auto_tune_sampler)`) and that a valid `pars_afs` object
+(via [`auto_tune_sampler`](#auto_tune_sampler)) and that a valid `pars_afs` object
 is supplied.
 
 ## Usage
@@ -645,10 +747,10 @@ vector as its first argument and the data list as its second.
 parameter vector as its first argument and the data list as its second, and return
 an updated version of `dat$y` with all `NA`s in `yt` filled in.
 * `pars_afs`: Tuned factor slice sampler parameter list, as returned by
-`[auto_tune_sampler](auto_tune_sampler)`. Must contain `Gamma` (factor direction
+[`auto_tune_sampler`](#auto_tune_sampler). Must contain `Gamma` (factor direction
 matrix) and `width` (per-factor interval widths).
 * `control_sampler`: Named list of sampler controls. Unrecognised keys are
-ignored; missing keys fall back to `[control_fssig](control_fssig)` defaults.
+ignored; missing keys fall back to [`control_fssig`](#control_fssig) defaults.
 Recognised keys:
 * `iter`: Total number of Gibbs iterations (default `1000`).
 * `time_out`: Max contraction attempts per factor direction
@@ -796,6 +898,129 @@ posterior_mode(x)
 The mode of the empirical distribution.
 The mode of the empirical distribution.
 
+# Fit Ricker count model with negative binomial errors via alternating optimization
+
+## Description
+
+Estimates Ricker population model parameters under a negative binomial
+observation model using a two-step alternating optimization scheme.
+In step 1, the intrinsic growth rate (`r`) and log-transformed
+intra-specific competition coefficient (`lalpha`) are optimized
+conditional on the current overdispersion estimate. In step 2, the
+log-overdispersion parameter (`lpsi`) is optimized conditional on
+the current predicted means. The two steps alternate until parameter
+estimates converge or the iteration limit is reached.
+
+## Usage
+
+```r
+ricker_count_nb_fit(theta, y, tol = 1e-05, max_iter = 500)
+```
+
+## Arguments
+
+* `theta`: Named numeric vector of initial parameter values. Must contain
+elements named `"r"` (intrinsic growth rate), `"lalpha"`
+(log of the intra-specific competition coefficient), and `"lpsi"`
+(log of the negative binomial overdispersion parameter).
+* `y`: Either a numeric vector of population counts through time, or a
+data frame with columns `yt` (count at time $t$) and
+`ytm1` (count at time $t-1$). If a vector is supplied it is
+automatically converted to the lagged data frame format.
+* `tol`: Numeric scalar. Convergence tolerance; the Euclidean distance
+between successive parameter vectors must fall below this value for the
+algorithm to be considered converged. Defaults to `1e-5`.
+* `max_iter`: Integer. Maximum number of alternating-optimization
+iterations before the algorithm stops regardless of convergence.
+Defaults to `500`.
+
+## Details
+
+The Ricker mean function is $\mu_t = y_{t-1} \exp(r - \alpha y_{t-1})$,
+where $\alpha$ is constrained to be positive via the log
+parameterization `lalpha = log(alpha)`.
+
+## Value
+
+A named list with the following elements:
+
+* `estim`: Named numeric vector of point estimates for
+      `r`, `alpha` (back-transformed from `lalpha`), and
+      `psi` (back-transformed from `lpsi`).
+* `se`: Named numeric vector of standard errors for `r`
+      and `alpha`. The SE for `alpha` is obtained via the delta
+      method. `psi` SE is `NA` as it is estimated via
+      `optimize()` without a Hessian.
+* `lower`: Numeric vector of lower 95% confidence limits for
+      `r` and `alpha`. `psi` lower limit is `NA`.
+* `upper`: Numeric vector of upper 95% confidence limits for
+      `r` and `alpha`. `psi` upper limit is `NA`.
+* `convergence`: Integer flag: `0` if the algorithm
+      converged within `max_iter` iterations, `1` otherwise.
+
+## Examples
+
+```r
+y <- readRDS("data/missingDatasets/nb_sim_randMiss_A.rds")[[1]]$y[[1]]
+init <- c(r = 1, lalpha = log(0.01), lpsi = log(5))
+ricker_count_nb_fit(theta = init, y = y)
+```
+
+# Constrained negative log-likelihood for a Ricker count time series
+
+## Description
+
+Computes the negative log-likelihood of a Ricker population model with
+Poisson or Negative Binomial observations, where the density-dependence
+parameter $\alpha$ is log-parameterized to enforce positivity. The
+log-linear mean at time $t$ is:
+$$\log \mu_t = \log N_{t-1} + r - \alpha N_{t-1}$$where $\alpha = \exp(\texttt{lalpha}) > 0$, ensuring negative density
+dependence. This is the likelihood used by fitting routines that optimize
+over a constrained parameter space.
+
+## Usage
+
+```r
+ricker_count_neg_ll_cnstr(theta, y, X = NULL, fam = "poisson")
+```
+
+## Arguments
+
+* `theta`: Named numeric vector of parameters. Must contain:
+* `r`: Intrinsic growth rate (unconstrained, real-valued).
+* `lalpha`: Log of the intraspecific competition coefficient.
+    Exponentiated internally so that $\alpha = e^{\texttt{lalpha}} > 0$.
+* `lpsi`: Log of the Negative Binomial dispersion parameter
+    ($\psi = e^{\texttt{lpsi}} > 0$). Required when `fam = "neg_binom"`;
+    ignored otherwise.
+* `y`: Observed count data. Accepted formats:
+* Numeric vector: Raw time series. Lag pairs `(yt, ytm1)` are
+    constructed internally.
+* Data frame or matrix: Must have named columns `yt` (count at
+    time $t$) and `ytm1` (count at time $t-1$), i.e., the
+    offset/lag-pair format used elsewhere in this package. Rows may come
+    from multiple concatenated series when using `off_patch` mode.`NA`s should be filled in before calling this function.
+* `X`: Ignored. Retained for interface compatibility with
+[`ricker_count_neg_ll`](#ricker_count_neg_ll). Lag pairs are always derived from `y`.
+* `fam`: Error distribution family. One of `"poisson"` (default) or
+`"neg_binom"`.
+
+## Details
+
+Unlike [`ricker_count_neg_ll`](#ricker_count_neg_ll), this function accepts `y`in several formats and constructs the lag pairs internally, so no separate
+model matrix needs to be supplied.
+
+## Seealso
+
+[`ricker_count_neg_ll`](#ricker_count_neg_ll) for the unconstrained version,
+[`ricker_step`](#ricker_step) for the deterministic Ricker step,
+[`fit_ricker_cc`](#fit_ricker_cc) and [`fit_ricker_EM`](#fit_ricker_em) which use
+  this function internally.
+
+## Value
+
+Scalar negative log-likelihood evaluated at `theta`.
+
 # Negative log-likelihood for multiple independent Ricker time series
 
 ## Description
@@ -856,6 +1081,65 @@ should be y. Additional covariates can be added.
 Scalar value of the negative log likelihood of `theta` given the data
 Scalar value of the negative log likelihood of `theta` given the data
 
+# Fit Ricker count model with Poisson errors
+
+## Description
+
+Estimates Ricker population model parameters under a Poisson observation
+model via a single call to `optim`. The intra-specific competition
+coefficient $\alpha$ is constrained to be positive through the log
+parameterization `lalpha = log(alpha)`.
+
+## Usage
+
+```r
+ricker_count_pois_fit(theta_init, y)
+```
+
+## Arguments
+
+* `theta_init`: Named numeric vector of initial parameter values. Must
+contain elements named `"r"` (intrinsic growth rate) and
+`"lalpha"` (log of the intra-specific competition coefficient).
+* `y`: Either a numeric vector of population counts through time, or a
+data frame with columns `yt` (count at time $t$) and
+`ytm1` (count at time $t-1$). If a vector is supplied it is
+converted internally to the lagged data frame format.
+
+## Details
+
+The Ricker mean function is $\mu_t = y_{t-1} \exp(r - \alpha y_{t-1})$,
+where counts at time $t$ are assumed to follow a Poisson distribution
+with mean $\mu_t$.
+
+## Value
+
+A named list with the following elements:
+
+* `estim`: Named numeric vector of point estimates for
+      `r` and `alpha` (back-transformed from `lalpha`).
+* `se`: Named numeric vector of standard errors. The SE for
+      `alpha` is obtained via the delta method.
+* `lower`: Numeric vector of lower 95% confidence limits for
+      `r` and `alpha`.
+* `upper`: Numeric vector of upper 95% confidence limits for
+      `r` and `alpha`.
+* `working`: Named numeric vector of estimates on the working
+      (log) scale, i.e. `r` and `lalpha`.
+* `V`: Variance-covariance matrix of the working-scale
+      estimates, derived from the inverse Hessian returned by
+      `optim`.
+* `convergence`: Integer convergence flag from `optim`:
+      `0` indicates successful convergence.
+
+## Examples
+
+```r
+y <- readRDS("data/missingDatasets/pois_sim_randMiss_A.rds")[[1]]$y[[1]]
+init <- c(r = 1, lalpha = log(0.01))
+ricker_count_pois_fit(theta_init = init, y = y)
+```
+
 # Fitting the Ricker population model to count data
 
 ## Description
@@ -866,14 +1150,7 @@ with Poisson or Negative-Binomial demographic stochasticity.
 ## Usage
 
 ```r
-ricker_EM(
-  y,
-  init_theta,
-  fam = "poisson",
-  tol = 1e-05,
-  max_iter = 50,
-  off_patch = FALSE
-)
+ricker_EM(y, init_theta, fam = "poisson", tol = 1e-05, max_iter = 50)
 ```
 
 ## Arguments
@@ -1034,6 +1311,7 @@ tune_widths(
   dat,
   lp,
   pars_afs = NULL,
+  init_width = 0.1,
   tune_w_after = 1,
   ratio_target = 0.8,
   stop_after = 2^10 + 1
@@ -1065,4 +1343,73 @@ A list with two elements:
 * `pars_afs`: Updated parameter list with tuned `width` values.
 * `theta`: Named numeric vector of the last sampled parameter values,
       suitable for use as `theta_init` in a subsequent run.
+
+# Draw samples from a zero-truncated Negative Binomial distribution
+
+## Description
+
+Generates random draws from a Negative Binomial distribution conditioned on
+the outcome being strictly positive ($X \geq 1$). Uses the same
+inverse-CDF method as [`zt_poisson_rng`](#zt_poisson_rng): a uniform variate is
+drawn on $[p_0, 1]$, where $p_0 = P(X = 0)$ under the untruncated
+Negative Binomial, and then mapped through the NB quantile function.
+Used during data augmentation to impute missing counts under Negative
+Binomial error while avoiding zeros in the likelihood.
+
+## Usage
+
+```r
+zt_neg_binom_rng(n, mu, size)
+```
+
+## Arguments
+
+* `n`: Number of draws to return.
+* `mu`: Mean of the underlying (untruncated) Negative Binomial distribution.
+Must be positive. Corresponds to the `mu` parameterization in
+[`dnbinom`](https://rdrr.io/r/stats/NegBinomial.html).
+* `size`: Dispersion (size) parameter of the Negative Binomial distribution
+($\psi$ elsewhere in this package). Must be positive. Larger values
+approach the Poisson limit.
+
+## Seealso
+
+[`zt_poisson_rng`](#zt_poisson_rng) for the Poisson analogue,
+[`dnbinom`](https://rdrr.io/r/stats/NegBinomial.html) for the parameterization used.
+
+## Value
+
+Integer vector of length `n` with all elements $\geq 1$.
+
+# Draw samples from a zero-truncated Poisson distribution
+
+## Description
+
+Generates random draws from a Poisson distribution conditioned on the outcome
+being strictly positive ($X \geq 1$). Uses the inverse-CDF method: a
+uniform variate is drawn on $[p_0, 1]$, where $p_0 = P(X = 0)$ under
+the untruncated Poisson, and then mapped through the Poisson quantile function.
+This guarantees all returned values are $\geq 1$ without rejection sampling.
+Used during data augmentation to impute missing counts while avoiding zeros
+that would cause $\log(0)$ in the likelihood.
+
+## Usage
+
+```r
+zt_poisson_rng(n, lambda)
+```
+
+## Arguments
+
+* `n`: Number of draws to return.
+* `lambda`: Rate parameter of the underlying (untruncated) Poisson distribution.
+Must be positive.
+
+## Seealso
+
+[`zt_neg_binom_rng`](#zt_neg_binom_rng) for the Negative Binomial analogue.
+
+## Value
+
+Integer vector of length `n` with all elements $\geq 1$.
 
