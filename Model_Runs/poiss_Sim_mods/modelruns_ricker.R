@@ -27,7 +27,7 @@ library(tidyverse)
 
 # source functions
 f_list <- list.files(here("Functions/"), full.names = T)
-f_list=f_list[-grep("README",f_list)]
+f_list=f_list[-c(grep("README",f_list),grep("NAMESPACE",f_list),grep("DESCRIPTION",f_list))]
 lapply(f_list, source)
 
 # arguments from the shell
@@ -136,7 +136,16 @@ if(!is.null(names(dat))){
 
 # time testing only
 dat_flat_o=dat_flat
-dat_flat <- dat_flat[as.numeric(in_args[5]):as.numeric(in_args[6])]
+dat_flat <- dat_flat_o[as.numeric(in_args[5]):as.numeric(in_args[6])]
+# remove initial and final NAs
+for(i in 1:length(dat_flat)){
+  if(is.na(dat_flat[[i]][1])){
+    dat_flat[[i]]=dat_flat[[i]][min(which(!is.na(dat_flat[[i]]))):length(dat_flat[[i]])]
+  }
+  if(is.na(dat_flat[[i]][length(dat_flat[[i]])])){
+    dat_flat[[i]]=dat_flat[[i]][1:max(which(!is.na(dat_flat[[i]])))]
+  }
+}
 pars_full <- pars_full[as.numeric(in_args[5]):as.numeric(in_args[6]),]
 
 
@@ -159,7 +168,7 @@ cl <- parallelly::makeClusterPSOCK(as.numeric(in_args[3]))
 clusterEvalQ(cl = cl, expr = {
   library(here)
   f_list <- list.files(here("Functions/"), full.names = T)
-  f_list=f_list[-grep("README",f_list)]
+  f_list=f_list[-c(grep("README",f_list),grep("NAMESPACE",f_list),grep("DESCRIPTION",f_list))]
   lapply(f_list, source)
 })
 
@@ -211,14 +220,15 @@ forecast_rmse=function(ralpha,trueTS){
   pred_TS[1]=trueTS[1]
   for(i in 1:(l_ts-1)){
     pred_TS[i+1]=pred_TS[i]*exp(r-alpha*pred_TS[i])
+    pred_TS[i+1]=max(pred_TS[i+1],0)
   }
   
   RMSE=sqrt(mean((pred_TS[2:l_ts] - trueTS[2:l_ts])^2))
   return(RMSE)
 }
 
-lengths=numeric(10)
-for(i in 1:10){
+lengths=numeric(5)
+for(i in 1:5){
   lengths[i]=length(dat_flat_o[[i]])
 }
 u_lengths=unique(lengths)
@@ -227,6 +237,7 @@ for(i in 1:length(u_lengths)){
   frequencies[i]=length(which(lengths==u_lengths[i]))
 }
 trimmedlength=unique(lengths)[which.max(frequencies)]
+#trimmedlength=48 #try to just input the true trimmed length of simulated timeseries
 
 forecasts=matrix(data=NA,nrow=nrow(results),ncol=length(methods))
 
