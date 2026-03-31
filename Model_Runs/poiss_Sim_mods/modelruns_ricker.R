@@ -178,8 +178,14 @@ clusterEvalQ(cl,{
 
 clusterEvalQ(cl, {
   library(here)
-  print(f_list)
+  list(
+    wd = getwd(),
+    here = here(),
+    files = list.files(here("Functions/"), full.names = TRUE)
+  )
 })
+
+clusterEvalQ(cl, exists("ricker_count_neg_ll_cnstr"))
 
 # clusterEvalQ(cl = cl, expr = {
 #   library(here)
