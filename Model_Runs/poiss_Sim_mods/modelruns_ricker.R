@@ -168,7 +168,18 @@ cl <- parallelly::makeClusterPSOCK(as.numeric(in_args[3]))
 clusterExport(cl, "f_list")
 
 clusterEvalQ(cl,{
-  lapply(f_list, source)
+  for(f in f_list){
+    tryCatch(
+      source(f),
+      error=function(e) message("Error sourcing",f,": ", e$message)
+    )
+  }
+})
+
+clusterEvalQ(cl, {
+  library(here)
+  f_list <- list.files(here("Functions/"), full.names = TRUE)
+  print(f_list)
 })
 
 # clusterEvalQ(cl = cl, expr = {
