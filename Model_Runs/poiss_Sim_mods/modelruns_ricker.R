@@ -178,7 +178,6 @@ clusterEvalQ(cl,{
 
 clusterEvalQ(cl, {
   library(here)
-  f_list <- list.files(here("Functions/"), full.names = TRUE)
   print(f_list)
 })
 
