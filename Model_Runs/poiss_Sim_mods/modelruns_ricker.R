@@ -165,18 +165,18 @@ system.time({
 # make cluster for parallel computing
 cl <- parallelly::makeClusterPSOCK(as.numeric(in_args[3]))
 
-clusterEvalQ(cl = cl, expr = {
-  library(here)
-  cat(getwd())
-  cat("\n")
-  cat(here("Functions/"))
-  cat("\n")
-  cat(list.files(here("Functions/"), full.names = TRUE))
-  cat("\n")
-  f_list <- list.files(here("Functions/"), full.names = T)
-  f_list=f_list[-c(grep("README",f_list),grep("NAMESPACE",f_list),grep("DESCRIPTION",f_list))]
+clusterExport(cl, "f_list")
+
+clusterEvalQ(cl,{
   lapply(f_list, source)
 })
+
+# clusterEvalQ(cl = cl, expr = {
+#   library(here)
+#   f_list <- list.files(here("Functions/"), full.names = T)
+#   f_list=f_list[-c(grep("README",f_list),grep("NAMESPACE",f_list),grep("DESCRIPTION",f_list))]
+#   lapply(f_list, source)
+# })
 
 # store results in a list
 results_list <- vector(mode = "list", length = length(methods))
