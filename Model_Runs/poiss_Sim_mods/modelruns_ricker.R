@@ -163,8 +163,11 @@ if(is.na(in_args[7])){
 
 system.time({
 
-# make cluster for parallel computing
 
+  results_list <- vector(mode = "list", length = length(methods))
+  names(results_list) <- paste0(
+    methods, "_fits"
+  )
 
 for(i in 1:length(methods)){
   method_name <- paste0("fit_ricker_", methods[i])
