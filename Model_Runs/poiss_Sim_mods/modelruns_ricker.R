@@ -36,7 +36,7 @@ lapply(f_list, source)
 
 # for testing outside of command line, can use this next line
 #in_args=c("data/missingDatasets/pois_sim_MinMaxMiss.rds", "data/missingDatasets/pois_sim_params.rds", 2, "Model_Runs/Ricker_example1.rds", 15001, 15007, "drop")
-#in_args=c("data/missingDatasets/pois_sim_randMiss_B.rds", "data/missingDatasets/pois_sim_params.rds", 2, "Model_Runs/Ricker_example1.rds", 1, 5)
+#in_args=c("data/missingDatasets/pois_sim_randMiss_A.rds", "data/missingDatasets/pois_sim_params.rds", 2, "Model_Runs/Ricker_example1.rds", 1, 4)
 
 in_args <- commandArgs(trailingOnly = T)
 cat(in_args)
@@ -155,6 +155,7 @@ pars_full <- pars_full[as.numeric(in_args[5]):as.numeric(in_args[6]),]
 if(is.na(in_args[7])){
   methods <- paste0(
     c("drop", "cc", "EM","DA")
+
   )
 } 
 
@@ -163,65 +164,31 @@ if(is.na(in_args[7])){
 system.time({
 
 # make cluster for parallel computing
-cl <- parallelly::makeClusterPSOCK(as.numeric(in_args[3]))
-
-clusterExport(cl, "f_list")
-
-clusterEvalQ(cl,{
-  for(f in f_list){
-    tryCatch(
-      source(f),
-      error=function(e) message("Error sourcing",f,": ", e$message)
-    )
-  }
-})
-
-clusterEvalQ(cl, {
-  library(here)
-  list(
-    wd = getwd(),
-    here = here(),
-    files = list.files(here("Functions/"), full.names = TRUE)
-  )
-})
-
-clusterEvalQ(cl, exists("ricker_count_neg_ll_cnstr"))
-
-# clusterEvalQ(cl = cl, expr = {
-#   library(here)
-#   f_list <- list.files(here("Functions/"), full.names = T)
-#   f_list=f_list[-c(grep("README",f_list),grep("NAMESPACE",f_list),grep("DESCRIPTION",f_list))]
-#   lapply(f_list, source)
-# })
-
-# store results in a list
-results_list <- vector(mode = "list", length = length(methods))
-names(results_list) <- paste0(
-  methods, "_fits"
-)
-
 
 
 for(i in 1:length(methods)){
-  fit_fun <- eval(parse(text = paste0("fit_ricker_", methods[i])))
+  method_name <- paste0("fit_ricker_", methods[i])
   
-  clusterExport(cl, "fit_fun", envir = environment())
+  set.seed(1340598)
+  
+  fit_fun <- eval(parse(text = paste0("fit_ricker_", methods[i])))
   
   safe_fun <- function(x) {
     if (all(is.na(x))) {
       return(NA)
     }
-    fit_fun(x)
+    result=tryCatch({
+      fit_fun(x)
+    }, error=function(e) {return(NA, reason="model fitting error")})
+    return(result)
   }
-  results_list[[i]] <- parLapply(
-    cl = cl,
+  results_list[[i]] <- lapply(
     X = dat_flat,
-    fun = safe_fun
+    FUN = safe_fun
   )
+
 }
 
-
-stopCluster(cl)
 
 
 # compile results into a tibble

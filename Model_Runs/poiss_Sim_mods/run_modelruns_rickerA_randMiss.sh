@@ -11,7 +11,7 @@
 #SBATCH --mail-user=apatte12@uwyo.edu
 ### enter any job name that you prefer
 #SBATCH --job-name=Arandmiss
-#SBATCH --array=1-2
+#SBATCH --array=1-30
 
 
 module load arcc/1.0 gcc/14.2.0 r/4.4.0
