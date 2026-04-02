@@ -182,7 +182,9 @@ for(i in 1:length(methods)){
     }
     result=tryCatch({
       fit_fun(x)
-    }, error=function(e) {return(NA, reason="model fitting error")})
+    }, error=function(e) {
+      message("An error occurred in safe fun: ", conditionMessage(e))
+      return(NA)})
     return(result)
   }
   results_list[[i]] <- lapply(
