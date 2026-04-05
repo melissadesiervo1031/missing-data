@@ -360,10 +360,10 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
   l1=matrix(rep(NA,2*length(fit)),ncol=2,nrow=length(fit))
   u1=matrix(rep(NA,2*length(fit)),ncol=2,nrow=length(fit))
   for(i in 1:length(fit)){
-    estims1[i,]=fit[[i]]$estim
-    se1[i,]=fit[[i]]$se
-    l1[i,]=fit[[i]]$lower
-    u1[i,]=fit[[i]]$upper
+    estims1[i,]=fit[[i]]$estim[1:2]
+    se1[i,]=fit[[i]]$se[1:2]
+    l1[i,]=fit[[i]]$lower[1:2]
+    u1[i,]=fit[[i]]$upper[1:2]
   }
   
   estims=colMeans(estims1)
