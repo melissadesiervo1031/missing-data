@@ -1,0 +1,85 @@
+
+
+for j in $(seq 125 150);
+do
+    for k in $(seq 4 6);
+    do
+	for l in $(seq 1 10);
+	do
+	    
+	    seed=12309
+
+    	    Rscript /Users/amypatterson/Documents/Laramie_postdoc/Missing_data_TS/missing-data/Model_Runs/poiss_Real_mods/modelRuns_rickerMI.R $j $k $l $seed
+
+    	    max_runs=20
+    	    cur_runs=1
+    	    while [ $cur_runs -lt $max_runs ]
+    	    do
+
+    	    if [ -e "/Users/amypatterson/Documents/Laramie_postdoc/Missing_data_TS/res_MI_MAR_real/result_${j}_${k}_${l}.rds" ]
+    	    then
+        	    echo "yay this run is done"
+        	    cur_runs=100
+   	    else
+        	    echo "shoot trying to rerun and current run number is: " $cur_runs
+        	    newseed=$(($seed+$cur_runs))
+        	    Rscript /Users/amypatterson/Documents/Laramie_postdoc/Missing_data_TS/missing-data/Model_Runs/poiss_Real_mods/modelRuns_rickerMI.R $j $k $l $newseed
+        	    ((cur_runs++))
+    	    fi
+
+    	    done
+
+    	echo "Out of the loop"
+
+
+
+
+	done
+    done
+
+done
+  
+
+
+
+
+
+
+    for k in $(seq 1 18);
+    do
+	for l in $(seq 1 10);
+	do
+	    
+	    seed=12309
+
+    	    Rscript /Users/amypatterson/Documents/Laramie_postdoc/Missing_data_TS/missing-data/Model_Runs/poiss_Real_mods/modelRuns_MNARrickerMI.R $k $l $seed
+
+    	    max_runs=20
+    	    cur_runs=1
+    	    while [ $cur_runs -lt $max_runs ]
+    	    do
+
+    	    if [ -e "/Users/amypatterson/Documents/Laramie_postdoc/Missing_data_TS/res_MI_MNAR_real/result_${k}_${l}.rds" ]
+    	    then
+        	    echo "yay this run is done"
+        	    cur_runs=100
+   	    else
+        	    echo "shoot trying to rerun and current run number is: " $cur_runs
+        	    newseed=$(($seed+$cur_runs))
+        	    Rscript /Users/amypatterson/Documents/Laramie_postdoc/Missing_data_TS/missing-data/Model_Runs/poiss_Real_mods/modelRuns_MNARrickerMI.R $k $l $newseed
+        	    ((cur_runs++))
+    	    fi
+
+    	    done
+
+    	echo "Out of the loop"
+
+
+
+
+	done
+    done
+
+
+  
+
