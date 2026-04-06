@@ -1,6 +1,6 @@
 
 
-for j in $(seq 125 150);
+for j in $(seq 1 150);
 do
     for k in $(seq 4 6);
     do
