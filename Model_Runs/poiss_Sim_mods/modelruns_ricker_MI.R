@@ -19,7 +19,7 @@ library(tidyverse)
 
 # source functions
 f_list <- list.files(here("Functions/"), full.names = T)
-f_list=f_list[-grep("README",f_list)]
+f_list=f_list[-c(grep("README",f_list),grep("NAMESPACE",f_list),grep("DESCRIPTION",f_list))]
 lapply(f_list, source)
 
 # arguments from the shell
@@ -27,6 +27,7 @@ lapply(f_list, source)
 # (5) beginnning index (6) ending index (7) optional- model list
 
 # for testing outside of command line, can use this next line
+#in_args=c("data/missingDatasets/pois_sim_randMiss_A.rds", "data/missingDatasets/pois_sim_params.rds", 2, "Model_Runs/RickerA_resultTable1.csv", 2, 2,1493)
 #in_args=c("data/missingDatasets/pois_sim_randMiss_A.rds", "data/missingDatasets/pois_sim_params.rds", 2, "Model_Runs/RickerA_resultTable1.csv", 1648, 1648,1493)
 #in_args=c("data/missingDatasets/pois_sim_randMiss_trim_A.rds", "data/missingDatasets/pois_sim_params.rds", 2, "Model_Runs/RickerA_resultTable1.csv", 142, 142,1493)
 in_args <- commandArgs(trailingOnly = T)
@@ -140,6 +141,7 @@ results_vec <- numeric(8)
 names(results_vec) <- c("estim_r","estim_alpha","se_r","se_alpha","lower_r","lower_alpha","upper_r","upper_alpha")
 
 # only use MI
+
 
 res1 <- lapply(
   X = dat_flat,

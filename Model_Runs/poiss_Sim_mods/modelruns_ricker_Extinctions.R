@@ -17,9 +17,7 @@ library(parallel)
 library(tidyverse)
 
 # source functions
-f_list <- list.files(here("Functions"), full.names = T)
-# remove the file name for the "README" file
-f_list <- f_list[which(is.na(stringr::str_locate(f_list, pattern ="README")[,1]))]
+f_list <- list.files(here("Functions"), pattern = "\\.R$", full.names = T)
 lapply(f_list, source)
 
 

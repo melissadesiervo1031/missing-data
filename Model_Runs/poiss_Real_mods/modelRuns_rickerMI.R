@@ -2,8 +2,9 @@
 library(here)
 library(tidyverse)
 source(here("Functions/ricker_MI_function.R"))
+source(here("Functions/ricker_drop_function.R"))
 
-#in_args=c("1", "4", "1","1","1492)
+#in_args=c("1", "4", "1","1","1492")
 in_args <- commandArgs(trailingOnly = T)
 cat(in_args)
 
@@ -83,6 +84,21 @@ for(j in j_cur){ # iterate over autocor
       # offset data
       yt=c(data_MAR[[j]]$y[[k]][patch_i],NA)
       ytm1=c(NA,data_MAR[[j]]$y[[k]][patch_i])
+      
+      # remove leading and trailing NAs
+      if(is.na(ytm1[1])){
+        cut1=min(which(!is.na(ytm1)))
+      } else {
+        cut1=1
+      }
+      if(is.na(yt[length(yt)])){
+        cut2=max(which(!is.na(yt)))
+      } else {
+        cut2=(length(ytm1)-1)
+      }
+      yt=yt[cut1:cut2]
+      ytm1=ytm1[cut1:cut2]
+      
       patchv=rep(patches[i],length(ytm1))
       # combine offset data
       patch_dat=cbind(ytm1,yt,patchv)
@@ -101,7 +117,19 @@ for(j in j_cur){ # iterate over autocor
       patches2=unique(LOO_patch_dat$patchv)
       imputed=ricker_MI(LOO_patch_dat[LOO_patch_dat$patchv==patches2[1],],off_patch = T)
       for(m in 2:length(patches2)){ # treat each patch individually for MI
-        imputed1=ricker_MI(LOO_patch_dat[LOO_patch_dat$patchv==patches2[m],],off_patch = T)
+        if(length(which(is.na(LOO_patch_dat[LOO_patch_dat$patchv==patches2[m],])))==0){
+          imputed_0=LOO_patch_dat[LOO_patch_dat$patchv==patches2[m],1:2]
+          imputed1=list()
+          for(n_imp in 1:5){
+            imputed1[[n_imp]]=imputed_0
+          }
+          
+        } else {
+          imputed1=ricker_MI(LOO_patch_dat[LOO_patch_dat$patchv==patches2[m],],off_patch = T)
+        }
+        print(paste("we are at m=", m))
+        print('check this one')
+        print(imputed1)
         imputed=Map(rbind,imputed,imputed1)
       }
       fits_MI=fit_ricker_MI(imputed,fam="neg_binom",off_patch = T)

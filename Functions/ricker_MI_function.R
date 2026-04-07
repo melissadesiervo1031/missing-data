@@ -266,34 +266,39 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
         ytm1 = amelia1sim$imputations[[i]][1:(n - 2),2]
       )
       
+      # # ---- fit with poisson ----
+      # if(fam == "poisson"){
+      #   init <- c(r = 1, lalpha = log(0.01))
+      #   fit <- ricker_count_pois_fit(init, dat)
+      # }
+      # 
+      # # ---- or fit with negbinom ----
+      # if(fam == "neg_binom"){
+      #   init <- c(r = 1, lalpha = log(0.01), lpsi = log(4))
+      #   fit <- ricker_count_nb_fit(init, dat)
+      # }
       
       # fit ricker model with poisson
       if(fam == "poisson"){
         fit[[i]]<-tryCatch({
-          glm(
-            round(yt) ~ round(ytm1), data = dat, 
-            family = poisson,
-            offset = log(ytm1)
-          )
+          ricker_count_pois_fit(c(r = 1, lalpha = log(0.01)), round(dat))
         },error=function(cond){
           message(paste("we have had an error in the model fitting X2"))
           return(list(NA, reason="model fitting error"))
         }
         )
-        
+
       }
+      
       
       # or fit ricker model with negbinom
       if(fam == "neg_binom"){
         fit[[i]] <- tryCatch({
-          MASS::glm.nb(
-            round(yt) ~ round(ytm1) + offset(log(round(ytm1))), 
-            data = dat
-          )
+          ricker_count_nb_fit(c(r = 1, lalpha = log(0.01), lpsi = log(4)), round(dat))
         },error=function(cond){
           message(paste("we have had an error in the model fitting"))
           return(list(NA, reason="model fitting error"))
-        }) 
+        })
       }
       
     }
@@ -313,11 +318,7 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
       # fit ricker model with poisson
       if(fam == "poisson"){
         fit[[i]]<-tryCatch({
-          glm(
-            round(yt) ~ round(ytm1), data = dat, 
-            family = poisson,
-            offset = log(ytm1)
-          )
+          ricker_count_pois_fit(c(r = 1, lalpha = log(0.01)), round(dat))
         },error=function(cond){
           message(paste("we have had an error in the model fitting X2"))
           return(list(NA, reason="model fitting error"))
@@ -329,10 +330,7 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
       # or fit ricker model with negbinom
       if(fam == "neg_binom"){
         fit[[i]] <- tryCatch({
-          MASS::glm.nb(
-            round(yt) ~ round(ytm1) + offset(log(round(ytm1))), 
-            data = dat
-          )
+          ricker_count_nb_fit(c(r = 1, lalpha = log(0.01), lpsi = log(4)), round(dat))
         },error=function(cond){
           message(paste("we have had an error in the model fitting"))
           return(list(NA, reason="model fitting error"))
@@ -355,23 +353,24 @@ fit_ricker_MI<-function(y, imputationsnum=5, fam = "poisson", method="dual", p2s
   }
   
   
-  sapply(fit, profile)
+
   # Averages models into 1 result, simplifies, renames
-  estims1=sapply(fit,coef,simplify=T)
-  estims=rowMeans(estims1)
-  estims=estims * c(1, -1)
-  names(estims) <- c("r", "alpha")
+  estims1=matrix(rep(NA,2*length(fit)),ncol=2,nrow=length(fit))
+  se1=matrix(rep(NA,2*length(fit)),ncol=2,nrow=length(fit))
+  l1=matrix(rep(NA,2*length(fit)),ncol=2,nrow=length(fit))
+  u1=matrix(rep(NA,2*length(fit)),ncol=2,nrow=length(fit))
+  for(i in 1:length(fit)){
+    estims1[i,]=fit[[i]]$estim[1:2]
+    se1[i,]=fit[[i]]$se[1:2]
+    l1[i,]=fit[[i]]$lower[1:2]
+    u1[i,]=fit[[i]]$upper[1:2]
+  }
   
-  cis1=sapply(fit,confint,simplify=T)
-  cis=rowMeans(cis1)
-  l1=as.double(cis[c(1,4)] * c(1, -1))
-  names(l1) <- c("r", "alpha")
-  u1=as.double(cis[c(3,2)] * c(1, -1))
-  names(u1) <- c("r", "alpha")
-  
-  ses1=sapply(fit,function(X) sqrt(diag(vcov(X))),simplify=T)
-  ses=rowMeans(ses1)
-  names(ses) <- c("r", "alpha")
+  estims=colMeans(estims1)
+  ses=colMeans(se1)
+  l1=colMeans(l1)
+  u1=colMeans(u1)
+
   
   # no need for 1000 betas for projection CI
   if(pro_conf=="none"){

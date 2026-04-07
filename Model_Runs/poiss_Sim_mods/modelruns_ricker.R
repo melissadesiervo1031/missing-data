@@ -27,7 +27,7 @@ library(tidyverse)
 
 # source functions
 f_list <- list.files(here("Functions/"), full.names = T)
-f_list=f_list[-grep("README",f_list)]
+f_list=f_list[-c(grep("README",f_list),grep("NAMESPACE",f_list),grep("DESCRIPTION",f_list))]
 lapply(f_list, source)
 
 # arguments from the shell
@@ -36,7 +36,7 @@ lapply(f_list, source)
 
 # for testing outside of command line, can use this next line
 #in_args=c("data/missingDatasets/pois_sim_MinMaxMiss.rds", "data/missingDatasets/pois_sim_params.rds", 2, "Model_Runs/Ricker_example1.rds", 15001, 15007, "drop")
-#in_args=c("data/missingDatasets/pois_sim_randMiss_B.rds", "data/missingDatasets/pois_sim_params.rds", 2, "Model_Runs/Ricker_example1.rds", 1, 5)
+#in_args=c("data/missingDatasets/pois_sim_randMiss_A.rds", "data/missingDatasets/pois_sim_params.rds", 2, "Model_Runs/Ricker_example1.rds", 1, 4)
 
 in_args <- commandArgs(trailingOnly = T)
 cat(in_args)
@@ -136,7 +136,16 @@ if(!is.null(names(dat))){
 
 # time testing only
 dat_flat_o=dat_flat
-dat_flat <- dat_flat[as.numeric(in_args[5]):as.numeric(in_args[6])]
+dat_flat <- dat_flat_o[as.numeric(in_args[5]):as.numeric(in_args[6])]
+# remove initial and final NAs
+for(i in 1:length(dat_flat)){
+  if(is.na(dat_flat[[i]][1])){
+    dat_flat[[i]]=dat_flat[[i]][min(which(!is.na(dat_flat[[i]]))):length(dat_flat[[i]])]
+  }
+  if(is.na(dat_flat[[i]][length(dat_flat[[i]])])){
+    dat_flat[[i]]=dat_flat[[i]][1:max(which(!is.na(dat_flat[[i]])))]
+  }
+}
 pars_full <- pars_full[as.numeric(in_args[5]):as.numeric(in_args[6]),]
 
 
@@ -146,6 +155,7 @@ pars_full <- pars_full[as.numeric(in_args[5]):as.numeric(in_args[6]),]
 if(is.na(in_args[7])){
   methods <- paste0(
     c("drop", "cc", "EM","DA")
+
   )
 } 
 
@@ -153,44 +163,37 @@ if(is.na(in_args[7])){
 
 system.time({
 
-# make cluster for parallel computing
-cl <- parallelly::makeClusterPSOCK(as.numeric(in_args[3]))
 
-clusterEvalQ(cl = cl, expr = {
-  library(here)
-  f_list <- list.files(here("Functions/"), full.names = T)
-  f_list=f_list[-grep("README",f_list)]
-  lapply(f_list, source)
-})
-
-# store results in a list
-results_list <- vector(mode = "list", length = length(methods))
-names(results_list) <- paste0(
-  methods, "_fits"
-)
-
-
+  results_list <- vector(mode = "list", length = length(methods))
+  names(results_list) <- paste0(
+    methods, "_fits"
+  )
 
 for(i in 1:length(methods)){
-  fit_fun <- eval(parse(text = paste0("fit_ricker_", methods[i])))
+  method_name <- paste0("fit_ricker_", methods[i])
   
-  clusterExport(cl, "fit_fun", envir = environment())
+  set.seed(1340598)
+  
+  fit_fun <- eval(parse(text = paste0("fit_ricker_", methods[i])))
   
   safe_fun <- function(x) {
     if (all(is.na(x))) {
       return(NA)
     }
-    fit_fun(x)
+    result=tryCatch({
+      fit_fun(x)
+    }, error=function(e) {
+      message("An error occurred in safe fun: ", conditionMessage(e))
+      return(NA)})
+    return(result)
   }
-  results_list[[i]] <- parLapply(
-    cl = cl,
+  results_list[[i]] <- lapply(
     X = dat_flat,
-    fun = safe_fun
+    FUN = safe_fun
   )
+
 }
 
-
-stopCluster(cl)
 
 
 # compile results into a tibble
@@ -211,14 +214,15 @@ forecast_rmse=function(ralpha,trueTS){
   pred_TS[1]=trueTS[1]
   for(i in 1:(l_ts-1)){
     pred_TS[i+1]=pred_TS[i]*exp(r-alpha*pred_TS[i])
+    pred_TS[i+1]=max(pred_TS[i+1],0)
   }
   
   RMSE=sqrt(mean((pred_TS[2:l_ts] - trueTS[2:l_ts])^2))
   return(RMSE)
 }
 
-lengths=numeric(10)
-for(i in 1:10){
+lengths=numeric(5)
+for(i in 1:5){
   lengths[i]=length(dat_flat_o[[i]])
 }
 u_lengths=unique(lengths)
@@ -227,6 +231,7 @@ for(i in 1:length(u_lengths)){
   frequencies[i]=length(which(lengths==u_lengths[i]))
 }
 trimmedlength=unique(lengths)[which.max(frequencies)]
+#trimmedlength=48 #try to just input the true trimmed length of simulated timeseries
 
 forecasts=matrix(data=NA,nrow=nrow(results),ncol=length(methods))
 

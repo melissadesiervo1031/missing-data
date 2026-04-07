@@ -23,11 +23,16 @@ gauss_sim_randMiss_autoCorr_01 <- readRDS("./data/missingDatasets/gauss_sim_rand
 
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
-OutFile <- paste("./data/model_results/gauss_sim_randMiss_modelResults_A/"#, CurSim, "arimavals.csv", sep = ""
-)
+# OutFile <- paste("./data/model_results/gauss_sim_randMiss_modelResults_A/"#, CurSim, "arimavals.csv", sep = "")
+
+OutFile <- "./data/model_results/gauss_sim_randMiss_modelResults_A/"   # cleaner version of the above - CT
+
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
 #OutFile <- paste0("gauss_sim_MAR_A_brms_results_normPriorNB/", CurSim, "brmsvals.csv")
+
+# OR for local runs, create directory - COMMENT OUT FOR HPC run - CT
+dir.create("./data/model_results/gauss_sim_randMiss_modelResults_A/",recursive = TRUE, showWarnings = FALSE)
 
 #########################################################################################
 ### MY BRMS FUNCTIONS #####
@@ -78,6 +83,9 @@ OutFile <- paste("./data/model_results/gauss_sim_randMiss_modelResults_A/"#, Cur
 #   
 # }
 
+
+### UPDATED Function to fit a BRMS model on a time series ###
+
 fit_brms_model <- function(sim_list, sim_pars, 
                            iter = 4000, include_missing = FALSE,
                            forecast = TRUE, forecast_days = 73,
@@ -88,13 +96,12 @@ fit_brms_model <- function(sim_list, sim_pars,
                                                            light = sim_pars$X[,2][1:292], 
                                                            discharge = sim_pars$X[,3][1:292]))
   
-  
   # Make the model formula and priors
   bform <- brms::bf(GPP | mi() ~ light + discharge + ar(p = 1))
   bprior <- c(prior(normal(0,1), class = 'ar'),
               prior(normal(0,5), class = 'b'))
   
-  oopts <- options(future.globals.maxSize = 1.0 * 1e11)  ## 1.0 GB
+  oopts <- options(future.globals.maxSize = 1.0 * 1e11)  ## 1e11 bytes = 100 GB (1e10 bytes = 10 GB) - CT
   on.exit(options(oopts))
   # fit model to list of datasets
   bmod <- brms::brm_multiple(bform, data = simmissingdf, 
@@ -125,7 +132,7 @@ fit_brms_model <- function(sim_list, sim_pars,
   
   if(forecast){  
     dat_forecast <- dat_full %>%
-      slice((nrow(dat_full)-forecast_days):nrow(dat_full)) %>%
+      slice((nrow(dat_full)-forecast_days):nrow(dat_full)) %>%  # Minor point (CT): this gives 74 forecast days (obs 292-365 inclusive); for exactly 73 forecast days, would need to change to (nrow(dat_full) - forecast_days + 1)
       select(date, GPP, light, discharge)
     
     predictions <- lapply(bmod, function(mod){
@@ -176,17 +183,19 @@ for (i in 3139:length(gauss_sim_randMiss_autoCorr_01)){#seq_along(gauss_sim_rand
   # the 'full' dataset is the first list in the 'sim_list" 
   dat_full <- data.frame("date" = 1:365,
                          "GPP" = gauss_sim_randMiss_autoCorr_01[[CurSim]]$y$y_noMiss, 
-                         "light" = gauss_sim_randMiss_autoCorr_01[[1]]$sim_params$X[,2],
-                         "discharge" = gauss_sim_randMiss_autoCorr_01[[1]]$sim_params$X[,3]
+                         "light" = gauss_sim_randMiss_autoCorr_01[[CurSim]]$sim_params$X[,2],  #changed from 1 to CurSim, assuming we don't want to use sim1 data for every iteration  - CT
+                         "discharge" = gauss_sim_randMiss_autoCorr_01[[CurSim]]$sim_params$X[,3]  #changed from 1 to CurSim, for above reasons - CT
   )
   # slightly increase the control of size of object fitted by parallel brms 
-  options(future.globals.maxSize = 1.0 * 1e9)
+  # options(future.globals.maxSize = 1.0 * 1e9)  # already set w/in fit_brms_model function, to a different value: oopts <- options(future.globals.maxSize = 1.0 * 1e11)  ## 100.0 GB
+  
   # fit models
   brms_MAR <- fit_brms_model(sim_list = sim_list,
                              sim_pars = gauss_sim_randMiss_autoCorr_01[[CurSim]]$sim_params,
                              forecast = TRUE, forecast_days = 73, 
                              dat_full = dat_full)
   
+  ########### formatting for figure #############
   brms_MAR_df <- map_df(brms_MAR$brms_pars, ~as.data.frame(.x),
                         .id = "missingprop_autocor")
   brms_MAR_df$missingness <- 'MAR'
@@ -198,25 +207,39 @@ for (i in 3139:length(gauss_sim_randMiss_autoCorr_01)){#seq_along(gauss_sim_rand
   brms_MAR_preds$missingness <- 'MAR'
   brms_MAR_preds$type <- 'brms'
   brms_MAR_preds$run_no <- CurSim
+  
+  #################################################
+  #### SAVE #########
   #################################################
   # Write the output to the folder which will contain all output files as separate csv
   #    files with a single line of data.
   write_csv(brms_MAR_df, file = OutFile_params)
   write_csv(brms_MAR_preds, file = OutFile_preds)
+  
+  # explicitly clear large objects and free memory after each iteration saves - my R session kept aborting 
+  #   before the MNAR loop finished, amending here as well (CT)
+  rm(brms_MAR, brms_MAR_df, brms_MAR_preds, sim_list, dat_full)
+  gc()  # 'garbage collector' - forces R to release memory back to OS immediately
+  
 }
-
-###################################################
-#### SAVE #########
-#################################################
-# Write the output to the folder which will contain all output files as separate csv
-#    files with a single line of data.
-write_csv(brms_MAR_df, file = OutFile)
 
 
 # Once the job finishes, you can use the following command from within the folder
 #    containing all single line csv files to compile them into a single csv file:
+
+# # Change directories to the folder
+# cd ./data/model_results/gauss_sim_randMiss_modelResults_A/
+
+# # Combine files
 #     awk '(NR == 1) || (FNR > 1)' *brmsvals.csv > AllParams_brms.csv
 #     awk '(NR == 1) || (FNR > 1)' *brmspreds.csv > AllPreds_brms.csv
+
+# # Remove single-run files once combined
+# rm *preds.csv *vals.csv 
+
+# # Change back to previous directory
+# cd -  # changed back to the previous directory
+
 # The * is a wildcard character so the input to this will match any file within
 #    your current folder that ends with vals.csv regardless of the rest of the filename.
 #    These will then all be combined into a single file (AllResults.csv). The order
@@ -226,6 +249,7 @@ write_csv(brms_MAR_df, file = OutFile)
 #    your output files in a way in which the proper order will be enforced (e.g.,
 #    if you will have a total of 100 jobs, you can name them all with 3 digits like
 #    001_vals.csv, 002_vals.csv, etc.)
+
 # Once you have combined all the single line csv files into your master results file,
 #    you can remove them using the wildcard character again (e.g., rm *vals.csv)
 
