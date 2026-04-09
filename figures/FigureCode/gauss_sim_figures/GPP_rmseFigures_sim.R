@@ -23,12 +23,16 @@ MCAR_arima <- MCAR_arima %>%
   mutate(date = lubridate::as_datetime(date))
 
 # MAR brms data
-MCAR_brms <- read.csv("./data/model_results/gauss_sim_randMiss_modelResults_A/AllPreds_brms.csv") #%>% 
-  #read.csv("./data/model_results/gauss_sim_randMiss_modelResults_B/AllPreds_brms.csv") 
-MCAR_brms <- MCAR_brms %>% 
+MCAR_brms_A <- read.csv("./data/model_results/gauss_sim_randMiss_modelResults_A/brmsResults/AllPreds_brms.csv") #%>% 
+
+MCAR_brms_B <- read.csv("./data/model_results/gauss_sim_randMiss_modelResults_B/brmsResults/AllPreds_brms.csv") 
+
+MCAR_brms <- MCAR_brms_A %>% 
+  rbind(MCAR_brms_B) %>% 
   mutate(date = lubridate::as_datetime(date), 
          curSim = NA) %>% 
-  rename("sim_no" = "run_no")
+  rename("sim_no" = "run_no") %>% 
+  select(-X)
 
 # MNAR arima data
 MNAR_arima <- read.csv("./data/model_results/gauss_sim_minMax_modelResults/AllPreds_arima.csv") 
@@ -44,7 +48,8 @@ MNAR_brms <- read.csv("./data/model_results/gauss_sim_minMax_modelResults/AllPre
   mutate(date = lubridate::as_datetime(date),
          missingness = "MNAR", 
          curSim = NA) %>% 
-  rename("sim_no" = "run_no")
+  rename("sim_no" = "run_no")%>% 
+  select(-X)
 
 # get real, complete dataset
 realData <- MCAR_arima %>% 

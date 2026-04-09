@@ -12,19 +12,19 @@ library(brms)
 #over a nested list with increasing prop missing, over 1000+ simulations ###)
 
 # CurSim = like a loop ##
-HPC <- TRUE
- CurSim <- commandArgs(trailingOnly = TRUE) #Look at command line arguments only after the R script
- CurSim <- as.numeric(CurSim[1])
- CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
+#HPC <- TRUE
+# CurSim <- commandArgs(trailingOnly = TRUE) #Look at command line arguments only after the R script
+# CurSim <- as.numeric(CurSim[1])
+# CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
 
 ## read in the autocor_01 list ##
- gauss_sim_MNAR <- readRDS("/caldera/projects/usgs/ecosystems/swbsc/DrylandEcohydrologyLab/gridSTDF_new/gridSTDF/projects/AES_testing/gauss_sim_minMaxMiss.rds")
-#gauss_sim_MNAR <- readRDS("data/missingDatasets/gauss_sim_minMaxMiss.rds")
+ #gauss_sim_MNAR <- readRDS("/caldera/projects/usgs/ecosystems/swbsc/DrylandEcohydrologyLab/gridSTDF_new/gridSTDF/projects/AES_testing/gauss_sim_minMaxMiss.rds")
+gauss_sim_MNAR <- readRDS("data/missingDatasets/gauss_sim_minMaxMiss.rds")
  
 # make file for output beforehand in supercomputer folder 
 # will put them all together after all run, using the command line
-#OutFile <- paste0("./data/model_results/gauss_sim_minMax_modelResults/")
-OutFile <- paste0("/caldera/projects/usgs/ecosystems/swbsc/DrylandEcohydrologyLab/gridSTDF_new/gridSTDF/projects/AES_testing/gauss_sim_minMaxMiss_modeResults/")
+OutFile <- paste0("./data/model_results/gauss_sim_minMax_modelResults/brmsResults/")
+#OutFile <- paste0("/caldera/projects/usgs/ecosystems/swbsc/DrylandEcohydrologyLab/gridSTDF_new/gridSTDF/projects/AES_testing/gauss_sim_minMaxMiss_modeResults/")
 # OR create directory for local output  - COMMENT OUT FOR HPC!
 #dir.create("./data/model_results/gauss_sim_minMax_modelResults/", recursive = TRUE, showWarnings = FALSE)
 
@@ -168,7 +168,7 @@ options(future.globals.maxSize = 1.0 * 1e10) # 10 GB
   
   if (HPC == FALSE) {
     # fit the model w/ no missingness
-    for (i in 491:length(gauss_sim_MNAR)) {   
+    for (i in 1:length(gauss_sim_MNAR)) {   
       CurSim <- i
       
       ###

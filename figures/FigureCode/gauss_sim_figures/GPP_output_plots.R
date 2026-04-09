@@ -38,7 +38,7 @@ figDat_temp <- figDat_temp %>%
 #   ylim(c(-5, 5))
 #
 ## read in data for brms model runs w/ the complete, no-missing data simulations
-figDat_brmsNoMiss <- read.csv("./data/model_results/gauss_sim_minMax_modelResults/AllParams_brmsNoMiss.csv") %>% 
+figDat_brmsNoMiss <- read.csv("./data/model_results/gauss_sim_minMax_modelResults/AllParams_noMiss_brms.csv") %>% 
   rename(simName = run_no,
          param = parameter, 
          param_value = mean, 
