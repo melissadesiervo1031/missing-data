@@ -311,7 +311,7 @@ LOO_rep=numeric(0)
 
 offset_ref=data_MNAR$y$patch # this is the patches reference
 patches=levels(offset_ref) # this is a vector of the different patches
-  for(k in 4:length(data_MNAR$y)){ # iterate over datasets in data_MNAR
+  for(k in 19:length(data_MNAR$y)){ # iterate over datasets in data_MNAR
     
     all_patch_dat=matrix(nrow=0,ncol=3)
     for(i in 1:length(patches)){ # within each random set separate the 10 patches for alignment
@@ -320,23 +320,30 @@ patches=levels(offset_ref) # this is a vector of the different patches
       
       print(data_MNAR$y[[k]][patch_i])
       print(length(data_MNAR$y[[k]][patch_i]))
-      # offset data
-      yt=c(data_MNAR$y[[k]][patch_i],NA)
-      ytm1=c(NA,data_MNAR$y[[k]][patch_i])
+      if(all(is.na(data_MNAR$y[[k]][patch_i]))){
+        yt=NULL
+        ytm1=NULL
+      } else {
+        # offset data
+        yt=c(data_MNAR$y[[k]][patch_i],NA)
+        ytm1=c(NA,data_MNAR$y[[k]][patch_i])
+        
+        # remove leading and trailing NAs
+        
+        if(is.na(ytm1[1])){
+          cut1=min(which(!is.na(ytm1)))
+        } else {
+          cut1=1
+        }
+        if(is.na(yt[length(yt)])){
+          cut2=max(which(!is.na(yt)))
+        } else {
+          cut2=(length(ytm1)-1)
+        }
+        yt=yt[cut1:cut2]
+        ytm1=ytm1[cut1:cut2]
+      }
       
-      # remove leading and trailing NAs
-      if(is.na(ytm1[1])){
-        cut1=min(which(!is.na(ytm1)))
-      } else {
-        cut1=1
-      }
-      if(is.na(yt[length(yt)])){
-        cut2=max(which(!is.na(yt)))
-      } else {
-        cut2=(length(ytm1)-1)
-      }
-      yt=yt[cut1:cut2]
-      ytm1=ytm1[cut1:cut2]
       
       patchv=rep(patches[i],length(ytm1))
       # combine offset data
@@ -346,9 +353,9 @@ patches=levels(offset_ref) # this is a vector of the different patches
     # offset data for all patches
     all_patch_dat=as.data.frame(all_patch_dat)
     
-    for(l in 1:length(patches)){ # iterate over patches for LOO length(patches)
+    for(l in 1:length(unique(all_patch_dat$patchv))){ # iterate over patches for LOO length(patches)
       # create LOO data sets by excluding patches[l]
-      LOO_patch_dat=all_patch_dat[-which(all_patch_dat$patchv==patches[l]),]
+      LOO_patch_dat=all_patch_dat[-which(all_patch_dat$patchv==unique(all_patch_dat$patchv)[l]),]
       LOO_patch_dat$ytm1=as.numeric(LOO_patch_dat$ytm1)
       LOO_patch_dat$yt=as.numeric(LOO_patch_dat$yt)
       # fit actual model
@@ -468,5 +475,5 @@ result=tibble(missing_result=missing_result,
               rmse_noMiss=rmse_noMiss
 )
 View(result)
-saveRDS(result,here("data/model_results/pois_real_minMaxMiss_dropccEMDA.rds"))
+saveRDS(result,here("data/model_results/pois_real_minMaxMiss_dropccEMDA_secondhalf.rds"))
 

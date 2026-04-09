@@ -47,23 +47,29 @@ for(k in k_cur){ # iterate over datasets in data_MNAR
     
     print(data_MNAR$y[[k]][patch_i])
     print(length(data_MNAR$y[[k]][patch_i]))
-    # offset data
-    yt=c(data_MNAR$y[[k]][patch_i],NA)
-    ytm1=c(NA,data_MNAR$y[[k]][patch_i])
-    
-    # remove leading and trailing NAs
-    if(is.na(ytm1[1])){
-      cut1=min(which(!is.na(ytm1)))
+    if(all(is.na(data_MNAR$y[[k]][patch_i]))){
+      yt=NULL
+      ytm1=NULL
     } else {
-      cut1=1
+      # offset data
+      yt=c(data_MNAR$y[[k]][patch_i],NA)
+      ytm1=c(NA,data_MNAR$y[[k]][patch_i])
+      
+      # remove leading and trailing NAs
+      
+      if(is.na(ytm1[1])){
+        cut1=min(which(!is.na(ytm1)))
+      } else {
+        cut1=1
+      }
+      if(is.na(yt[length(yt)])){
+        cut2=max(which(!is.na(yt)))
+      } else {
+        cut2=(length(ytm1)-1)
+      }
+      yt=yt[cut1:cut2]
+      ytm1=ytm1[cut1:cut2]
     }
-    if(is.na(yt[length(yt)])){
-      cut2=max(which(!is.na(yt)))
-    } else {
-      cut2=(length(ytm1)-1)
-    }
-    yt=yt[cut1:cut2]
-    ytm1=ytm1[cut1:cut2]
     
     patchv=rep(patches[i],length(ytm1))
     # combine offset data
@@ -74,59 +80,68 @@ for(k in k_cur){ # iterate over datasets in data_MNAR
   all_patch_dat=as.data.frame(all_patch_dat)
   
   for(l in l_cur){ # iterate over patches for LOO length(patches)
-    # create LOO data sets by excluding patches[l]
-    LOO_patch_dat=all_patch_dat[-which(all_patch_dat$patchv==patches[l]),]
-    LOO_patch_dat$ytm1=as.numeric(LOO_patch_dat$ytm1)
-    LOO_patch_dat$yt=as.numeric(LOO_patch_dat$yt)
-    # fit actual model
-
-    patches2=unique(LOO_patch_dat$patchv)
-    if(length(which(is.na(LOO_patch_dat[LOO_patch_dat$patchv==patches2[1],])))==0){
-      imputed_0=LOO_patch_dat[LOO_patch_dat$patchv==patches2[1],1:2]
-      imputed=list()
-      for(n_imp in 1:5){
-        imputed[[n_imp]]=imputed_0
-      }
-      
+    # create LOO data sets by excluding one match at a time from unique(all_patch_dat$patchv)
+    if(l_cur>length(unique(all_patch_dat$patchv))){
+      missing_result=NA
+      missing_i=NA
+      LOO_rep=NA
+      MI_fits=NA
+      rmse_MI=NA
     } else {
-      imputed=ricker_MI(LOO_patch_dat[LOO_patch_dat$patchv==patches2[1],],off_patch = T)
-    }
-    for(m in 2:length(patches2)){ # treat each patch individually for MI
-      if(length(which(is.na(LOO_patch_dat[LOO_patch_dat$patchv==patches2[m],])))==0){
-        imputed_0=LOO_patch_dat[LOO_patch_dat$patchv==patches2[m],1:2]
-        imputed1=list()
+      LOO_patch_dat=all_patch_dat[-which(all_patch_dat$patchv==unique(all_patch_dat$patchv)[l]),]
+      LOO_patch_dat$ytm1=as.numeric(LOO_patch_dat$ytm1)
+      LOO_patch_dat$yt=as.numeric(LOO_patch_dat$yt)
+      # fit actual model
+      
+      patches2=unique(LOO_patch_dat$patchv)
+      if(length(which(is.na(LOO_patch_dat[LOO_patch_dat$patchv==patches2[1],])))==0){
+        imputed_0=LOO_patch_dat[LOO_patch_dat$patchv==patches2[1],1:2]
+        imputed=list()
         for(n_imp in 1:5){
-          imputed1[[n_imp]]=imputed_0
+          imputed[[n_imp]]=imputed_0
         }
         
       } else {
-        imputed1=ricker_MI(LOO_patch_dat[LOO_patch_dat$patchv==patches2[m],],off_patch = T)
+        imputed=ricker_MI(LOO_patch_dat[LOO_patch_dat$patchv==patches2[1],],off_patch = T)
       }
-      imputed=Map(rbind,imputed,imputed1)
+      for(m in 2:length(patches2)){ # treat each patch individually for MI
+        if(length(which(is.na(LOO_patch_dat[LOO_patch_dat$patchv==patches2[m],])))==0){
+          imputed_0=LOO_patch_dat[LOO_patch_dat$patchv==patches2[m],1:2]
+          imputed1=list()
+          for(n_imp in 1:5){
+            imputed1[[n_imp]]=imputed_0
+          }
+          
+        } else {
+          imputed1=ricker_MI(LOO_patch_dat[LOO_patch_dat$patchv==patches2[m],],off_patch = T)
+        }
+        imputed=Map(rbind,imputed,imputed1)
+      }
+      fits_MI=fit_ricker_MI(imputed,fam="neg_binom",off_patch = T)
+      
+      
+      # do predictions
+      true_values=data_MNAR$y$number[which(data_MNAR$y$patch==patches[l])]
+      # start them all at the first value: 20
+      
+      fore_MI=forecast_rmse(ralpha=fits_MI$estim,true_values)
+      
+      # record results as well as actual missingness and autocorrelation
+      
+      #index=4
+      # extract auto cor and i
+      print(k)
+      print(names(data_MNAR$y)[k])
+      match0 <- regexec("_(\\d+\\.\\d+)_i(\\d+)$", names(data_MNAR$y)[k])
+      matches <- regmatches(names(data_MNAR$y)[k], match0)
+      missing_result=c(missing_result,matches[[1]][2])
+      missing_i=c(missing_i,matches[[1]][3])
+      
+      MI_fits=c(MI_fits,list(fits_MI))
+      rmse_MI=c(rmse_MI,fore_MI)
+      LOO_rep=c(LOO_rep,l)
     }
-    fits_MI=fit_ricker_MI(imputed,fam="neg_binom",off_patch = T)
     
-    
-    # do predictions
-    true_values=data_MNAR$y$number[which(data_MNAR$y$patch==patches[l])]
-    # start them all at the first value: 20
-
-    fore_MI=forecast_rmse(ralpha=fits_MI$estim,true_values)
-
-    # record results as well as actual missingness and autocorrelation
-    
-    #index=4
-    # extract auto cor and i
-    print(k)
-    print(names(data_MNAR$y)[k])
-    match0 <- regexec("_(\\d+\\.\\d+)_i(\\d+)$", names(data_MNAR$y)[k])
-    matches <- regmatches(names(data_MNAR$y)[k], match0)
-    missing_result=c(missing_result,matches[[1]][2])
-    missing_i=c(missing_i,matches[[1]][3])
-    
-    MI_fits=c(MI_fits,list(fits_MI))
-    rmse_MI=c(rmse_MI,fore_MI)
-    LOO_rep=c(LOO_rep,l)
   }
   
   
