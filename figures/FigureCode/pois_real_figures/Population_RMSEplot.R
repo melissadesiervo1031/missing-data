@@ -15,13 +15,28 @@ library(paletteer)
 
 # read in prediction data ------------------------------------------------------------
 # MCAR
-ricker_MCAR <- readRDS("./data/model_results/pois_real_randMiss_drop_cc_MI_EM.rds")
+# all methods except MI
+ricker_MCAR <- readRDS("./data/model_results/pois_real_randMissRev1.rds")
+# MI 
+ricker_MCAR_MI <- readRDS("./data/model_results/RickerRealMAR_MIRev1.rds")
+# add together
+ricker_MCAR <- ricker_MCAR %>% 
+  left_join(ricker_MCAR_MI)
 ricker_MCAR$missingnessType <- "MCAR"
+
 # MNAR
-ricker_MNAR <- readRDS("./data/model_results/pois_real_minMaxMiss_drop_cc_MI_EM.rds")
+# all methods except MI
+ricker_MNAR <- readRDS("./data/model_results/pois_real_minMaxMiss_dropccEMDA.rds")
+# MI
+ricker_MNAR_MI <- readRDS("./data/model_results/RickerRealMNAR_MIRev1.rds")
+# add together
+ricker_MNAR <- ricker_MNAR %>% 
+  left_join(ricker_MNAR_MI)
 ricker_MNAR$missingnessType <- "MNAR" 
 ricker_MNAR$autocor = NA
-ricker_MNAR$autocor_act = NA
+ricker_MNAR$autocor_result2 = NA
+ricker_MNAR$autocor_result = NA
+ricker_MNAR$autocor_i = NA
 ricker_MNAR <- ricker_MNAR %>% 
   select(names(ricker_MCAR))
 
@@ -71,19 +86,24 @@ bursaria_diff <- Reduce(rbind, bursaria_patchlist_diff)
 forecasts_long <- allDat %>% 
   pivot_longer(cols = c(rmse_drop:rmse_noMiss,rmse_MI, rmse_EM), names_to = "modType", values_to = "RMSE")
 
+allDat %>% 
+  filter(missingnessType == "MCAR" & 
+           autocor_result2>=0.3 & autocor_result2 < 0.6 & 
+           missing_result > 0.3 & missing_result <=0.5 &
+         !is.na(rmse_EM)) %>% nrow()
 # bin according to autocorrelation
 forecasts_long$autocorr_binned <- NA
-forecasts_long[forecasts_long$missingnessType == "MCAR" & forecasts_long$autocor_act < 0.3, "autocorr_binned"] <- "low_autocorr"
-forecasts_long[forecasts_long$missingnessType == "MCAR" & forecasts_long$autocor_act >= 0.3 & forecasts_long$autocor_act < 0.6, "autocorr_binned"] <- "med_autocorr"
-forecasts_long[forecasts_long$missingnessType == "MCAR" & forecasts_long$autocor_act >=  0.6, "autocorr_binned"] <- "high_autocorr"
+forecasts_long[forecasts_long$missingnessType == "MCAR" & forecasts_long$autocor_result2 < 0.3, "autocorr_binned"] <- "low_autocorr"
+forecasts_long[forecasts_long$missingnessType == "MCAR" & forecasts_long$autocor_result2 >= 0.3 & forecasts_long$autocor_result2 < 0.6, "autocorr_binned"] <- "med_autocorr"
+forecasts_long[forecasts_long$missingnessType == "MCAR" & forecasts_long$autocor_result2 >=  0.6, "autocorr_binned"] <- "high_autocorr"
 forecasts_long$autocorr_binned <- factor(forecasts_long$autocorr_binned, 
                                          levels = c("low_autocorr",  "med_autocorr",  "high_autocorr"))
 
 # bin according to missingness
 forecasts_long$propMiss_binned <- NA
-forecasts_long[!is.na(forecasts_long$prop_miss_act) & forecasts_long$prop_miss_act <= 0.3 , "propMiss_binned"] <- 0.2
-forecasts_long[!is.na(forecasts_long$prop_miss_act) & forecasts_long$prop_miss_act > 0.3 & forecasts_long$prop_miss_act <= 0.5 , "propMiss_binned"] <- 0.4
-forecasts_long[!is.na(forecasts_long$prop_miss_act) & forecasts_long$prop_miss_act > 0.5 , "propMiss_binned"] <- 0.6
+forecasts_long[!is.na(forecasts_long$missing_result) & forecasts_long$missing_result <= 0.3 , "propMiss_binned"] <- 0.2
+forecasts_long[!is.na(forecasts_long$missing_result) & forecasts_long$missing_result > 0.3 & forecasts_long$missing_result <= 0.5 , "propMiss_binned"] <- 0.4
+forecasts_long[!is.na(forecasts_long$missing_result) & forecasts_long$missing_result > 0.5 , "propMiss_binned"] <- 0.6
 
 
 # Plot RMSE against missingness intervals plus lines -------------------------------------------
@@ -95,7 +115,8 @@ group_means_MCAR <- forecasts_long %>%
   group_by(modType, autocorr_binned, propMiss_binned) %>% 
   summarize(RMSE = mean(RMSE, na.rm = TRUE),
             quantile_low =  quantile(RMSE_2, na.rm = TRUE, probs = 0.25),
-            quantile_high =  quantile(RMSE_3, na.rm = TRUE, probs = 0.75)) %>% 
+            quantile_high =  quantile(RMSE_3, na.rm = TRUE, probs = 0.75),
+            RMSE_n = sum(!is.na(RMSE_2))) %>% 
   mutate(missingnessType = "MCAR") 
 
 ## for some reason there are two models w/ complete case missingness that have an RMSE of infinity? not sure why this is? (should ask Amy)
@@ -107,7 +128,8 @@ group_means_MNAR <- forecasts_long %>%
   group_by(modType,  propMiss_binned) %>% 
   summarize(RMSE = mean(RMSE, na.rm = TRUE),
             quantile_low =  quantile(RMSE_2, na.rm = TRUE, probs = 0.25),
-            quantile_high =  quantile(RMSE_3, na.rm = TRUE, probs = 0.75)) %>% 
+            quantile_high =  quantile(RMSE_3, na.rm = TRUE, probs = 0.75), 
+            RMSE_n = sum(!is.na(RMSE_2))) %>% 
   mutate(missingnessType = "MNAR", 
          autocorr_binned = NA)  %>% 
   select(names(group_means_MCAR))
@@ -122,21 +144,21 @@ RMSE_df_med <- RMSE_df_med %>%
   filter(modType != "rmse_noMiss")
 
 (rmse_NoLineErrorBar <- ggplot(data = RMSE_df_med) +
-    facet_grid(.~missingnessType) +
+    facet_grid(.~missingnessType, scales = "free_y") +
     geom_linerange(aes(x = propMiss_binned, ymin = quantile_low, ymax = quantile_high, color = modType), alpha = 1, position = position_dodge(width = .1)) +
     geom_point(aes(x = propMiss_binned, y = RMSE, color = modType), alpha = 1, position = position_dodge(width = .1)) +
+    geom_text(aes(x = propMiss_binned, y = 11.5, label = paste0("N=",RMSE_n), group = modType),  hjust = 0.2, angle =90, position = position_dodge(width = .1) ) + 
     #geom_smooth(aes(x = propMiss_bin, y = RMSE_mean, col = type), method = "lm", se = FALSE) +
     theme_classic() +
     ylab("Root Mean Square Error (RMSE)") +
     xlab("Proportion of Missing Data") + 
     #ylim(c(0,1.25)) + 
     scale_x_continuous(breaks=c(0.2,0.4, 0.6)) +
-    scale_color_discrete(type = c(#"#CC79A7", 
-      "#D55E00", "#E69F00",  "#8c8c8c", "#009E73"),
-                         labels = c(#"Data Augmentation", 
-                           "Data Deletion-Complete","Data Deletion-Simple",  "Expectation Maximization", "Multiple Imputation")
+    scale_color_discrete(type = c(
+      "#D55E00", "#CC79A7", "#E69F00",  "#8c8c8c", "#009E73"),
+                         labels = c(
+                           "Data Deletion-Complete","Data Augmentation", "Data Deletion-Simple", "Expectation Maximization" ,  "Multiple Imputation")
     )  +
-    
     
     # scale_color_discrete(type = c("#CC79A7", "#E69F00", "#D55E00", "#8c8c8c", "#009E73"),
     #                      labels = c("Data Augmentation", "Data Deletion-Simple", "Data Deletion-Complete", "Expectation Maximization", "Multiple Imputation")
@@ -154,7 +176,7 @@ RMSE_df_med <- RMSE_df_med %>%
   xlab("Date") +
   guides(col = guide_legend(title = "Patch", position = "right", direction = "vertical", nrow = 5))
 )
-png(file = "./figures/RMSE_FullFigure_NoLineWithErrorBar_poisson_EMPIRICAL.png", width = 6, height = 8, units = "in", res = 700)
+png(file = "./figures/RMSE_FullFigure_NoLineWithErrorBar_poisson_EMPIRICAL.png", width = 8.5, height = 9, units = "in", res = 700)
 ggarrange(bursaria_plot,
 rmse_NoLineErrorBar, ncol = 1, heights = c(.5, 1))
 dev.off()
