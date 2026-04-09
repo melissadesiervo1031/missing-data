@@ -1,38 +1,34 @@
-# Load packages ## 
-#make sure these are already in the folder on supercomputer where I need them ##
 
 # .libPaths("/pfs/tc1/project/modelscape/users/mdesierv")
 #setwd('/project/modelscape/users/astears/')
 
-library(tidyverse)
+#library(tidyverse)
+library(dplyr)
+library(purrr)
 library(brms)
 
-# This script will run data augmentation models using the BRMS package 
+# This script will run data augmentation models using the BRMS package
 #over a nested list with increasing prop missing, over 1000+ simulations ###)
 
 #CurSim = like a loop ##
 
-#CurSim <- commandArgs(trailingOnly = TRUE) #Look at command line arguments only after the R script
-#CurSim <- as.numeric(CurSim)
-#CurSim <- CurSim + 1 # since the Slurm array is 0 indexed
-
+CurSim <- commandArgs(trailingOnly = TRUE) #Look at command line arguments only after the R script
+CurSim <- as.numeric(CurSim)
+CurSim <- CurSim + 1001 # since the Slurm array is 0 indexed
 ## read in the autocor_01 list ##
-  
-# gauss_sim_randMiss_autoCorr_01 <- readRDS("data/missingDatasets/forBeartooth/gauss_sim_randMiss_A.rds")
-gauss_sim_randMiss_autoCorr_01 <- readRDS("./data/missingDatasets/gauss_sim_randMiss_A.rds")
 
-# make file for output beforehand in supercomputer folder 
+# gauss_sim_randMiss_autoCorr_01 <- readRDS("./data/missingDatasets/forBeartooth/gauss_sim_randMiss_A.rds")
+gauss_sim_randMiss_autoCorr_01 <- readRDS("/caldera/projects/usgs/ecosystems/swbsc/DrylandEcohydrologyLab/gridSTDF_new/gridSTDF/projects/AES_testing/gauss_sim_randMiss_A.rds")
+
+# make file for output beforehand in supercomputer folder
 # will put them all together after all run, using the command line
 # OutFile <- paste("./data/model_results/gauss_sim_randMiss_modelResults_A/"#, CurSim, "arimavals.csv", sep = "")
 
-OutFile <- "./data/model_results/gauss_sim_randMiss_modelResults_A/"   # cleaner version of the above - CT
+OutFile <- "/caldera/projects/usgs/ecosystems/swbsc/DrylandEcohydrologyLab/gridSTDF_new/gridSTDF/projects/AES_testing/gauss_sim_randMissA_modelResults/"
 
-# make file for output beforehand in supercomputer folder 
-# will put them all together after all run, using the command line
-#OutFile <- paste0("gauss_sim_MAR_A_brms_results_normPriorNB/", CurSim, "brmsvals.csv")
 
 # OR for local runs, create directory - COMMENT OUT FOR HPC run - CT
-dir.create("./data/model_results/gauss_sim_randMiss_modelResults_A/",recursive = TRUE, showWarnings = FALSE)
+#dir.create("./data/model_results/gauss_sim_randMiss_modelResults_A/",recursive = TRUE, showWarnings = FALSE)
 
 #########################################################################################
 ### MY BRMS FUNCTIONS #####
@@ -213,8 +209,8 @@ for (i in 3139:length(gauss_sim_randMiss_autoCorr_01)){#seq_along(gauss_sim_rand
   #################################################
   # Write the output to the folder which will contain all output files as separate csv
   #    files with a single line of data.
-  write_csv(brms_MAR_df, file = OutFile_params)
-  write_csv(brms_MAR_preds, file = OutFile_preds)
+  write.csv(brms_MAR_df, file = OutFile_params)
+  write.csv(brms_MAR_preds, file = OutFile_preds)
   
   # explicitly clear large objects and free memory after each iteration saves - my R session kept aborting 
   #   before the MNAR loop finished, amending here as well (CT)
