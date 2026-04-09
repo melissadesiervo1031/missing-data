@@ -498,7 +498,7 @@ pois_real_randMiss_full <- pois_real_randMiss_list
 # put all of the data into an organized list
 pois_real_minMaxMiss_full <- list(
   "y" = tempOutList %>% 
-    dplyr::select(patch, number, days, 5:19) %>% 
+    dplyr::select(-date) %>% 
     as.list(), 
   "sim_params" = NA
 )
