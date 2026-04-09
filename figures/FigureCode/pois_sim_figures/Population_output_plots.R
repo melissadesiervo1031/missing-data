@@ -674,13 +674,18 @@ poiss_paramRecovery_SE_MAR2<-poiss_paramRecovery_SE_MAR+ theme(axis.title.x=elem
 poiss_paramRecovery_coverage_MAR2<-poiss_paramRecovery_coverage_MAR+theme(legend.text = element_text(size=7))+guides(color = guide_legend(nrow = 2))
 
 (poiss_paramRecovMAR <- ggarrange(poiss_paramRecovery_bias_MAR2, poiss_paramRecovery_SE_MAR2, 
-                                  poiss_paramRecovery_coverage_MAR2, common.legend = TRUE, ncol = 1))
+                                  poiss_paramRecovery_coverage_MAR2,common.legend = TRUE, ncol = 1))
 
 ## save results
 png(file = "./figures/parameterRecoveryPoisson_MCARlong.png", width = 5, height = 8, units = "in", res = 700)
 poiss_paramRecovMAR
 dev.off()
 
+
+(poiss_paramRecovMAR <- ggarrange(poiss_paramRecovery_bias_MAR2, poiss_paramRecovery_SE_MAR2, 
+                                  poiss_paramRecovery_coverage_MAR2, legend = FALSE, common.legend = TRUE, ncol = 1))
+# save the figure object itself for subsequent plotting
+saveRDS(poiss_paramRecovMAR, "./figures/parameterRecoveryPoiss_MCARlong_FIGUREOBJECT.rds")
 # ricDat_new_long <- ricDat_new_long %>% 
 #   select(-actAutoCorr)
 # # save data to file for use later...

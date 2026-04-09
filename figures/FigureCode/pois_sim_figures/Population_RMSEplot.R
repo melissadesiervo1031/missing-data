@@ -212,6 +212,9 @@ RMSE_df_med <- RMSE_df[RMSE_df$autocorr_binned=="med_autocorr" | RMSE_df$missing
 
 (rmse_NoLineErrorBar <- ggplot(data = RMSE_df_med) +
     facet_grid(.~missingness) +
+    ggh4x::facet_grid2(
+                       ~ factor(missingness, levels = c("MCAR", "MNAR"), labels =c("'Missing Completely at Random'", "'Missing Not at Random'")),
+                       labeller =  label_parsed) +
     geom_linerange(aes(x = propMiss_binned, ymin = quantile_low, ymax = quantile_high, color = modelType), alpha = 1, position = position_dodge(width = .1)) +
     geom_point(aes(x = propMiss_binned, y = RMSE, color = modelType), alpha = 1, position = position_dodge(width = .1)) +
     #geom_smooth(aes(x = propMiss_bin, y = RMSE_mean, col = type), method = "lm", se = FALSE) +
@@ -224,13 +227,42 @@ RMSE_df_med <- RMSE_df[RMSE_df$autocorr_binned=="med_autocorr" | RMSE_df$missing
     scale_color_discrete(type = c("#CC79A7", "#E69F00", "#D55E00", "#8c8c8c", "#009E73"),
                          labels = c("Data Augmentation", "Data Deletion-Simple", "Data Deletion-Complete", "Expectation Maximization", "Multiple Imputation")
     )  +
-    guides(col = guide_legend(title = "Model Type", position = "top", direction = "vertical", nrow = 2))
+    guides(col = guide_legend(title = "Model Type", position = "right", direction = "vertical", nrow = 5))
 )
 
 png(file = "./figures/RMSE_FullFigure_NoLineWithErrorBar_poisson_SIM.png", width = 6, height = 6, units = "in", res = 700)
 rmse_NoLineErrorBar
 dev.off()
-# 
+
+# read in the parameter recovery figure
+poiss_paramRecovMAR <- readRDS("./figures/parameterRecoveryPoiss_MCARlong_FIGUREOBJECT.rds")
+# add together with the rmse figure
+library(patchwork)
+  poiss_paramRecovMAR #%>% annotate_figure(fig.lab = "A) Parameter Recovery", fig.lab.pos = "top.left", fig.lab.size = 12) 
+  rmse_NoLineErrorBar + ggtitle("B) Forecast Accuracy")
+  ggarrange(poiss_paramRecovMAR, rmse_NoLineErrorBar, ncol = 1, heights = c(1, .5), common.legend = TRUE, legend = "right",
+              labels = c("A) Parameter Recovery", "B) Forecast Accuracy"), vjust = -1)
+  
+  patchFig <- poiss_paramRecovMAR / rmse_NoLineErrorBar
+  patchFig + 
+    plot_layout(heights = c(3,1), 
+                #widths = c(2, 1), 
+                guides = "collect") + 
+    plot_annotation(
+    tag_levels = 'A'
+  )
+  
+  # save 
+  png(file = "./figures/poissSim_paramRecoveryANDrmse_fig.png", width = 9, height = 11, units = "in", res = 700)
+  patchFig + 
+    plot_layout(heights = c(3,1), 
+                #widths = c(2, 1), 
+                guides = "collect") + 
+    plot_annotation(
+      tag_levels = 'A'
+    )
+dev.off()
+  # 
 # # right factor order
 # RMSE_df$modelType=factor(RMSE_df$modelType,levels=c("dropNA","dropCC","MI","EM","DA"))
 # custom_seg$modelType=factor(custom_seg$modelType,levels=c("dropNA","dropCC","MI","EM","DA"))
