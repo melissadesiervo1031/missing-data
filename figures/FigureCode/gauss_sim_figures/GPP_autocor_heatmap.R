@@ -33,7 +33,7 @@ figDat_temp <- figDat_temp %>%
 #   ylim(c(-5, 5))
 #
 ## read in data for brms model runs w/ the complete, no-missing data simulations
-figDat_brmsNoMiss <- read.csv("./data/model_results/gauss_sim_minMax_modelResults/AllParams_brmsNoMiss.csv") %>% 
+figDat_brmsNoMiss <- read.csv("./data/model_results/gauss_sim_minMax_modelResults/AllParams_noMiss_brms.csv") %>% 
   rename(simName = run_no,
          param = parameter, 
          param_value = mean, 
@@ -182,7 +182,8 @@ figDat2 <- figDat %>%
     ylab("Autocorrelation in missingness") +
     guides(fill = guide_colorbar("Median Error")) +
     theme_classic() +
-    ylim(-0.1,1) +
+    ylim(-0.1,0.95) +
+   xlim(.1, .7) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     ggtitle("Median error of parameter recovery")) 
 
@@ -205,7 +206,8 @@ figDat2 <- figDat %>%
     ylab("Autocorrelation in missingness") +
     guides(fill = guide_colorbar("Median \nAbsolute Error")) +
     theme_classic() +
-    ylim(-0.1,1) +
+    ylim(-0.1,0.95) +
+    xlim(.1, .7) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     ggtitle("Median absolute error of parameter recovery")) 
 
@@ -269,7 +271,8 @@ figDat_covMNAR <- figDat_cov %>%
     ylab("Autocorrelation in missingness") +
     guides(fill = guide_colorbar("% Coverage")) +
     theme_classic() +
-   ylim(-0.1,1) +
+    ylim(-0.1,0.95) +
+    xlim(.1, .7) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     ggtitle("% of model runs where the 95% CI includes the simulation parameter"))
 
@@ -313,6 +316,8 @@ figDat3 <- figDat2 %>%
    ylab("Autocorrelation in missingness") +
    guides(fill = guide_colorbar("Median Error")) +
    theme_classic() +
+    ylim(-0.1,0.95) +
+    xlim(.1, .7) +
    # ylim(0,1) +
    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
    ggtitle("Missing completely at random: Median error of parameter recovery, \u03D5" )) 

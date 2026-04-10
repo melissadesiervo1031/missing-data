@@ -166,10 +166,10 @@ outData_MNAR_arima <- outData_MNAR_final %>%
 
 #  gauss_sim_MAR_brms models ----------------------------------------------
 
-brms_MAR_A<- read_csv("./data/model_results/gauss_sim_randMiss_modelResults_A/AllParams_brms.csv", 
+brms_MAR_A<- read_csv("./data/model_results/gauss_sim_randMiss_modelResults_A/brmsResults/AllParams_brms.csv", 
                       show_col_types = FALSE) %>% 
   filter(parameter != "Intercept") #379999 X  10#
-brms_MAR_B<- read_csv("./data/model_results/gauss_sim_randMiss_modelResults_B/AllParams_brms.csv", 
+brms_MAR_B<- read_csv("./data/model_results/gauss_sim_randMiss_modelResults_B/brmsResults/AllParams_brms.csv", 
                       show_col_types = FALSE) %>% 
   filter(parameter != "Intercept")  # 379999 X 10#
 # combine together
@@ -244,7 +244,7 @@ outData_MAR_brms <- outData_MAR_brms %>%
 #          "discharge_sim" = "beta3_sim")
 
 # gauss_sim_MNAR_brms models ----------------------------------------------
-brms_MNAR <- read_csv("./data/model_results/gauss_sim_minMax_modelResults/AllParams_brms.csv", show_col_types = FALSE) %>% 
+brms_MNAR <- read_csv("./data/model_results/gauss_sim_minMax_modelResults/brmsResults/AllParams_brms.csv", show_col_types = FALSE) %>% 
   filter(parameter != "Intercept") # 80999 X 10 # 
 
 # combine together
