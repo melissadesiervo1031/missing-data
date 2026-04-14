@@ -9,8 +9,6 @@ library(ggpubr)
 library(RColorBrewer)
 
 # read in MCAR data and prepare for figures------------------------------------------
-
-
 ricDat_tempA <- readRDS("./data/model_results/RickerA_resultTableRev1.rds")
 ricDat_tempB <- readRDS("./data/model_results/RickerB_resultTableRev1.rds")
 ricDat_temp <- rbind(ricDat_tempA, ricDat_tempB)
@@ -612,8 +610,8 @@ figDat_cov_temp$coverage <- c(figDat_cov_temp$paramSim >= figDat_cov_temp$CI95_l
 
 ## count the # of models w/ and without coverage for each bin of missingness and autocorrelation
 figDat_cov <- figDat_cov_temp %>% 
-  filter(param != "sigma",
-         param != "intercept",
+  filter(#param != "sigma",
+         #param != "intercept",
          propMiss <=.65,) %>% 
   mutate(autoCor = round(autoCorr, 1), 
          amtMiss = propMiss,
@@ -623,19 +621,38 @@ figDat_cov <- figDat_cov_temp %>%
   ) %>% 
   group_by(missingnessType, type, param, amtMiss) %>% 
   summarize(coverageNumber = sum(coverage), # the number of models that have coverage
-            modelRunN = length(!is.na(coverage))# the total number of models 
+            modelRunN = length(!is.na(coverage)),# the total number of models 
+            coverageTest = mean(coverage)
   ) %>% 
-  mutate(coveragePerc = coverageNumber/modelRunN)
+  mutate(coveragePerc = coverageNumber/modelRunN) %>% 
+  ungroup()
 
 
 
 figDat_cov <- figDat_cov %>% 
+  filter(type != "ExpectationMaximization") %>% 
   mutate(type=fct_relevel(type,c("dropNA", "CompleteCaseDropNA" ,"MultipleImputations","DataAugmentation"))) ## No expectation maximization for coverage###
 
 
 figDat_cov2<-figDat_cov%>% filter(missingnessType %in% c("MCAR: Med. AC", "MNAR"))
-
-
+# 
+# figDat_cov_temp %>% 
+#   filter(#param != "sigma",
+#       #param != "intercept",
+#       propMiss <=.65,) %>% 
+#       mutate(autoCor = round(autoCorr, 1), 
+#              amtMiss =   propMiss,
+#              amtMiss = replace(amtMiss, propMiss <=0.3 & propMiss > 0, 0.2),
+#              amtMiss = replace(amtMiss, propMiss > 0.3 & propMiss <=0.5, 0.4),
+#              amtMiss = replace(amtMiss, propMiss > 0.5, 0.6)
+#   ) %>% 
+#   filter(missingnessType %in% c("MNAR", "MCAR: Med. AC")) %>% 
+# ggplot() + 
+#   facet_grid(rows = vars(param), cols = vars(missingnessType)) + 
+#   geom_point(aes(x = amtMiss, y = as.numeric(coverage), col = type)) +
+#   #geom_boxplot(aes(x = amtMiss, y = as.numeric(coverage), col = type))#+ 
+#   geom_smooth(aes(y = as.numeric(coverage), x = amtMiss, col = type), method = "glm") + 
+#   geom_point(data = figDat_cov2, aes(x = amtMiss, y = coveragePerc, col = type), pch = 2)
 
 (poiss_paramRecovery_coverage_MAR <- ggplot(data = figDat_cov2, aes(x = amtMiss, y = coveragePerc)) +
      ggh4x::facet_grid2(factor(param, levels = c( "r", "alpha"), labels = c("r", 'alpha'))

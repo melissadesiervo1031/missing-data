@@ -16,32 +16,55 @@ library(paletteer)
 # read in prediction data ------------------------------------------------------------
 # MCAR
 # all methods except MI
+# MCAR
 ricker_MCAR <- readRDS("./data/model_results/pois_real_randMissRev1.rds")
-# MI 
 ricker_MCAR_MI <- readRDS("./data/model_results/RickerRealMAR_MIRev1.rds")
-# add together
 ricker_MCAR <- ricker_MCAR %>% 
-  left_join(ricker_MCAR_MI)
-ricker_MCAR$missingnessType <- "MCAR"
+  left_join(ricker_MCAR_MI) %>% 
+  rename(prop_miss_act = missing_result, 
+         autocor_act = autocor_result2, 
+         ) %>% 
+  mutate(index = NA, 
+         autocor = NA, 
+         missingnessType = "MCAR") %>% 
+  select(prop_miss_act, index, LOO_rep, drop_fits, cc_fits, DA_fits, EM_fits, MI_fits, noMiss_fits, 
+         rmse_drop, rmse_cc, rmse_DA, rmse_EM, rmse_MI, rmse_noMiss, autocor, autocor_act, missingnessType)
 
 # MNAR
-# all methods except MI
-ricker_MNAR <- readRDS("./data/model_results/pois_real_minMaxMiss_dropccEMDA.rds")
-# MI
+# first half
+ricker_MNAR <- readRDS("./data/model_results/pois_real_minMaxMiss_dropccEMDA.rds") %>% 
+  mutate(autcor = NA, 
+         autocor_act = NA,
+         missingnessType = "MNAR") %>% 
+  rename(prop_miss_act = missing_result, 
+         index = missing_i)
+# remove model runs for 40% missingness, which are duplicated in the next dataset
+ricker_MNAR <- ricker_MNAR %>% 
+  filter(prop_miss_act<0.4)
+
+# second half 
+ricker_MNAR_2 <- readRDS("./data/model_results/pois_real_minMaxMiss_dropccEMDA_secondhalf.rds") %>% 
+  mutate(autcor = NA, 
+         autocor_act = NA,
+         missingnessType = "MNAR") %>% 
+  rename(prop_miss_act = missing_result, 
+         index = missing_i)
+
+ricker_MNAR <- ricker_MNAR %>% 
+  rbind(ricker_MNAR_2)
+
+# get MI data for the second half of data 
 ricker_MNAR_MI <- readRDS("./data/model_results/RickerRealMNAR_MIRev1.rds")
-# add together
-ricker_MNAR <- ricker_MNAR %>% 
-  left_join(ricker_MNAR_MI)
-ricker_MNAR$missingnessType <- "MNAR" 
-ricker_MNAR$autocor = NA
-ricker_MNAR$autocor_result2 = NA
-ricker_MNAR$autocor_result = NA
-ricker_MNAR$autocor_i = NA
-ricker_MNAR <- ricker_MNAR %>% 
+ricker_MNAR_MI <- ricker_MNAR_MI %>% 
+  mutate(autocor = NA, 
+         autocor_act = NA,
+         missingnessType = "MNAR") %>% 
+  rename(prop_miss_act = missing_result, 
+         index = missing_i)
+ricker_MNAR_3 <- ricker_MNAR %>% left_join(ricker_MNAR_MI) %>% 
   select(names(ricker_MCAR))
 
-
-allDat <- rbind(ricker_MCAR, ricker_MNAR) #allDat <- readRDS("./data/model_results/RickerForecast_resultTableAll.rds")
+allDat <- rbind(ricker_MCAR, ricker_MNAR_3) #allDat <- readRDS("./data/model_results/RickerForecast_resultTableAll.rds")
 
 # read in real data
 bursaria <- read.csv("./data/Bursaria.csv")
@@ -86,24 +109,25 @@ bursaria_diff <- Reduce(rbind, bursaria_patchlist_diff)
 forecasts_long <- allDat %>% 
   pivot_longer(cols = c(rmse_drop:rmse_noMiss,rmse_MI, rmse_EM), names_to = "modType", values_to = "RMSE")
 
-allDat %>% 
-  filter(missingnessType == "MCAR" & 
-           autocor_result2>=0.3 & autocor_result2 < 0.6 & 
-           missing_result > 0.3 & missing_result <=0.5 &
-         !is.na(rmse_EM)) %>% nrow()
+# allDat %>% 
+#   filter(missingnessType == "MCAR" & 
+#            autocor_act>=0.3 & autocor_act < 0.6 & 
+#            prop_miss_act > 0.3 & prop_miss_act <=0.5 &
+#          !is.na(rmse_EM)) %>% nrow()
 # bin according to autocorrelation
 forecasts_long$autocorr_binned <- NA
-forecasts_long[forecasts_long$missingnessType == "MCAR" & forecasts_long$autocor_result2 < 0.3, "autocorr_binned"] <- "low_autocorr"
-forecasts_long[forecasts_long$missingnessType == "MCAR" & forecasts_long$autocor_result2 >= 0.3 & forecasts_long$autocor_result2 < 0.6, "autocorr_binned"] <- "med_autocorr"
-forecasts_long[forecasts_long$missingnessType == "MCAR" & forecasts_long$autocor_result2 >=  0.6, "autocorr_binned"] <- "high_autocorr"
+forecasts_long[forecasts_long$missingnessType == "MCAR" & forecasts_long$autocor_act < 0.3, "autocorr_binned"] <- "low_autocorr"
+forecasts_long[forecasts_long$missingnessType == "MCAR" & forecasts_long$autocor_act >= 0.3 & forecasts_long$autocor_act < 0.6, "autocorr_binned"] <- "med_autocorr"
+forecasts_long[forecasts_long$missingnessType == "MCAR" & forecasts_long$autocor_act >=  0.6, "autocorr_binned"] <- "high_autocorr"
 forecasts_long$autocorr_binned <- factor(forecasts_long$autocorr_binned, 
                                          levels = c("low_autocorr",  "med_autocorr",  "high_autocorr"))
 
 # bin according to missingness
+forecasts_long$prop_miss_act <- as.numeric(forecasts_long$prop_miss_act)
 forecasts_long$propMiss_binned <- NA
-forecasts_long[!is.na(forecasts_long$missing_result) & forecasts_long$missing_result <= 0.3 , "propMiss_binned"] <- 0.2
-forecasts_long[!is.na(forecasts_long$missing_result) & forecasts_long$missing_result > 0.3 & forecasts_long$missing_result <= 0.5 , "propMiss_binned"] <- 0.4
-forecasts_long[!is.na(forecasts_long$missing_result) & forecasts_long$missing_result > 0.5 , "propMiss_binned"] <- 0.6
+forecasts_long[!is.na(forecasts_long$prop_miss_act) & forecasts_long$prop_miss_act <= 0.3 , "propMiss_binned"] <- 0.2
+forecasts_long[!is.na(forecasts_long$prop_miss_act) & forecasts_long$prop_miss_act > 0.3 & forecasts_long$prop_miss_act <= 0.5 , "propMiss_binned"] <- 0.4
+forecasts_long[!is.na(forecasts_long$prop_miss_act) & forecasts_long$prop_miss_act > 0.5 , "propMiss_binned"] <- 0.6
 
 
 # Plot RMSE against missingness intervals plus lines -------------------------------------------

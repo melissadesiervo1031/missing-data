@@ -13,15 +13,40 @@ library(RColorBrewer)
 ricker_MCAR <- readRDS("./data/model_results/pois_real_randMiss_drop_cc_MI_EM.rds")
 ricker_MCAR$missingnessType <- "MCAR"
 # MNAR
-ricker_MNAR <- readRDS("./data/model_results/pois_real_minMaxMiss_drop_cc_MI_EM.rds")
-ricker_MNAR$missingnessType <- "MNAR" 
-ricker_MNAR$autocor = NA
-ricker_MNAR$autocor_act = NA
+# first half
+ricker_MNAR <- readRDS("./data/model_results/pois_real_minMaxMiss_dropccEMDA.rds") %>% 
+  mutate(autcor = NA, 
+         autocor_act = NA,
+         missingnessType = "MNAR") %>% 
+  rename(prop_miss_act = missing_result, 
+         index = missing_i)
+# remove model runs for 40% missingness, which are duplicated in the next dataset
 ricker_MNAR <- ricker_MNAR %>% 
-  select(names(ricker_MCAR))
+  filter(prop_miss_act<0.4)
 
+# second half 
+ricker_MNAR_2 <- readRDS("./data/model_results/pois_real_minMaxMiss_dropccEMDA_secondhalf.rds") %>% 
+  mutate(autcor = NA, 
+         autocor_act = NA,
+         missingnessType = "MNAR") %>% 
+  rename(prop_miss_act = missing_result, 
+         index = missing_i)
 
-allDat <- rbind(ricker_MCAR, ricker_MNAR) #allDat <- readRDS("./data/model_results/RickerForecast_resultTableAll.rds")
+ricker_MNAR <- ricker_MNAR %>% 
+  rbind(ricker_MNAR_2)
+
+# get MI data for the second half of data 
+ricker_MNAR_MI <- readRDS("./data/model_results/RickerRealMNAR_MIRev1.rds")
+ricker_MNAR_MI <- ricker_MNAR_MI %>% 
+  mutate(autocor = NA, 
+         autocor_act = NA,
+         missingnessType = "MNAR") %>% 
+  rename(prop_miss_act = missing_result, 
+         index = missing_i)
+ricker_MNAR_3 <- ricker_MNAR %>% left_join(ricker_MNAR_MI) %>% 
+select(names(ricker_MCAR))
+
+allDat <- rbind(ricker_MCAR, ricker_MNAR_3) #allDat <- readRDS("./data/model_results/RickerForecast_resultTableAll.rds")
 
 # extract parameter information from the list columns
 ricDat <- rbind(
