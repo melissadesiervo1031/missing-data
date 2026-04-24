@@ -104,7 +104,10 @@ bursaria_patchlist_diff <- purrr::map(
 bursaria_diff <- Reduce(rbind, bursaria_patchlist_diff)
 # realDat$timeStep <- seq(1:59)
 # train_length=49
-
+# rename the patches into something straitforeward
+patch_lu <- data.frame("patch" = unique(bursaria_diff$patch),
+                       "PatchName" = c("a", "b", "c", "d", "e", "f", "g", "h", "i", "j")
+)
 
 forecasts_long <- allDat %>% 
   pivot_longer(cols = c(rmse_drop:rmse_noMiss,rmse_MI, rmse_EM), names_to = "modType", values_to = "RMSE")
@@ -170,8 +173,8 @@ RMSE_df_med <- RMSE_df_med %>%
 (rmse_NoLineErrorBar <- ggplot(data = RMSE_df_med) +
     facet_grid(.~missingnessType, scales = "free_y") +
     geom_linerange(aes(x = propMiss_binned, ymin = quantile_low, ymax = quantile_high, color = modType), alpha = 1, position = position_dodge(width = .1)) +
-    geom_point(aes(x = propMiss_binned, y = RMSE, color = modType), alpha = 1, position = position_dodge(width = .1)) +
-    geom_text(aes(x = propMiss_binned, y = 11.5, label = paste0("N=",RMSE_n), group = modType),  hjust = 0.2, angle =90, position = position_dodge(width = .1) ) + 
+    geom_point(aes(x = propMiss_binned, y = RMSE, color = modType, size =RMSE_n ), alpha = 1, position = position_dodge(width = .1)) +
+    #geom_text(aes(x = propMiss_binned, y = 11.5, label = paste0("N=",RMSE_n), group = modType),  hjust = 0.2, angle =90, position = position_dodge(width = .1) ) + 
     #geom_smooth(aes(x = propMiss_bin, y = RMSE_mean, col = type), method = "lm", se = FALSE) +
     theme_classic() +
     ylab("Root Mean Square Error (RMSE)") +
@@ -187,7 +190,8 @@ RMSE_df_med <- RMSE_df_med %>%
     # scale_color_discrete(type = c("#CC79A7", "#E69F00", "#D55E00", "#8c8c8c", "#009E73"),
     #                      labels = c("Data Augmentation", "Data Deletion-Simple", "Data Deletion-Complete", "Expectation Maximization", "Multiple Imputation")
     # )  +
-    guides(col = guide_legend(title = "Model Type", position = "top", direction = "vertical", nrow = 2))
+    guides(col = guide_legend(title = NULL, position = "top", direction = "vertical", nrow = 2), 
+           size = guide_legend(title = "Sample \nSize"))
 )
 
 # make plot of bursaria data time series 
