@@ -179,7 +179,33 @@ ricDat_new <- ricDat %>%
 # get autocorrelation amount 
 #ricDat_new$actAutoCorr <- as.numeric(str_split(ricDat_new$listName, pattern = "_", simplify = TRUE)[,9])
 
+### test
+test <- ricDat_new %>%
+  mutate("var1_bin" = prop_miss_act) %>%
+  mutate(var1_bin = replace(var1_bin, prop_miss_act <=0.3 & prop_miss_act > 0, 0.2),
+         var1_bin = replace(var1_bin, prop_miss_act > 0.3 & prop_miss_act <=0.5, 0.4),
+         var1_bin = replace(var1_bin, prop_miss_act > 0.5, 0.6),
+         autocor_bin = autocor_act) %>%
+  mutate(autocor_bin = replace(autocor_bin, autocor_act <=0.3, "MCAR: Low AC"),
+         autocor_bin = replace(autocor_bin, autocor_act > 0.3 & autocor_act < 0.6, "MCAR: Med. AC"),
+         autocor_bin = replace(autocor_bin, autocor_act >= 0.6 , "MCAR: High AC")) %>%
+  group_by(var1_bin, missingnessType, type, status, autocor_bin) %>%
+  summarize(Freq_bin = n())
 
+
+test_long <- ricDat_new_long %>%
+  mutate("var1_bin" = prop_miss_act) %>%
+  mutate(var1_bin = replace(var1_bin, prop_miss_act <=0.3 & prop_miss_act > 0, 0.2),
+         var1_bin = replace(var1_bin, prop_miss_act > 0.3 & prop_miss_act <=0.5, 0.4),
+         var1_bin = replace(var1_bin, prop_miss_act > 0.5, 0.6),
+         autocor_bin = autocor_act) %>%
+  mutate(autocor_bin = replace(autocor_bin, autocor_act <=0.3, "MCAR: Low AC"),
+         autocor_bin = replace(autocor_bin, autocor_act > 0.3 & autocor_act < 0.6, "MCAR: Med. AC"),
+         autocor_bin = replace(autocor_bin, autocor_act >= 0.6 , "MCAR: High AC")) %>%
+  group_by(var1_bin, missingnessType, type, status, autocor_bin, param) %>%
+  summarize(Freq_bin = n())
+
+###
 # prepare for figures -----------------------------------------------------
 
 #make into long data.frame 
@@ -221,9 +247,9 @@ ricDat_new_long <- ricDat_new_long %>%
          "paramDiff_abs" = abs(paramEst - paramSim)/abs(paramSim))
 
 # filter for low and high autocor
-ricDat_new_long[ricDat_new$missingnessType == "MCAR" & ricDat_new_long$autocor_act <=0.3 & !is.na(ricDat_new_long$autocor_act), "missingnessType"] <- "MCAR: Low AC"
-ricDat_new_long[ricDat_new$missingnessType == "MCAR" & ricDat_new_long$autocor_act >0.3 & ricDat_new_long$autocor_act <0.6 & !is.na(ricDat_new_long$autocor_act), "missingnessType"] <- "MCAR: Med. AC"
-ricDat_new_long[ricDat_new$missingnessType == "MCAR" & ricDat_new_long$autocor_act  >= 0.6 & !is.na(ricDat_new_long$autocor_act), "missingnessType"] <- "MCAR: High AC"
+ricDat_new_long[ricDat_new_long$missingnessType == "MCAR" & ricDat_new_long$autocor_act <=0.3 & !is.na(ricDat_new_long$autocor_act), "missingnessType"] <- "MCAR: Low AC"
+ricDat_new_long[ricDat_new_long$missingnessType == "MCAR" & ricDat_new_long$autocor_act >0.3 & ricDat_new_long$autocor_act <0.6 & !is.na(ricDat_new_long$autocor_act), "missingnessType"] <- "MCAR: Med. AC"
+ricDat_new_long[ricDat_new_long$missingnessType == "MCAR" & ricDat_new_long$autocor_act  >= 0.6 & !is.na(ricDat_new_long$autocor_act), "missingnessType"] <- "MCAR: High AC"
 
 # remove NAs (from missingness Limit Reached issue)
 ricDat_new_long <- ricDat_new_long[ricDat_new_long$status != "missingnessLimitReached",]

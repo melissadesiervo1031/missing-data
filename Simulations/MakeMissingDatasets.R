@@ -674,7 +674,6 @@ saveRDS(pois_real_minMaxMiss_full, file = "./data/missingDatasets/pois_real_MinM
 ## save poisson real MAR data
 saveRDS(pois_real_randMiss_full, file = "./data/missingDatasets/pois_real_randMiss.rds")
 
-
 ## store simulated Gaussian data (are stored in a list, each element of the list 
 # is a simulation run. Within each simulation run, the $y element contains 15 
 # elements that have the response variable ranging from the lowest amount of 
