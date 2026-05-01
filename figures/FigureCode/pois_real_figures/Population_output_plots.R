@@ -13,15 +13,40 @@ library(RColorBrewer)
 ricker_MCAR <- readRDS("./data/model_results/pois_real_randMiss_drop_cc_MI_EM.rds")
 ricker_MCAR$missingnessType <- "MCAR"
 # MNAR
-ricker_MNAR <- readRDS("./data/model_results/pois_real_minMaxMiss_drop_cc_MI_EM.rds")
-ricker_MNAR$missingnessType <- "MNAR" 
-ricker_MNAR$autocor = NA
-ricker_MNAR$autocor_act = NA
+# first half
+ricker_MNAR <- readRDS("./data/model_results/pois_real_minMaxMiss_dropccEMDA.rds") %>% 
+  mutate(autcor = NA, 
+         autocor_act = NA,
+         missingnessType = "MNAR") %>% 
+  rename(prop_miss_act = missing_result, 
+         index = missing_i)
+# remove model runs for 40% missingness, which are duplicated in the next dataset
 ricker_MNAR <- ricker_MNAR %>% 
-  select(names(ricker_MCAR))
+  filter(prop_miss_act<0.4)
 
+# second half 
+ricker_MNAR_2 <- readRDS("./data/model_results/pois_real_minMaxMiss_dropccEMDA_secondhalf.rds") %>% 
+  mutate(autcor = NA, 
+         autocor_act = NA,
+         missingnessType = "MNAR") %>% 
+  rename(prop_miss_act = missing_result, 
+         index = missing_i)
 
-allDat <- rbind(ricker_MCAR, ricker_MNAR) #allDat <- readRDS("./data/model_results/RickerForecast_resultTableAll.rds")
+ricker_MNAR <- ricker_MNAR %>% 
+  rbind(ricker_MNAR_2)
+
+# get MI data for the second half of data 
+ricker_MNAR_MI <- readRDS("./data/model_results/RickerRealMNAR_MIRev1.rds")
+ricker_MNAR_MI <- ricker_MNAR_MI %>% 
+  mutate(autocor = NA, 
+         autocor_act = NA,
+         missingnessType = "MNAR") %>% 
+  rename(prop_miss_act = missing_result, 
+         index = missing_i)
+ricker_MNAR_3 <- ricker_MNAR %>% left_join(ricker_MNAR_MI) %>% 
+select(names(ricker_MCAR))
+
+allDat <- rbind(ricker_MCAR, ricker_MNAR_3) #allDat <- readRDS("./data/model_results/RickerForecast_resultTableAll.rds")
 
 # extract parameter information from the list columns
 ricDat <- rbind(
@@ -154,7 +179,33 @@ ricDat_new <- ricDat %>%
 # get autocorrelation amount 
 #ricDat_new$actAutoCorr <- as.numeric(str_split(ricDat_new$listName, pattern = "_", simplify = TRUE)[,9])
 
+### test
+test <- ricDat_new %>%
+  mutate("var1_bin" = prop_miss_act) %>%
+  mutate(var1_bin = replace(var1_bin, prop_miss_act <=0.3 & prop_miss_act > 0, 0.2),
+         var1_bin = replace(var1_bin, prop_miss_act > 0.3 & prop_miss_act <=0.5, 0.4),
+         var1_bin = replace(var1_bin, prop_miss_act > 0.5, 0.6),
+         autocor_bin = autocor_act) %>%
+  mutate(autocor_bin = replace(autocor_bin, autocor_act <=0.3, "MCAR: Low AC"),
+         autocor_bin = replace(autocor_bin, autocor_act > 0.3 & autocor_act < 0.6, "MCAR: Med. AC"),
+         autocor_bin = replace(autocor_bin, autocor_act >= 0.6 , "MCAR: High AC")) %>%
+  group_by(var1_bin, missingnessType, type, status, autocor_bin) %>%
+  summarize(Freq_bin = n())
 
+
+test_long <- ricDat_new_long %>%
+  mutate("var1_bin" = prop_miss_act) %>%
+  mutate(var1_bin = replace(var1_bin, prop_miss_act <=0.3 & prop_miss_act > 0, 0.2),
+         var1_bin = replace(var1_bin, prop_miss_act > 0.3 & prop_miss_act <=0.5, 0.4),
+         var1_bin = replace(var1_bin, prop_miss_act > 0.5, 0.6),
+         autocor_bin = autocor_act) %>%
+  mutate(autocor_bin = replace(autocor_bin, autocor_act <=0.3, "MCAR: Low AC"),
+         autocor_bin = replace(autocor_bin, autocor_act > 0.3 & autocor_act < 0.6, "MCAR: Med. AC"),
+         autocor_bin = replace(autocor_bin, autocor_act >= 0.6 , "MCAR: High AC")) %>%
+  group_by(var1_bin, missingnessType, type, status, autocor_bin, param) %>%
+  summarize(Freq_bin = n())
+
+###
 # prepare for figures -----------------------------------------------------
 
 #make into long data.frame 
@@ -196,9 +247,9 @@ ricDat_new_long <- ricDat_new_long %>%
          "paramDiff_abs" = abs(paramEst - paramSim)/abs(paramSim))
 
 # filter for low and high autocor
-ricDat_new_long[ricDat_new$missingnessType == "MCAR" & ricDat_new_long$autocor_act <=0.3 & !is.na(ricDat_new_long$autocor_act), "missingnessType"] <- "MCAR: Low AC"
-ricDat_new_long[ricDat_new$missingnessType == "MCAR" & ricDat_new_long$autocor_act >0.3 & ricDat_new_long$autocor_act <0.6 & !is.na(ricDat_new_long$autocor_act), "missingnessType"] <- "MCAR: Med. AC"
-ricDat_new_long[ricDat_new$missingnessType == "MCAR" & ricDat_new_long$autocor_act  >= 0.6 & !is.na(ricDat_new_long$autocor_act), "missingnessType"] <- "MCAR: High AC"
+ricDat_new_long[ricDat_new_long$missingnessType == "MCAR" & ricDat_new_long$autocor_act <=0.3 & !is.na(ricDat_new_long$autocor_act), "missingnessType"] <- "MCAR: Low AC"
+ricDat_new_long[ricDat_new_long$missingnessType == "MCAR" & ricDat_new_long$autocor_act >0.3 & ricDat_new_long$autocor_act <0.6 & !is.na(ricDat_new_long$autocor_act), "missingnessType"] <- "MCAR: Med. AC"
+ricDat_new_long[ricDat_new_long$missingnessType == "MCAR" & ricDat_new_long$autocor_act  >= 0.6 & !is.na(ricDat_new_long$autocor_act), "missingnessType"] <- "MCAR: High AC"
 
 # remove NAs (from missingness Limit Reached issue)
 ricDat_new_long <- ricDat_new_long[ricDat_new_long$status != "missingnessLimitReached",]

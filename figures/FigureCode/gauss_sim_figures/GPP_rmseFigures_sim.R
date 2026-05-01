@@ -87,9 +87,9 @@ allDat <- allDat_temp %>%
          amtAutoCorr = as.numeric(str_split(missingprop_autocor, pattern = "_", simplify = TRUE)[,4]))
 allDat[allDat$missingness == "MNAR", "amtAutoCorr"] <- 0
 # assign "bins" of autocorrelation
-allDat[allDat$missingness != "MNAR" & allDat$amtAutoCorr <=0.3 & !is.na(allDat$amtAutoCorr), "missingness"] <- "MCAR: low autocorrelation"
-allDat[allDat$missingness != "MNAR" & allDat$amtAutoCorr > 0.3 & allDat$amtAutoCorr < 0.6 &!is.na(allDat$amtAutoCorr), "missingness"] <- "MCAR: medium autocorrelation"
-allDat[allDat$missingness != "MNAR" & allDat$amtAutoCorr  >= 0.6 & !is.na(allDat$amtAutoCorr), "missingness"] <- "MCAR: high autocorrelation"
+allDat[allDat$missingness != "MNAR" & allDat$amtAutoCorr <=0.25 & !is.na(allDat$amtAutoCorr), "missingness"] <- "MCAR: low autocorrelation"
+allDat[allDat$missingness != "MNAR" & allDat$amtAutoCorr > 0.25 & allDat$amtAutoCorr < 0.65 &!is.na(allDat$amtAutoCorr), "missingness"] <- "MCAR: medium autocorrelation"
+allDat[allDat$missingness != "MNAR" & allDat$amtAutoCorr  >= 0.65 & !is.na(allDat$amtAutoCorr), "missingness"] <- "MCAR: high autocorrelation"
 allDat[allDat$missingness == "MNAR", "missingness"] <- "Missing NOT at Random"
 # bin autocorr and propMiss 
 allDat$propMiss_bin <- NA
@@ -100,10 +100,9 @@ allDat[allDat$propMiss > 0 & allDat$propMiss < 0.3 & !is.na(allDat$propMiss), "p
 allDat[allDat$propMiss >= 0.3 & allDat$propMiss < 0.5 & !is.na(allDat$propMiss), "propMiss_bin"] <- 0.4
 allDat[allDat$propMiss >= 0.5 &  !is.na(allDat$propMiss), "propMiss_bin"] <- 0.6
 
-allDat[allDat$amtAutoCorr == 0 &  !is.na(allDat$amtAutoCorr), "amtAutoCorr_bin"] <- 0
-allDat[allDat$amtAutoCorr > 0 & allDat$amtAutoCorr < 0.375 & !is.na(allDat$amtAutoCorr), "amtAutoCorr_bin"] <- 0.25
-allDat[allDat$amtAutoCorr >= 0.375 & allDat$amtAutoCorr < 0.625 & !is.na(allDat$amtAutoCorr), "amtAutoCorr_bin"] <- 0.5
-allDat[allDat$amtAutoCorr >= 0.625 &  !is.na(allDat$amtAutoCorr), "amtAutoCorr_bin"] <- 0.75
+allDat[allDat$amtAutoCorr > 0 & allDat$amtAutoCorr <= 0.25 & !is.na(allDat$amtAutoCorr), "amtAutoCorr_bin"] <- "low_autocorr"
+allDat[allDat$amtAutoCorr > 0.25 & allDat$amtAutoCorr < 0.65 & !is.na(allDat$amtAutoCorr), "amtAutoCorr_bin"] <- "med_autocorr"
+allDat[allDat$amtAutoCorr >= 0.65 &  !is.na(allDat$amtAutoCorr), "amtAutoCorr_bin"] <-"high_autocorr"
 
 ## fix issue w/ some runs not having real GPP values... can get from other runs (every date should have the same "real" values)
 # allDat$GPP <- round(allDat$GPP, 9)
@@ -120,7 +119,7 @@ gc()
 
 
 ## join the real data to the model predictions
-View(realData)
+#View(realData)
 allDat <- allDat %>% 
  # slice(1:1000) %>%  
   left_join(realData %>% select(date, GPP_actual, sim_no)) 
@@ -154,7 +153,8 @@ RMSE_errorBar <- RMSE %>%
   group_by(missingness, type, propMiss_bin) %>% 
   summarize(RMSE_mean = median(RMSE),
     IQR_high = quantile(RMSE, .75), 
-    IQR_low = quantile(RMSE, .25)) 
+    IQR_low = quantile(RMSE, .25),
+    RMSE_n = sum(!is.na(RMSE))) 
 
 
 ## order the missingness type factor
@@ -171,6 +171,7 @@ RMSE <- RMSE %>%
     geom_linerange(aes(x = propMiss_bin, ymin = IQR_low, ymax = IQR_high, color = type), alpha = 1, position = position_dodge(width = .1)) +
     geom_point(aes(x = propMiss_bin, y = RMSE_mean, color = type), alpha = 1, position = position_dodge(width = .1)) +
     #geom_smooth(aes(x = propMiss_bin, y = RMSE_mean, col = type), method = "lm", se = FALSE) +
+   geom_text(aes(x = propMiss_bin, y = 0.8, label = paste0("N=",RMSE_n), group = type),  hjust = 0.2, angle =90, position = position_dodge(width = .1) ) + 
     theme_classic() +
     ylab("Root Mean Square Error (RMSE)") +
     xlab("Proportion of Missing Data") + 
@@ -184,61 +185,41 @@ RMSE <- RMSE %>%
     )  +
     guides(col = guide_legend(title = "Model Type", position = "top", direction = "vertical", nrow = 2))
 )
-# ## get complete time series figure 
-# aus <- read.csv("./data/au_sable_river_prepped.csv", header=TRUE)
-# 
-# ausNew <- aus %>% 
-#   mutate(date = as.POSIXct(date)) 
-# 
-# # how many days are in the forecast vs. training data? 
-# train <- ausNew %>% 
-#   filter(date < as.POSIXct("2014-01-01T00:00:00Z")) %>% 
-#   filter(!is.na(GPP))
-# test <- ausNew %>% 
-#   filter(date >= as.POSIXct("2014-01-01T00:00:00Z")) %>% 
-#   filter(!is.na(GPP))
-# 
-# (tsFigGrob <- 
-# ggplot() + 
-#   geom_rect(aes(xmin = as.POSIXct("2014-01-01T00:00:00Z"), xmax = as.POSIXct("2014-12-31T00:00:00Z"), 
-#                 ymin = -6, ymax = 3.5), fill = "grey80") +
-#   geom_line(data = ausNew, aes(x = date, y = GPP)) + 
-#   geom_rug(data = ausNew[is.na(ausNew$GPP),], aes(date), col = "red") +
-#   theme_classic() + 
-#   labs(x = "Year", y = "GPP (scaled)"))
-# 
-# tsPlusRmse_NoLine <- ggpubr::ggarrange(tsFigGrob, rmse_NoLineErrorBar, ncol = 1, nrow = 2,
-#                                          heights = c(.5, 1), legend = "bottom", labels = c("A", "B"))
-
-
 
 png(file = "./figures/RMSE_FullFigure_NoLineWithErrorBar_gaussian_SIM.png", width = 6.5, height = 6, units = "in", res = 700)
 rmse_NoLineErrorBar
 dev.off()
-# 
-# 
-# 
-# # Figure of RMSE variation  -----------------------------------------------
-# # calculate the width of the IQR for each point shown in the previous figure
-# RMSE_errorBar <- RMSE_errorBar %>% 
-#   mutate(IQR_width = IQR_high - IQR_low)
-# 
-# (rmseWidth_fig <- ggplot(data = RMSE_errorBar) +
-#     facet_grid(.~missingness) +
-#     geom_linerange(aes(x = propMiss_bin, ymin = 0, ymax = IQR_width, color = type), alpha = 1, position = position_dodge(width = .1), lwd = 2) +
-#     theme_classic() +
-#     ylab("Width of RMSE Inter-Quartile Range") +
-#     xlab("Proportion of Missing Data") + 
-#     #ylim(c(0,1.25)) + 
-#     scale_x_continuous(breaks=c(0.2,0.4, 0.6)) +
-#     scale_color_discrete(type = c("#D55E00","#CC79A7", "#E69F00", "#0072B2","#009E73"),
-#                          labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Kalman Filter", "Multiple Imputation"), 
-#     )  +
-#     guides(col = guide_legend(title = "Model Type", position = "top", direction = "vertical", nrow = 2))
-# )
-# 
-# 
-# png(file = "./figures/RMSE_IQR_width_gaussian_auSable.png", width = 6, height = 5, units = "in", res = 700)
-# rmseWidth_fig
-# dev.off()
 
+## save figure to add to empirical RMSE figure
+# add sample size info
+
+
+RMSE_errorBar$shapeID <- NA
+RMSE_errorBar[RMSE_errorBar$RMSE_n > 10000, "shapeID"] <- "n ~ 19,000"
+RMSE_errorBar[RMSE_errorBar$RMSE_n < 10000, "shapeID"] <- "n ~ 4,000"
+
+(rmse_NoLineErrorBarNew <- ggplot(data = RMSE_errorBar) +
+    facet_grid(.~missingness) +
+    geom_linerange(aes(x = propMiss_bin, ymin = IQR_low, ymax = IQR_high, color = type), alpha = 1, position = position_dodge(width = .1)) +
+    geom_point(aes(x = propMiss_bin, y = RMSE_mean, color = type, shape = as.factor(shapeID)), alpha = 1, position = position_dodge(width = .1)) +
+    #geom_smooth(aes(x = propMiss_bin, y = RMSE_mean, col = type), method = "lm", se = FALSE) +
+    #geom_text(aes(x = propMiss_bin, y = 0.8, label = paste0("N=",RMSE_n), group = type),  hjust = 0.2, angle =90, position = position_dodge(width = .1) ) + 
+    theme_classic() +
+    ylab("Root Mean Square Error (RMSE)") +
+    xlab("Proportion of Missing Data") + 
+    scale_shape_manual(values = c(15,0)) +
+    #ylim(c(0,1.25)) + 
+    scale_x_continuous(breaks=c(0.2,0.4, 0.6)) +
+    # scale_color_discrete(type = c("#D55E00","#CC79A7", "#E69F00", "#0072B2","#009E73"),
+    #                      labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Kalman Filter", "Multiple Imputation"), 
+    # )  +
+    scale_color_discrete(type = c( "#E69F00","#D55E00","#009E73", "#0072B2","#CC79A7"),
+                         labels = c("Data Deletion-Simple","Data Deletion-Complete",  "Multiple Imputation",  "Kalman Filter","Data Augmentation"), 
+    )  +
+    guides(col = "none", 
+           shape = guide_legend(title = "Sample \nSize")#guide_legend(title = "Model Type", position = "right", direction = "vertical", nrow = 5
+    )
+)
+
+
+saveRDS(rmse_NoLineErrorBarNew, "./figures/RMSEfig_gaussSim.rds")

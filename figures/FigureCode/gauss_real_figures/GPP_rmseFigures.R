@@ -66,9 +66,9 @@ allDat <- allDat_temp %>%
          amtAutoCorr = as.numeric(str_split(missingprop_autocor, pattern = "_", simplify = TRUE)[,4]))
 allDat[allDat$missingness == "MNAR", "amtAutoCorr"] <- 0
 # assign "bins" of autocorrelation
-allDat[allDat$missingness != "MNAR" & allDat$amtAutoCorr <=0.3 & !is.na(allDat$amtAutoCorr), "missingness"] <- "MCAR: low autocorrelation"
-allDat[allDat$missingness != "MNAR" & allDat$amtAutoCorr > 0.3 & allDat$amtAutoCorr < 0.6 &!is.na(allDat$amtAutoCorr), "missingness"] <- "MCAR: medium autocorrelation"
-allDat[allDat$missingness != "MNAR" & allDat$amtAutoCorr  >= 0.6 & !is.na(allDat$amtAutoCorr), "missingness"] <- "MCAR: high autocorrelation"
+allDat[allDat$missingness != "MNAR" & allDat$amtAutoCorr <=0.25 & !is.na(allDat$amtAutoCorr), "missingness"] <- "MCAR: low autocorrelation"
+allDat[allDat$missingness != "MNAR" & allDat$amtAutoCorr > 0.25 & allDat$amtAutoCorr < 0.65 &!is.na(allDat$amtAutoCorr), "missingness"] <- "MCAR: medium autocorrelation"
+allDat[allDat$missingness != "MNAR" & allDat$amtAutoCorr  >= 0.65 & !is.na(allDat$amtAutoCorr), "missingness"] <- "MCAR: high autocorrelation"
 allDat[allDat$missingness == "MNAR", "missingness"] <- "Missing NOT at Random"
 # bin autocorr and propMiss 
 allDat$propMiss_bin <- NA
@@ -79,10 +79,11 @@ allDat[allDat$propMiss > 0 & allDat$propMiss < 0.3 & !is.na(allDat$propMiss), "p
 allDat[allDat$propMiss >= 0.3 & allDat$propMiss < 0.5 & !is.na(allDat$propMiss), "propMiss_bin"] <- 0.4
 allDat[allDat$propMiss >= 0.5 &  !is.na(allDat$propMiss), "propMiss_bin"] <- 0.6
 
-allDat[allDat$amtAutoCorr == 0 &  !is.na(allDat$amtAutoCorr), "amtAutoCorr_bin"] <- 0
-allDat[allDat$amtAutoCorr > 0 & allDat$amtAutoCorr < 0.375 & !is.na(allDat$amtAutoCorr), "amtAutoCorr_bin"] <- 0.25
-allDat[allDat$amtAutoCorr >= 0.375 & allDat$amtAutoCorr < 0.625 & !is.na(allDat$amtAutoCorr), "amtAutoCorr_bin"] <- 0.5
-allDat[allDat$amtAutoCorr >= 0.625 &  !is.na(allDat$amtAutoCorr), "amtAutoCorr_bin"] <- 0.75
+#allDat[allDat$amtAutoCorr == 0 &  !is.na(allDat$amtAutoCorr), "amtAutoCorr_bin"] <- "low autocorrelation"
+allDat[#allDat$amtAutoCorr > 0 & 
+  allDat$amtAutoCorr <= 0.25 & !is.na(allDat$amtAutoCorr), "amtAutoCorr_bin"] <- "low autocorrelation"
+allDat[allDat$amtAutoCorr > 0.25 & allDat$amtAutoCorr < 0.5 & !is.na(allDat$amtAutoCorr), "amtAutoCorr_bin"] <- "med autocorrelation"
+allDat[allDat$amtAutoCorr >= 0.65 &  !is.na(allDat$amtAutoCorr), "amtAutoCorr_bin"] <- "high autocorrelation"
 
 ## fix issue w/ some runs not having real GPP values... can get from other runs (every date should have the same "real" values)
 allDat$GPP <- round(allDat$GPP, 9)
@@ -96,8 +97,9 @@ test <- allDat %>%
 
 # calculate RMSE  ---------------------------------------------------------
 RMSE <- allDat %>% 
-  group_by(missingprop_autocor, missingness, type, propMiss_bin, amtAutoCorr_bin) %>% 
-  summarise(RMSE = sqrt(mean((Estimate - GPP)^2, na.rm = TRUE))) 
+  group_by(missingprop_autocor, missingness, type, propMiss_bin, amtAutoCorr_bin
+           ) %>% 
+  summarise(RMSE = sqrt(mean((Estimate - GPP)^2, na.rm = TRUE)),) 
 
 # add to all data df
 allDat <- allDat %>% 
@@ -117,13 +119,56 @@ RMSE <- RMSE %>%
   filter(missingness %in% c("Missing NOT at Random", "MCAR: medium autocorrelation")) %>% 
   mutate(missingness = str_replace(missingness, pattern = "MCAR: medium autocorrelation", replacement = "Missing Completely at Random"))
 
+
+# randomly sample the model runs so the n in the figure bins is consistent--------
+## for everything aside from DA and EM, want 870 runs (for MCAR)
+RMSE$Status <- "undefined"
+
+
+for (i in seq_along(c("Kalman Filter", "Multiple Imputations", "brms", "dropNA_complete", "dropNA_simple"))) {
+  type_i <- c("Kalman Filter", "Multiple Imputations", "brms", "dropNA_complete", "dropNA_simple")[i]
+  print(type_i)
+  for (j in 1:3) {
+    miss_j <- c(0.2, 0.4, 0.6)[j]
+    print(miss_j)
+    # MCAR 
+    temp_MCAR <- RMSE[RMSE$type ==type_i & 
+                                  RMSE$propMiss_bin == miss_j & 
+                                  RMSE$Status == "undefined" & 
+                                  RMSE$missingness == "Missing Completely at Random",] 
+    
+    temp_MCAR[sample(x = 1:nrow(temp_MCAR), size = 38, replace = FALSE), "Status"] <- "Keep"
+    RMSE[RMSE$type ==type_i & 
+           RMSE$propMiss_bin == miss_j & 
+           RMSE$Status == "undefined" & 
+           RMSE$missingness == "Missing Completely at Random", "Status"] <- temp_MCAR$Status
+    # MNAR
+    temp_MNAR <- RMSE[RMSE$type ==type_i & 
+                        RMSE$propMiss_bin == miss_j & 
+                        RMSE$Status == "undefined" & 
+                        RMSE$missingness == "Missing NOT at Random",] 
+    
+    temp_MNAR[sample(x = 1:nrow(temp_MNAR), size = 10, replace = FALSE), "Status"] <- "Keep"
+    RMSE[RMSE$type ==type_i & 
+           RMSE$propMiss_bin == miss_j & 
+           RMSE$Status == "undefined" & 
+           RMSE$missingness == "Missing NOT at Random", "Status"]   <- temp_MNAR$Status
+    # }
+    
+  }
+}
+
+RMSE <- RMSE %>% 
+  filter(Status == "Keep")
+
 RMSE_errorBar <- RMSE %>% 
   # filter(missingness %in% c("Missing NOT at Random", "MAR: medium autocorrelation"))%>% 
   # mutate(missingness = str_replace(missingness, pattern = "MAR: medium autocorrelation", replacement = "Missing at Random")) %>%
   group_by(missingness, type, propMiss_bin) %>% 
   summarize(RMSE_mean = median(RMSE),
     IQR_high = quantile(RMSE, .75), 
-    IQR_low = quantile(RMSE, .25)) 
+    IQR_low = quantile(RMSE, .25),
+    RMSE_n = sum(!is.na(RMSE)))
 
 
 ## order the missingness type factor
@@ -135,12 +180,18 @@ RMSE <- RMSE %>%
                                        "Kalman Filter", "brms"), ordered = TRUE))
 
 
+RMSE_errorBar$shapeID <- NA
+RMSE_errorBar[RMSE_errorBar$RMSE_n ==38, "shapeID"] <- "n = 38"
+RMSE_errorBar[RMSE_errorBar$RMSE_n ==10 , "shapeID"] <- "n = 10"
+
 (rmse_NoLineErrorBar <- ggplot(data = RMSE_errorBar) +
     facet_grid(.~missingness) +
     geom_linerange(aes(x = propMiss_bin, ymin = IQR_low, ymax = IQR_high, color = type), alpha = 1, position = position_dodge(width = .1)) +
-    geom_point(aes(x = propMiss_bin, y = RMSE_mean, color = type), alpha = 1, position = position_dodge(width = .1)) +
+    geom_point(aes(x = propMiss_bin, y = RMSE_mean, color = type, shape = as.factor(shapeID)), alpha = 1, position = position_dodge(width = .1)) +
+    #geom_text(aes(x = propMiss_bin, y = 0.8, label = paste0("N=",RMSE_n), group = type),  hjust = 0.2, angle =90, position = position_dodge(width = .1) ) + 
     #geom_smooth(aes(x = propMiss_bin, y = RMSE_mean, col = type), method = "lm", se = FALSE) +
     theme_classic() +
+    scale_shape_manual(values = c(19, 17)) +
     ylab("Root Mean Square Error (RMSE)") +
     xlab("Proportion of Missing Data") + 
     #ylim(c(0,1.25)) + 
@@ -148,7 +199,8 @@ RMSE <- RMSE %>%
     scale_color_discrete(type = c("#D55E00","#CC79A7", "#E69F00", "#0072B2","#009E73"),
                          labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Kalman Filter", "Multiple Imputation"), 
     )  +
-    guides(col = guide_legend(title = "Model Type", position = "top", direction = "vertical", nrow = 2))
+    guides(col = guide_legend(title = "Model Type", position = "top", direction = "vertical", nrow = 2),
+           shape = guide_legend(title = "Sample \nSize"))
 )
 ## get complete time series figure 
 aus <- read.csv("./data/au_sable_river_prepped.csv", header=TRUE)
@@ -184,27 +236,13 @@ dev.off()
 
 
 
-# Figure of RMSE variation  -----------------------------------------------
-# calculate the width of the IQR for each point shown in the previous figure
-RMSE_errorBar <- RMSE_errorBar %>% 
-  mutate(IQR_width = IQR_high - IQR_low)
+## get plot of simulated gaussian RMSE
+rmse_NoLineErrorBar_sim <- readRDS("./figures/RMSEfig_gaussSim.rds")
 
-(rmseWidth_fig <- ggplot(data = RMSE_errorBar) +
-    facet_grid(.~missingness) +
-    geom_linerange(aes(x = propMiss_bin, ymin = 0, ymax = IQR_width, color = type), alpha = 1, position = position_dodge(width = .1), lwd = 2) +
-    theme_classic() +
-    ylab("Width of RMSE Inter-Quartile Range") +
-    xlab("Proportion of Missing Data") + 
-    #ylim(c(0,1.25)) + 
-    scale_x_continuous(breaks=c(0.2,0.4, 0.6)) +
-    scale_color_discrete(type = c("#D55E00","#CC79A7", "#E69F00", "#0072B2","#009E73"),
-                         labels = c("Data Deletion-Complete", "Data Augmentation", "Data Deletion-Simple", "Kalman Filter", "Multiple Imputation"), 
-    )  +
-    guides(col = guide_legend(title = "Model Type", position = "top", direction = "vertical", nrow = 2))
-)
+library(patchwork)
+bigPlot <- tsFigGrob/ rmse_NoLineErrorBar/ rmse_NoLineErrorBar_sim
+bigPlot <- bigPlot + plot_annotation(tag_levels = c('A', '1'))
 
-
-png(file = "./figures/RMSE_IQR_width_gaussian_auSable.png", width = 6, height = 5, units = "in", res = 700)
-rmseWidth_fig
+png(file = "./figures/RMSE_forAllGaussData.png", width = 8, height = 12, units = "in", res = 700)
+bigPlot
 dev.off()
-

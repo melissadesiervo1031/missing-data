@@ -201,7 +201,7 @@ figDat <- figDat_lines %>%
     ylab("Autocorrellation in missingness") +
     guides(fill = guide_colorbar("Median Error")) +
     theme_classic() +
-    #xlim(.05, .55) +
+    xlim(.05, .7) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     ggtitle("Median error of parameter recovery")) 
 
@@ -226,7 +226,7 @@ figDat <- figDat_lines %>%
     ylab("Autocorrellation in missingness") +
     guides(fill = guide_colorbar("Median \nAbsolute Error")) +
     theme_classic() +
-    #xlim(.05, .55) +
+    xlim(.05, .7) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     ggtitle("Median absolute error of parameter recovery")) 
 
@@ -275,7 +275,7 @@ figDat_cov <- figDat_cov_temp %>%
    # scale_fill_viridis_c(begin=0, end=1, option = "G", name = "value" )+
     xlab("Proportion of missing data")+
     ylab("Autocorrellation in missingness") +
-    #xlim(.05, .55) +
+    xlim(.05, .7) +
     theme_classic() +
     guides(fill = guide_colorbar("% Coverage")) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +

@@ -18,14 +18,14 @@ figDat_temp <- readRDS("./data/model_results/gauss_sim_ModelResults.rds") ## rea
 
 #figDat_temp <- figDat_temp[!(figDat_temp$simName %in% c(376, 831, 816, 461, 808, 129, 366, 208, 385)),]
 
-# filter for low and high autocor\
-figDat_temp[figDat_temp$missingness=="MAR" & figDat_temp$autoCor <=0.3, "missingness"] <- "MCAR: Low AC"
-figDat_temp[figDat_temp$missingness=="MAR" & figDat_temp$autoCor > 0.3 & figDat_temp$autoCor < 0.6, "missingness"] <- "MCAR: Med. AC"
-figDat_temp[figDat_temp$missingness=="MAR" & figDat_temp$autoCor >=  0.6, "missingness"] <- "MCAR: High AC"
+# filter for low and high autocor
+figDat_temp[figDat_temp$missingness=="MAR" & figDat_temp$autoCor <=0.25, "missingness"] <- "MCAR: Low AC"
+figDat_temp[figDat_temp$missingness=="MAR" & figDat_temp$autoCor > 0.25 & figDat_temp$autoCor < 0.65, "missingness"] <- "MCAR: Med. AC"
+figDat_temp[figDat_temp$missingness=="MAR" & figDat_temp$autoCor >=  0.65, "missingness"] <- "MCAR: High AC"
 
 # reorder factor levels for plotting ##
 figDat_temp <- figDat_temp %>% 
-  mutate(type=fct_relevel(type,c("Data Deletion Simple", "Data Deletion CC" ,"Kalman filter", "Multiple imputations","brms")))
+  mutate(type=fct_relevel(type,c("dropNA_simple", "dropNA_complete" ,"Kalman Filter", "Multiple Imputations","brms")))
 
 # figDat_temp %>% 
 #   filter(missingprop_autocor != "y_noMiss",
@@ -123,6 +123,8 @@ figDat_lines <- figDat_temp %>%
 
 figDat_lines2 <- figDat_lines %>% filter(missingness=="MCAR: Med. AC"|missingness=="MNAR")  %>%  filter(param=="Beta covariates"| param=="Phi")
 
+figDat_lines2$type <- factor(figDat_lines2$type, levels = c( "brms",  "dropNA_complete","dropNA_simple","Kalman Filter", "Multiple Imputations"))
+
 # figDat_lines %>% 
 #   ggplot() + 
 #   facet_grid(rows = vars(param), cols = vars(missingness)) + 
@@ -182,6 +184,9 @@ figDat_lines2 <- figDat_lines %>% filter(missingness=="MCAR: Med. AC"|missingnes
 # parameter recovery coverage ---------------------------------------------
 # does the confidence interval contain the true parameter? 
 # calculate 95% CI for each param
+figDat_temp$type <- factor(figDat_temp$type, levels = c( "brms",  "dropNA_complete","dropNA_simple","Kalman Filter", "Multiple Imputations"))
+
+
 figDat_cov_temp <- figDat_temp %>% 
   mutate(CI95_lower = param_value - 1.96*param_se,
          CI95_upper = param_value + 1.96*param_se) %>% 
