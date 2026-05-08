@@ -193,6 +193,10 @@ figDat_cov_temp <- figDat_temp %>%
   filter(param != "sigma") %>% 
   filter(!is.na(param_se))# randomly there are some model runs that don't have SE? 
 
+# for brms model runs, replace the calculated CI w/ the CI values directly from the model
+figDat_cov_temp[figDat_cov_temp$type == "brms", "CI95_upper"] <- figDat_cov_temp[figDat_cov_temp$type == "brms", "97.5%"] 
+figDat_cov_temp[figDat_cov_temp$type == "brms", "CI95_lower"] <- figDat_cov_temp[figDat_cov_temp$type == "brms", "2.5%"] 
+
 # is the true parameter within the 95% CI? 
 figDat_cov_temp$coverage <- c(figDat_cov_temp$param_simVal >= figDat_cov_temp$CI95_lower & 
                                 figDat_cov_temp$param_simVal <= figDat_cov_temp$CI95_upper)
@@ -254,12 +258,12 @@ figDat_cov2 <- figDat_cov %>% filter(missingness=="MCAR: Med. AC"|missingness=="
 
 gauss_paramRecovery_bias2<-gauss_paramRecovery_bias+theme(axis.title.x=element_blank(), axis.text.x=element_blank(), legend.text = element_text(size=7))
 
-gauss_paramRecovery_SE2<-gauss_paramRecovery_SE+ theme(strip.text.x = element_blank(), axis.title.x=element_blank(), axis.text.x=element_blank(),legend.text = element_text(size=7))
+gauss_paramRecovery_SE2<-gauss_paramRecovery_SE+ theme(strip.text.x = element_blank(), axis.title.x=element_blank(), axis.text.x=element_blank(),legend.text = element_text(size=7)) +guides(color = 'none')
 
-gauss_paramRecovery_coverage2<-gauss_paramRecovery_coverage+ theme(strip.text.x = element_blank(),legend.text = element_text(size=7))
+gauss_paramRecovery_coverage2<-gauss_paramRecovery_coverage+ theme(strip.text.x = element_blank(),legend.text = element_text(size=7)) +guides(color = 'none')
 
-(Gauss_paramRecov_MCARMNARlong <- ggarrange(gauss_paramRecovery_bias2, gauss_paramRecovery_SE2, 
-                                           gauss_paramRecovery_coverage2, common.legend = TRUE, nrow = 3))
+library(patchwork)
+(Gauss_paramRecov_MCARMNARlong <- gauss_paramRecovery_bias2/  gauss_paramRecovery_SE2 /gauss_paramRecovery_coverage2 + plot_annotation(tag_levels = c('A')))
 
 #(gauss_paramRecovAll <- ggarrange(Gauss_paramRecovMAR, Gauss_paramRecovMNAR, nrow = 2))
 
@@ -267,23 +271,3 @@ gauss_paramRecovery_coverage2<-gauss_paramRecovery_coverage+ theme(strip.text.x 
 png(file = "./figures/parameterRecoveryGaussian_MARMNARlong.png", width = 6.5, height = 8, units = "in", res = 700)
 Gauss_paramRecov_MCARMNARlong
 dev.off()
-
-
-# put figures together wide version ----------------------------------------------------
-
-gauss_paramRecovery_bias<-gauss_paramRecovery_bias+ theme(strip.text.y = element_blank())
-
-gauss_paramRecovery_SE<-gauss_paramRecovery_SE+ theme(strip.text.y = element_blank())
-
-(Gauss_paramRecov_MARMNAR <- ggarrange(gauss_paramRecovery_bias, gauss_paramRecovery_SE, 
-                                       gauss_paramRecovery_coverage, common.legend = TRUE, nrow = 1))
-
-#(gauss_paramRecovAll <- ggarrange(Gauss_paramRecovMAR, Gauss_paramRecovMNAR, nrow = 2))
-
-## save results
-png(file = "./figures/parameterRecoveryGaussian_MARMNAR.png", width = 12, height = 4, units = "in", res = 700)
-Gauss_paramRecov_MARMNAR
-dev.off()
-
-
-
