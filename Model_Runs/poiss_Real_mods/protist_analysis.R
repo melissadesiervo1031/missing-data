@@ -4,7 +4,7 @@
 library(tidyverse)
 library(DHARMa)
 library(lme4)
-func_list <- list.files(here::here("Functions"), pattern = "\\.R")
+func_list <- list.files(here::here("Functions"), pattern = "\\.R$")
 lapply(func_list, function(f){ source(here::here("Functions", f)) })
 
 # other, one-off packages that are needed:
