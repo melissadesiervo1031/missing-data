@@ -8,7 +8,7 @@ library(tidyverse)
 library(ggpubr)
 library(RColorBrewer)
 
-# read in MCAR data and prepare for figures------------------------------------------
+# # read in MCAR data and prepare for figures------------------------------------------
 # ricDat_tempA <- readRDS("./data/model_results/RickerA_resultTableRev1.rds")
 # ricDat_tempB <- readRDS("./data/model_results/RickerB_resultTableRev1.rds")
 # ricDat_temp <- rbind(ricDat_tempA, ricDat_tempB)
@@ -33,7 +33,8 @@ library(RColorBrewer)
 # ricDat <- rbind(
 #   #drop na fits
 #   cbind(ricDat_tempNew[,c("SimNumber", "r_sim", "alpha_sim",
-#                           "N0_sim","input_args", "autoCorr", "propMiss")],
+#                           "N0_sim","input_args", "autoCorr", "propMiss", "K_true", 
+#                           "K_drop", "K_drop_err", "forecast_2_drop")],
 #         map_df(ricDat_tempNew$drop_fits, function(x)
 #           ##
 #           if (length(names(x)) < 3) {
@@ -63,10 +64,16 @@ library(RColorBrewer)
 #           }
 #         ),
 #         data.frame("listName" = names(ricDat_tempNew$drop_fits))
-#   ),
+#   ) %>% 
+#     rename(
+#       "K_method" = "K_drop",
+#       "K_method_err" = "K_drop_err",
+#       "forecast_2_RMSE" = "forecast_2_drop"
+#     ),
 #   #dropNA complete case fits
 #   cbind(ricDat_tempNew[,c("SimNumber", "r_sim", "alpha_sim",
-#                           "N0_sim","input_args", "autoCorr", "propMiss")],
+#                           "N0_sim","input_args", "autoCorr", "propMiss", "K_true", 
+#                           "K_cc", "K_cc_err", "forecast_2_cc")],
 #         map_df(ricDat_tempNew$cc_fits, function(x)
 #           if (length(names(x)) < 3) {
 #             data.frame(
@@ -94,11 +101,17 @@ library(RColorBrewer)
 #               "status" = "good")
 #           }
 #         ),
-#         data.frame("listName" = names(ricDat_tempNew$drop_fits))
-#   ),
+#         data.frame("listName" = names(ricDat_tempNew$cc_fits))
+#   ) %>% 
+#     rename(
+#       "K_method" = "K_cc",
+#       "K_method_err" = "K_cc_err",
+#       "forecast_2_RMSE" = "forecast_2_cc"
+#     ),
 #   #EM fits
 #   cbind(ricDat_tempNew[,c("SimNumber", "r_sim", "alpha_sim",
-#                           "N0_sim","input_args", "autoCorr", "propMiss")],
+#                           "N0_sim","input_args", "autoCorr", "propMiss", "K_true", 
+#                           "K_EM", "K_EM_err", "forecast_2_EM")],
 #         map_df(ricDat_tempNew$EM_fits, function(x)
 #           if (length(names(x)) < 3) {
 #             data.frame(
@@ -126,12 +139,18 @@ library(RColorBrewer)
 #               "status" = "good")
 #           }
 #         ),
-#         data.frame("listName" = names(ricDat_tempNew$drop_fits))
+#         data.frame("listName" = names(ricDat_tempNew$EM_fits))
 # 
-#   ),
+#   )%>% 
+#     rename(
+#       "K_method" = "K_EM",
+#       "K_method_err" = "K_EM_err",
+#       "forecast_2_RMSE" = "forecast_2_EM"
+#     ),
 #   #DA fits
 #   cbind(ricDat_tempNew[,c("SimNumber", "r_sim", "alpha_sim",
-#                           "N0_sim","input_args", "autoCorr", "propMiss")],
+#                           "N0_sim","input_args", "autoCorr", "propMiss", "K_true", 
+#                           "K_DA", "K_DA_err", "forecast_2_DA")],
 #         map_df(ricDat_tempNew$DA_fits, function(x)
 #           if (length(names(x)) < 3) {
 #             data.frame(
@@ -159,9 +178,14 @@ library(RColorBrewer)
 #               "status" = "good")
 #           }
 #         ),
-#         data.frame("listName" = names(ricDat_tempNew$drop_fits))
+#         data.frame("listName" = names(ricDat_tempNew$DA_fits))
 # 
-#   )
+#   )%>% 
+#     rename(
+#       "K_method" = "K_DA",
+#       "K_method_err" = "K_DA_err",
+#       "forecast_2_RMSE" = "forecast_2_DA"
+#     )
 #   #,
 #   # #MI fits
 #   # cbind(ricDat_tempNew[,c("SimNumber", "r_sim", "alpha_sim",
@@ -245,10 +269,15 @@ library(RColorBrewer)
 #          r_CI_lower = lower_r,
 #          r_CI_upper = upper_r,
 #          alpha_CI_lower = lower_alpha,
-#          alpha_CI_upper = upper_alpha
+#          alpha_CI_upper = upper_alpha,
+#          K_method = K_MI, 
+#          K_method_err = K_MI_err, 
+#          forecast_2_RMSE = forecast_2_MI
 #   ) %>%
 #   select(SimNumber, r_sim, alpha_sim, N0_sim, input_args, autoCorr,
-#          propMiss, type, r_est, alpha_est, r_se, alpha_se,
+#          propMiss, 
+#          K_true, K_method, K_method_err,  forecast_2_RMSE,
+#          type, r_est, alpha_est, r_se, alpha_se,
 #          r_CI_lower, r_CI_upper,
 #          alpha_CI_lower, alpha_CI_upper,
 #          status, listName) %>%
@@ -283,7 +312,9 @@ library(RColorBrewer)
 # ricDatMNAR <- rbind(
 #   #drop na fits
 #   cbind(ricDat_MNARNew[,c("SimNumber", "r_sim", "alpha_sim",
-#                           "N0_sim","input_args", "autoCorr", "propMiss")],
+#                            "N0_sim","input_args", "autoCorr", "propMiss", "K_true", 
+#                            "K_drop", "K_drop_err", "forecast_2_drop")],
+#         
 #         map_df(ricDat_MNARNew$drop_fits, function(x)
 #           ##
 #           if (length(names(x)) < 3) {
@@ -313,10 +344,15 @@ library(RColorBrewer)
 #           }
 #         ),
 #         data.frame("listName" = names(ricDat_MNARNew$drop_fits))
+#   ) %>% rename(
+#     "K_method" = "K_drop",
+#     "K_method_err" = "K_drop_err",
+#     "forecast_2_RMSE" = "forecast_2_drop"
 #   ),
 #   #dropNA complete case fits
 #   cbind(ricDat_MNARNew[,c("SimNumber", "r_sim", "alpha_sim",
-#                           "N0_sim","input_args", "autoCorr", "propMiss")],
+#                           "N0_sim","input_args", "autoCorr", "propMiss", "K_true", 
+#                           "K_cc", "K_cc_err", "forecast_2_cc")],
 #         map_df(ricDat_MNARNew$cc_fits, function(x)
 #           if (length(names(x)) < 3) {
 #             data.frame(
@@ -344,11 +380,16 @@ library(RColorBrewer)
 #               "status" = "good")
 #           }
 #         ),
-#         data.frame("listName" = names(ricDat_MNARNew$drop_fits))
+#         data.frame("listName" = names(ricDat_MNARNew$cc_fits))
+#   )%>% rename(
+#     "K_method" = "K_cc",
+#     "K_method_err" = "K_cc_err",
+#     "forecast_2_RMSE" = "forecast_2_cc"
 #   ),
 #   #EM fits
 #   cbind(ricDat_MNARNew[,c("SimNumber", "r_sim", "alpha_sim",
-#                           "N0_sim","input_args", "autoCorr", "propMiss")],
+#                           "N0_sim","input_args", "autoCorr", "propMiss", "K_true", 
+#                           "K_EM", "K_EM_err", "forecast_2_EM")],
 #         map_df(ricDat_MNARNew$EM_fits, function(x)
 #           if (length(names(x)) < 3) {
 #             data.frame(
@@ -376,12 +417,17 @@ library(RColorBrewer)
 #               "status" = "good")
 #           }
 #         ),
-#         data.frame("listName" = names(ricDat_MNARNew$drop_fits))
+#         data.frame("listName" = names(ricDat_MNARNew$EM_fits))
 # 
+#   ) %>% rename(
+#     "K_method" = "K_EM",
+#     "K_method_err" = "K_EM_err",
+#     "forecast_2_RMSE" = "forecast_2_EM"
 #   ),
 #   #DA fits
 #   cbind(ricDat_MNARNew[,c("SimNumber", "r_sim", "alpha_sim",
-#                           "N0_sim","input_args", "autoCorr", "propMiss")],
+#                           "N0_sim","input_args", "autoCorr", "propMiss", "K_true", 
+#                           "K_DA", "K_DA_err", "forecast_2_DA")],
 #         map_df(ricDat_MNARNew$DA_fits, function(x)
 #           if (length(names(x)) < 3) {
 #             data.frame(
@@ -409,8 +455,12 @@ library(RColorBrewer)
 #               "status" = "good")
 #           }
 #         ),
-#         data.frame("listName" = names(ricDat_MNARNew$drop_fits))
+#         data.frame("listName" = names(ricDat_MNARNew$DA_fits))
 # 
+#   ) %>% rename(
+#     "K_method" = "K_DA",
+#     "K_method_err" = "K_DA_err",
+#     "forecast_2_RMSE" = "forecast_2_DA"
 #   )
 # )
 # 
@@ -424,7 +474,7 @@ library(RColorBrewer)
 # ## add MI data in (was run independently)
 # # load MI model run data
 # ricDat_MNAR_MI <- readRDS("./data/model_results/RickerMinMaxMiss_MIRev1.rds")
-# ricDat_MNAR_MI <- ricDat_MNAR_MI[,2:17] %>%
+# ricDat_MNAR_MI <- ricDat_MNAR_MI[,2:21] %>%
 #   mutate(actAutoCorr = NA, autoCorr = NA)
 # # ## load MI extinction data (remove these values from the model results)
 # # extinctMI <- read.csv("./data/model_results/ricker_Sim_reruns/MI_reruns/extinctMI_ALL.csv") %>%
@@ -467,10 +517,14 @@ library(RColorBrewer)
 #          r_CI_lower = lower_r,
 #          r_CI_upper = upper_r,
 #          alpha_CI_lower = lower_alpha,
-#          alpha_CI_upper = upper_alpha
-#   ) %>%
+#          alpha_CI_upper = upper_alpha,     
+#          K_method = K_MI, 
+#          K_method_err = K_MI_err, 
+#          forecast_2_RMSE = forecast_2_MI
+#          ) %>%
 #   select(SimNumber, r_sim, alpha_sim, N0_sim, input_args, autoCorr,
-#          propMiss, type, r_est, alpha_est, r_se, alpha_se,
+#          propMiss, 
+#          K_true, K_method, K_method_err,  forecast_2_RMSE,type, r_est, alpha_est, r_se, alpha_se,
 #          r_CI_lower, r_CI_upper,
 #          alpha_CI_lower, alpha_CI_upper,
 #          status, listName) %>%
@@ -562,6 +616,8 @@ paramLowerCILong <- ricDat_new %>%
   select(-r_sim, -alpha_sim, -N0_sim, -r_est, -alpha_est) %>% 
 # remove the values for Expectation Maximization, since we don't have SE for that method
 filter(type != "ExpectationMaximization")
+
+
 
 ricDat_new_long <- left_join(paramEstLong, paramSimLong) %>% 
   left_join(paramUpperCILong) %>% 
