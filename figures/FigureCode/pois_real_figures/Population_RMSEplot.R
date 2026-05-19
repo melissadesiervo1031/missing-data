@@ -275,10 +275,11 @@ RMSE_df_med[RMSE_df_med$missingnessType == "MNAR", "missingnessType"] <- "Missin
   geom_line() + 
   geom_point() + 
   theme_classic() + 
-  scale_color_discrete(palette = c(paletteer::paletteer_d(palette = "ggthemes::Classic_Cyclic", n = 10))) +
+  scale_color_discrete(palette = c(paletteer::paletteer_d(palette = "miscpalettes::grayscale", n = 10))) +
   ylab("Population size") + 
   xlab("Date") +
-  guides(col = guide_legend(title = "Patch Name", position = "right", direction = "vertical", nrow = 5))
+  guides(col = "none"#guide_legend(title = "Patch Name", position = "right", direction = "vertical", nrow = 5)
+         )
 )
 png(file = "./figures/RMSE_FullFigure_NoLineWithErrorBar_poisson_EMPIRICAL.png", width = 8.5, height = 9, units = "in", res = 700)
 ggarrange(bursaria_plot,
@@ -300,3 +301,4 @@ bigPlot <- bigPlot + plot_annotation(tag_levels = c('A', '1'))
 png(file = "./figures/RMSE_forAllPoissData.png", width = 8, height = 12, units = "in", res = 700)
 bigPlot
 dev.off()
+
