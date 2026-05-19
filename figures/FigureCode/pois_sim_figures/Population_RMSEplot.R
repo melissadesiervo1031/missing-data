@@ -22,10 +22,10 @@ names(ricDat_tempA_MI) <- names(ricDat_tempB_MI)
 
 # add MI to other data
 ricDat_tempA <- ricDat_tempA %>% 
-  cbind(ricDat_tempA_MI %>% select(forecasts_MI))
+  cbind(ricDat_tempA_MI %>% select(K_MI, K_MI_err, forecast_2_MI, forecasts_MI))
 
 ricDat_tempB <- ricDat_tempB %>% 
-  cbind(ricDat_tempB_MI  %>% select(forecasts_MI))
+  cbind(ricDat_tempB_MI  %>% select(K_MI, K_MI_err, forecast_2_MI, forecasts_MI))
 
 ## get actual proportion of missingness and autocorrelation
 # for version A 
@@ -86,7 +86,7 @@ ricDat_MNAR_MI <- readRDS("./data/model_results/RickerMinMaxMiss_MIRev1.rds")
 
 # add MI to other data
 ricDat_tempMNAR <- ricDat_tempMNAR %>% 
-  cbind(ricDat_MNAR_MI %>% select(forecasts_MI))
+  cbind(ricDat_MNAR_MI %>% select(K_MI, K_MI_err, forecast_2_MI, forecasts_MI))
 
 ## get actual proportion of missingness and autocorrelation
 # for version A 
@@ -127,12 +127,12 @@ allDat <- allDat_MNAR %>%
 # put predictions into a 'long' format
 forecasts_long <- allDat %>%
   select(-c(drop_fits, cc_fits, EM_fits, DA_fits)) %>% 
-  pivot_longer(cols = c(forecast_RMSE_drop:forecasts_MI), names_to = "modelType", values_to = "RMSE") %>% 
-  mutate(modelType = replace(modelType, list = c(modelType == "forecast_RMSE_drop"), values = "dropNA"),
-         modelType = replace(modelType, list = c(modelType == "forecast_RMSE_cc"), values = "dropNA_cc"),
-         modelType = replace(modelType, list = c(modelType == "forecast_RMSE_EM"), values = "EM"),
-         modelType = replace(modelType, list = c(modelType == "forecast_RMSE_DA"), values = "DA"),
-         modelType = replace(modelType, list = c(modelType == "forecasts_MI"), values = "MI"))
+  pivot_longer(cols = c(forecast_2_drop:forecast_2_DA, forecast_2_MI), names_to = "modelType", values_to = "RMSE") %>% 
+  mutate(modelType = replace(modelType, list = c(modelType == "forecast_2_drop"), values = "dropNA"),
+         modelType = replace(modelType, list = c(modelType == "forecast_2_cc"), values = "dropNA_cc"),
+         modelType = replace(modelType, list = c(modelType == "forecast_2_EM"), values = "EM"),
+         modelType = replace(modelType, list = c(modelType == "forecast_2_DA"), values = "DA"),
+         modelType = replace(modelType, list = c(modelType == "forecast_2_MI"), values = "MI"))
 
 # if there is no missing data, remove those model runs
 forecasts_long <- forecasts_long %>% 
