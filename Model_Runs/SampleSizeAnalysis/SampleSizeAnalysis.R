@@ -27,7 +27,7 @@ source("./Functions/missing_data_functions.R")
 # argument to run simulations or use previously-run simulation data
 simulateOpt <- FALSE
 # argument to run models 
-modelOpt <- TRUE
+modelOpt <- FALSE
 ## Simulate datasets of different length
 # 100 datasets each of length 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200
 
