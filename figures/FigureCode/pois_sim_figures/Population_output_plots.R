@@ -849,6 +849,66 @@ poiss_paramRecovMAR
 dev.off()
 
 
+
+# figure of K (r/alpha) for simulations across missingness ----------------
+# bin by missingness and autocorrelation
+ricDat_new_K <- ricDat_new 
+# bin autocorrelation
+ricDat_new_K[ricDat_new_K$autoCorr <=0.25 & !is.na(ricDat_new_K$autoCorr), "missingnessType"] <- "MCAR: Low AC"
+ricDat_new_K[ricDat_new_K$autoCorr >0.25 & ricDat_new_K$autoCorr <0.65 & !is.na(ricDat_new_K$autoCorr), "missingnessType"] <- "MCAR: Med. AC"
+ricDat_new_K[ricDat_new_K$autoCorr  >= 0.65 & !is.na(ricDat_new_K$autoCorr), "missingnessType"] <- "MCAR: High AC"
+# bin missingness
+ricDat_new_K <- ricDat_new_K %>% 
+  mutate(amtMiss = propMiss) %>% 
+  mutate(
+    amtMiss = replace(amtMiss, propMiss <=0.3 & propMiss > 0, 0.2),
+    amtMiss = replace(amtMiss, propMiss > 0.3 & propMiss <=0.5, 0.4),
+    amtMiss = replace(amtMiss, propMiss > 0.5, 0.6),
+    amtMiss = replace(amtMiss, listName == "y_noMiss", 0)
+  ) 
+
+# now, calculate median and IQR of K error
+ricDat_new_K <- ricDat_new_K %>% 
+  group_by(missingnessType, amtMiss, type) %>% 
+  summarize(
+    K_method_err_Med = median(K_method_err, na.rm = TRUE),
+    K_method_err_IQRLow = quantile(K_method_err, probs = 0.25, na.rm = TRUE),
+    K_method_err_IQRHigh = quantile(K_method_err, probs = 0.75, na.rm = TRUE)
+  )
+  
+
+ricDat_new_K <- ricDat_new_K %>% 
+  ungroup()%>% 
+  mutate(missingnessType=fct_relevel(missingnessType,c("MCAR: Low AC", "MCAR: Med. AC" ,"MCAR: High AC","MNAR"))) ## No expectation maximization for coverage###
+
+
+
+(K_figure <- ggplot(data = ricDat_new_K, aes(x = amtMiss, y = K_method_err_Med)) +
+   geom_hline(aes(yintercept = 0), colour = "grey") +
+   ggh4x::facet_grid2(
+                      ~ factor(missingnessType, levels = c("MCAR: Low AC", "MCAR: Med. AC" ,"MCAR: High AC","MNAR")#, labels =c("'Missing Completely at Random'", "'Missing Not at Random'")
+                               ),
+                      #labeller =  label_parsed,
+                      scales = "free_y")+
+   geom_hline(aes(yintercept = 0), colour = "grey") + 
+   #geom_errorbar(aes(ymin=paramDiff_mean - paramDiff_SD, ymax=paramDiff_mean + paramDiff_SD, color = as.factor(type)), 
+   #size=0.3, width=0, position = position_dodge(width=0.03))+
+   #geom_ribbon(aes(ymin = paramDiff_mean - paramDiff_SD, ymax = paramDiff_mean + paramDiff_SD, color = as.factor(type), fill = as.factor(type)), alpha = .1) +
+   geom_point(aes(color = as.factor(type)), position = position_dodge(width=0.03)) + 
+   geom_line(aes(y = K_method_err_IQRLow, color = as.factor(type)),  position = position_dodge(width=0.03), lty = 2)+ 
+    geom_line(aes(y = K_method_err_IQRHigh, color = as.factor(type)),  position = position_dodge(width=0.03), lty = 2)+ 
+   theme_classic() +
+   xlab("Proportion of missing data")+ 
+   theme(legend.position="top")+
+   theme(legend.title=element_blank())+
+   ylab("Median Error and IQR in r/alpha")+ 
+   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) +
+   xlim(c(-0.03,0.65)) + 
+   #ylim(c(0,.3)) +
+   scale_color_discrete(type = c("#D55E00", "#CC79A7", "#E69F00","8c8c8c","#009E73"),
+                        labels = c("Data Deletion-Complete", "Data Augmentation","Data Deletion-Simple", "Expectation Maximization","Multiple Imputation"))
+ 
+)
 # (poiss_paramRecovMAR <- ggarrange(poiss_paramRecovery_bias_MAR2, poiss_paramRecovery_SE_MAR2, 
 #                                   poiss_paramRecovery_coverage_MAR2, legend = FALSE, common.legend = TRUE, ncol = 1))
 # # save the figure object itself for subsequent plotting
