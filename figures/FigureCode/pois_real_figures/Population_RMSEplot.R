@@ -243,6 +243,10 @@ RMSE_df_med$symbolID <- factor(RMSE_df_med$symbolID, levels = c("n = 840", "400 
 RMSE_df_med[RMSE_df_med$missingnessType == "MCAR", "missingnessType"] <- "Missing Completely at Random"
 RMSE_df_med[RMSE_df_med$missingnessType == "MNAR", "missingnessType"] <- "Missing Not at Random"
 
+# re-order the model types to be consistent across plots 
+RMSE_df_med <- RMSE_df_med %>% 
+  mutate(modType = factor(modType, levels =c("rmse_drop", "rmse_cc", "rmse_MI", "rmse_EM", "rmse_DA"), ordered = TRUE))
+
 (rmse_NoLineErrorBar <- ggplot(data = RMSE_df_med) +
     facet_grid(.~missingnessType, scales = "free_y") +
     geom_linerange(aes(x = propMiss_binned, ymin = quantile_low, ymax = quantile_high, color = modType), alpha = 1, position = position_dodge(width = .1)) +
@@ -258,16 +262,22 @@ RMSE_df_med[RMSE_df_med$missingnessType == "MNAR", "missingnessType"] <- "Missin
     scale_x_continuous(breaks=c(0.2,0.4, 0.6)) +
     scale_shape_manual(values = c(19, 1, 17, 2)) +
     scale_color_discrete(type = c(
-      "#D55E00", "#CC79A7", "#E69F00",  "#8c8c8c", "#009E73"),
+      "#E69F00", "#D55E00", "#009E73",   "#8c8c8c", "#CC79A7"),
                          labels = c(
-                           "Data Deletion-Complete","Data Augmentation", "Data Deletion-Simple", "Expectation Maximization" ,  "Multiple Imputation")
+                           "Data Deletion-Simple","Data Deletion-Complete",  "Multiple Imputation", "Expectation Maximization","Data Augmentation" )
     )  +
     
     # scale_color_discrete(type = c("#CC79A7", "#E69F00", "#D55E00", "#8c8c8c", "#009E73"),
     #                      labels = c("Data Augmentation", "Data Deletion-Simple", "Data Deletion-Complete", "Expectation Maximization", "Multiple Imputation")
     # )  +
-    guides(col = guide_legend(title = NULL, position = "top", direction = "vertical", nrow = 2), 
-           shape = guide_legend(title = "Sample \nSize"))
+    guides(col = guide_legend(title = "Model Type", position = "top", direction = "vertical", nrow = 2), 
+           shape = guide_legend(title = "No. of \nSimulations")) + 
+    labs(title = "Forecast RMSE for empirical time series") +
+    theme(
+      plot.title.position = "plot",
+      plot.title = element_text(vjust = -24, hjust = .11),
+      legend.margin = margin(t = -10, r = 0, b = 20, l = 0)
+    )
 )
 
 # make plot of bursaria data time series 
@@ -275,10 +285,11 @@ RMSE_df_med[RMSE_df_med$missingnessType == "MNAR", "missingnessType"] <- "Missin
   geom_line() + 
   geom_point() + 
   theme_classic() + 
-  scale_color_discrete(palette = c(paletteer::paletteer_d(palette = "ggthemes::Classic_Cyclic", n = 10))) +
+  scale_color_discrete(palette = c(paletteer::paletteer_d(palette = "miscpalettes::grayscale", n = 10))) +
   ylab("Population size") + 
   xlab("Date") +
-  guides(col = guide_legend(title = "Patch Name", position = "right", direction = "vertical", nrow = 5))
+  guides(col = "none"#guide_legend(title = "Patch Name", position = "right", direction = "vertical", nrow = 5)
+         )
 )
 png(file = "./figures/RMSE_FullFigure_NoLineWithErrorBar_poisson_EMPIRICAL.png", width = 8.5, height = 9, units = "in", res = 700)
 ggarrange(bursaria_plot,
@@ -287,12 +298,12 @@ dev.off()
 
 ## get plot of simulated poisson RMSE
 rmse_NoLineErrorBar_sim <- readRDS("./figures/RMSEfig_poissSim.rds")
-
-ggarrange(bursaria_plot,
-          rmse_NoLineErrorBar, rmse_NoLineErrorBar_sim, ncol = 1, heights = c(.5, 1, 1),
-          widths = c(1,1,.8),
-          align = "h",
-          labels = c("A", "B", "C"))
+# 
+# ggarrange(bursaria_plot,
+#           rmse_NoLineErrorBar, rmse_NoLineErrorBar_sim, ncol = 1, heights = c(.5, 1, 1),
+#           widths = c(1,1,.8),
+#           align = "h",
+#           labels = c("A", "B", "C"))
 library(patchwork)
 bigPlot <- bursaria_plot/ rmse_NoLineErrorBar/ rmse_NoLineErrorBar_sim
 bigPlot <- bigPlot + plot_annotation(tag_levels = c('A', '1'))
@@ -300,3 +311,4 @@ bigPlot <- bigPlot + plot_annotation(tag_levels = c('A', '1'))
 png(file = "./figures/RMSE_forAllPoissData.png", width = 8, height = 12, units = "in", res = 700)
 bigPlot
 dev.off()
+

@@ -22,10 +22,10 @@ names(ricDat_tempA_MI) <- names(ricDat_tempB_MI)
 
 # add MI to other data
 ricDat_tempA <- ricDat_tempA %>% 
-  cbind(ricDat_tempA_MI %>% select(forecasts_MI))
+  cbind(ricDat_tempA_MI %>% select(K_MI, K_MI_err, forecast_2_MI, forecasts_MI))
 
 ricDat_tempB <- ricDat_tempB %>% 
-  cbind(ricDat_tempB_MI  %>% select(forecasts_MI))
+  cbind(ricDat_tempB_MI  %>% select(K_MI, K_MI_err, forecast_2_MI, forecasts_MI))
 
 ## get actual proportion of missingness and autocorrelation
 # for version A 
@@ -86,7 +86,7 @@ ricDat_MNAR_MI <- readRDS("./data/model_results/RickerMinMaxMiss_MIRev1.rds")
 
 # add MI to other data
 ricDat_tempMNAR <- ricDat_tempMNAR %>% 
-  cbind(ricDat_MNAR_MI %>% select(forecasts_MI))
+  cbind(ricDat_MNAR_MI %>% select(K_MI, K_MI_err, forecast_2_MI, forecasts_MI))
 
 ## get actual proportion of missingness and autocorrelation
 # for version A 
@@ -127,12 +127,12 @@ allDat <- allDat_MNAR %>%
 # put predictions into a 'long' format
 forecasts_long <- allDat %>%
   select(-c(drop_fits, cc_fits, EM_fits, DA_fits)) %>% 
-  pivot_longer(cols = c(forecast_RMSE_drop:forecasts_MI), names_to = "modelType", values_to = "RMSE") %>% 
-  mutate(modelType = replace(modelType, list = c(modelType == "forecast_RMSE_drop"), values = "dropNA"),
-         modelType = replace(modelType, list = c(modelType == "forecast_RMSE_cc"), values = "dropNA_cc"),
-         modelType = replace(modelType, list = c(modelType == "forecast_RMSE_EM"), values = "EM"),
-         modelType = replace(modelType, list = c(modelType == "forecast_RMSE_DA"), values = "DA"),
-         modelType = replace(modelType, list = c(modelType == "forecasts_MI"), values = "MI"))
+  pivot_longer(cols = c(forecast_2_drop:forecast_2_DA, forecast_2_MI), names_to = "modelType", values_to = "RMSE") %>% 
+  mutate(modelType = replace(modelType, list = c(modelType == "forecast_2_drop"), values = "dropNA"),
+         modelType = replace(modelType, list = c(modelType == "forecast_2_cc"), values = "dropNA_cc"),
+         modelType = replace(modelType, list = c(modelType == "forecast_2_EM"), values = "EM"),
+         modelType = replace(modelType, list = c(modelType == "forecast_2_DA"), values = "DA"),
+         modelType = replace(modelType, list = c(modelType == "forecast_2_MI"), values = "MI"))
 
 # if there is no missing data, remove those model runs
 forecasts_long <- forecasts_long %>% 
@@ -248,6 +248,10 @@ RMSE_df_med$shapeID <- NA
 RMSE_df_med[RMSE_df_med$RMSE_n > 10000, "shapeID"] <- "n ~ 18,000"
 RMSE_df_med[RMSE_df_med$RMSE_n < 10000, "shapeID"] <- "n ~ 5,000"
 
+# re-order the model types to be consistent across plots 
+RMSE_df_med <- RMSE_df_med %>% 
+  mutate(modelType = factor(modelType, levels =c("dropNA", "dropNA_cc", "MI", "EM", "DA"), ordered = TRUE))
+
 (rmse_NoLineErrorBarNew <- ggplot(data = RMSE_df_med) +
     facet_grid(.~missingness) +
     ggh4x::facet_grid2(
@@ -264,12 +268,14 @@ RMSE_df_med[RMSE_df_med$RMSE_n < 10000, "shapeID"] <- "n ~ 5,000"
     #ylim(c(0,1.25)) + 
     scale_x_continuous(breaks=c(0.2,0.4, 0.6)) +
     
-    scale_color_discrete(type = c("#CC79A7", "#E69F00", "#D55E00", "#8c8c8c", "#009E73"),
-                         labels = c("Data Augmentation", "Data Deletion-Simple", "Data Deletion-Complete", "Expectation Maximization", "Multiple Imputation")
+    scale_color_discrete(type = c( "#E69F00", "#D55E00",  "#009E73","#8c8c8c", "#CC79A7"),
+                         labels = c("Data Deletion-Simple", "Data Deletion-Complete", "Multiple Imputation", "Expectation Maximization", "Data Augmentation")
     )  +
     guides(col = "none", 
-           shape = guide_legend(title = "Sample \nSize")#guide_legend(title = "Model Type", position = "right", direction = "vertical", nrow = 5
-      ))
+           shape = guide_legend(title = "No. of \nSimulations")#guide_legend(title = "Model Type", position = "right", direction = "vertical", nrow = 5
+      ) +
+    
+    labs(title = "Forecast RMSE for simulated time series") )
 
 saveRDS(rmse_NoLineErrorBarNew, "./figures/RMSEfig_poissSim.rds")
 
