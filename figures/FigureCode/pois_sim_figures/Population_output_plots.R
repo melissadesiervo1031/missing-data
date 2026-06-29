@@ -867,8 +867,16 @@ ricDat_new_K <- ricDat_new_K %>%
     amtMiss = replace(amtMiss, listName == "y_noMiss", 0)
   ) 
 
+# now get y_noMiss values for each missingness type 
+ricDat_new_K_noMiss <- ricDat_new_K %>% 
+  filter(amtMiss == 0 & 
+           missingnessType == "MCAR: Low AC") %>% 
+  mutate(missingnessType = "MCAR: Med. AC")
+
 # now, calculate median and IQR of K error
 ricDat_new_K <- ricDat_new_K %>% 
+  rbind(ricDat_new_K_noMiss) %>% 
+  filter(missingnessType %in% c("MCAR: Med. AC", "MNAR")) %>% 
   group_by(missingnessType, amtMiss, type) %>% 
   summarize(
     K_method_err_Med = median(K_method_err, na.rm = TRUE),
@@ -879,14 +887,16 @@ ricDat_new_K <- ricDat_new_K %>%
 
 ricDat_new_K <- ricDat_new_K %>% 
   ungroup()%>% 
-  mutate(missingnessType=fct_relevel(missingnessType,c("MCAR: Low AC", "MCAR: Med. AC" ,"MCAR: High AC","MNAR"))) ## No expectation maximization for coverage###
+  mutate(missingnessType=fct_relevel(missingnessType,c(#"MCAR: Low AC", 
+    "MCAR: Med. AC" ,#"MCAR: High AC",
+    "MNAR"))) ## No expectation maximization for coverage###
 
 
 
 (K_figure <- ggplot(data = ricDat_new_K, aes(x = amtMiss, y = K_method_err_Med)) +
    geom_hline(aes(yintercept = 0), colour = "grey") +
    ggh4x::facet_grid2(
-                      ~ factor(missingnessType, levels = c("MCAR: Low AC", "MCAR: Med. AC" ,"MCAR: High AC","MNAR")#, labels =c("'Missing Completely at Random'", "'Missing Not at Random'")
+                      ~ factor(missingnessType, levels = c("MCAR: Med. AC" ,"MNAR"), labels =c("'Missing Completely at Random'", "'Missing Not at Random'")
                                ),
                       #labeller =  label_parsed,
                       scales = "free_y")+
@@ -901,14 +911,21 @@ ricDat_new_K <- ricDat_new_K %>%
    xlab("Proportion of missing data")+ 
    theme(legend.position="top")+
    theme(legend.title=element_blank())+
-   ylab("Median Error and IQR in r/alpha")+ 
+   ylab("Median Error and IQR of Carrying Capacity (K)")+ 
    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8)) +
    xlim(c(-0.03,0.65)) + 
+   guides(color = guide_legend(nrow = 2)) + 
    #ylim(c(0,.3)) +
    scale_color_discrete(type = c("#D55E00", "#CC79A7", "#E69F00","8c8c8c","#009E73"),
                         labels = c("Data Deletion-Complete", "Data Augmentation","Data Deletion-Simple", "Expectation Maximization","Multiple Imputation"))
  
 )
+
+## save 
+## save results
+png(file = "./figures/poisson_sim_K_figure.png", width = 7, height = 4, units = "in", res = 700)
+K_figure
+dev.off()
 # (poiss_paramRecovMAR <- ggarrange(poiss_paramRecovery_bias_MAR2, poiss_paramRecovery_SE_MAR2, 
 #                                   poiss_paramRecovery_coverage_MAR2, legend = FALSE, common.legend = TRUE, ncol = 1))
 # # save the figure object itself for subsequent plotting

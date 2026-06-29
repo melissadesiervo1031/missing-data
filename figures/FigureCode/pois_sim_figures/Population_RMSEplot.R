@@ -248,6 +248,10 @@ RMSE_df_med$shapeID <- NA
 RMSE_df_med[RMSE_df_med$RMSE_n > 10000, "shapeID"] <- "n ~ 18,000"
 RMSE_df_med[RMSE_df_med$RMSE_n < 10000, "shapeID"] <- "n ~ 5,000"
 
+# re-order the model types to be consistent across plots 
+RMSE_df_med <- RMSE_df_med %>% 
+  mutate(modelType = factor(modelType, levels =c("dropNA", "dropNA_cc", "MI", "EM", "DA"), ordered = TRUE))
+
 (rmse_NoLineErrorBarNew <- ggplot(data = RMSE_df_med) +
     facet_grid(.~missingness) +
     ggh4x::facet_grid2(
@@ -264,12 +268,14 @@ RMSE_df_med[RMSE_df_med$RMSE_n < 10000, "shapeID"] <- "n ~ 5,000"
     #ylim(c(0,1.25)) + 
     scale_x_continuous(breaks=c(0.2,0.4, 0.6)) +
     
-    scale_color_discrete(type = c("#CC79A7", "#E69F00", "#D55E00", "#8c8c8c", "#009E73"),
-                         labels = c("Data Augmentation", "Data Deletion-Simple", "Data Deletion-Complete", "Expectation Maximization", "Multiple Imputation")
+    scale_color_discrete(type = c( "#E69F00", "#D55E00",  "#009E73","#8c8c8c", "#CC79A7"),
+                         labels = c("Data Deletion-Simple", "Data Deletion-Complete", "Multiple Imputation", "Expectation Maximization", "Data Augmentation")
     )  +
     guides(col = "none", 
-           shape = guide_legend(title = "Sample \nSize")#guide_legend(title = "Model Type", position = "right", direction = "vertical", nrow = 5
-      ))
+           shape = guide_legend(title = "No. of \nSimulations")#guide_legend(title = "Model Type", position = "right", direction = "vertical", nrow = 5
+      ) +
+    
+    labs(title = "Forecast RMSE for simulated time series") )
 
 saveRDS(rmse_NoLineErrorBarNew, "./figures/RMSEfig_poissSim.rds")
 

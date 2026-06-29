@@ -744,7 +744,7 @@ mod_df_bin <- mod_df %>%
     )
 
 
-# Figure for Absolute Median Error ----------------------------------------
+# Figure for Median Absolute  Error ----------------------------------------
 (gauss_paramRecovery_SE <- ggplot(data = mod_df_bin %>% filter(parameters != "intercept"), aes(x = amountMiss, y = paramDiffAbsDiff_med )) +
    ggh4x::facet_grid2(rows = vars(factor(parameters, levels = c("Phi", "Beta covariates"))), scales = "free_y", )+
    geom_hline(aes(yintercept = 0), colour = "grey") + 
@@ -758,7 +758,7 @@ mod_df_bin <- mod_df %>%
     xlab("Proportion of missing data") + 
     theme(legend.position="top")+
     #theme(legend.title=element_blank())+
-    ylab("Absolute Median Error")+ 
+    ylab("Median Absolute Error")+ 
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x = element_text(size = 8))+
    scale_color_discrete(type = c( "#D55E00",  "#CC79A7", "#0072B2",
                                   "#009E73", "#E69F00"),
